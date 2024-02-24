@@ -1,4 +1,5 @@
 bin/
 build/
+binclude/
 *.sublime-project
 *.sublime-workspace

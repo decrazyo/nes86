@@ -4,6 +4,13 @@
 .ifndef _PPU_
 .define _PPU_
 
+.globalzp gzbPpuMask
+.globalzp gzbPpuCtrl
+
+.global ppu
+.global ppu_disable_rendering
+.global ppu_restore_rendering
+
 ; PPU registers
 PPU_CTRL     = $2000 ; VPHBSINN
 PPU_MASK     = $2001 ; BGRsbMmG

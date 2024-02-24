@@ -1,26 +1,31 @@
 
 .include "nmi.inc"
-.include "const.inc"
+.include "ppu.inc"
 
-.exportzp gzbNmiCount
-.exportzp gzbPpuScrollX
-.exportzp gzbPpuScrolly
-.exportzp gzbPpuBufferIndex
-
-.export gaPpuBuffer
+.exportzp gzbScrollX
+.exportzp gzbScrollY
 
 .export nmi
+.export nmi_wait
+.export nmi_write_addr
+.export nmi_write_data
+.export nmi_write_done
 
 .segment "ZEROPAGE"
-gzbNmiCount: .res 1 ; incremented every NMI
-gzbPpuScrollX: .res 1
-gzbPpuScrolly: .res 1
-gzbPpuBufferIndex: .res 1
+
+gzbScrollX: .res 1
+gzbScrollY: .res 1
+zbNmiCount: .res 1
+zbBufferEnd: .res 1
+zbReadIndex: .res 1
+zbWriteIndex: .res 1
 
 .segment "BSS"
-gaPpuBuffer: .res 256
+
+aNmiBuffer: .res 256
 
 .segment "CODE"
+
 .proc nmi
     ; save CPU state
     pha ; save a register
@@ -29,46 +34,56 @@ gaPpuBuffer: .res 256
     tya
     pha ; save y register
 
-    ldx #0
+    ldx zbReadIndex
+    cpx zbBufferEnd
+    beq parsing_done
+
+    ; copying data might take longer than vblank.
+    ; disable rendering to prevent corrupting PPU memory.
+    ; may cause occasional screen flickering. don't care.
+    jsr ppu_disable_rendering
 
 parse_buffer:
-    cpx gzbPpuBufferIndex
-    bcs parsing_done ; branch if we have no more data to transfer
-
     ; set PPU write address.
-    lda gaPpuBuffer, x
+    lda aNmiBuffer, x
     sta PPU_ADDR
     inx
-
-    lda gaPpuBuffer, x
+    lda aNmiBuffer, x
     sta PPU_ADDR
     inx
 
     ; get data length
-    ldy gaPpuBuffer, x
+    ldy aNmiBuffer, x
     inx
 
+    ; check that there is actually data to copy.
+    cpy #0
+    beq no_data
+
 copy_data:
-    lda gaPpuBuffer, x
+    lda aNmiBuffer, x
     sta PPU_DATA
     inx
     dey
     bne copy_data
-    beq parse_buffer
+no_data:
+    cpx zbBufferEnd
+    bne parse_buffer
 
 parsing_done:
-
     ; reset buffer index
-    lda #0
-    sta gzbPpuBufferIndex
+    lda zbBufferEnd
+    sta zbReadIndex
 
     ; set scroll position
-    lda gzbPpuScrollX
+    lda gzbScrollX
     sta PPU_SCROLL
-    lda gzbPpuScrolly
+    lda gzbScrollY
     sta PPU_SCROLL
 
-    inc gzbNmiCount ; alert the main loop that an NMI finished.
+    jsr ppu_restore_rendering
+
+    inc zbNmiCount ; alert nmi_wait that an NMI finished.
 
     ; restore CPU state
     pla ; restore y register
@@ -78,4 +93,76 @@ parsing_done:
     pla ; restore a register
 
     rti
+.endproc
+
+.proc nmi_wait
+    lda zbNmiCount
+loop:
+    ; NMI will increment this to break us out of the loop.
+    cmp zbNmiCount
+    beq loop
+    rts
+.endproc
+
+; the following nmi_write_* functions must be used to write data to the PPU through NMI.
+; example:
+;     ; write "x86" to the upper left corner of the screen.
+;     lda #$20
+;     ldx #$00
+;     jsr nmi_write_addr
+;     ldy #0
+; loop:
+;     lda text, y
+;     jsr nmi_write_data
+;     iny
+;     cpy #5
+;     bne loop
+;     jsr nmi_write_done
+; text: .byte "Hello"
+
+; buffer an address to write data to.
+; < A = high address byte
+; < X = low address byte
+; changes: A, Y
+.proc nmi_write_addr
+    ; write the address into the buffer
+    ldy zbWriteIndex
+    sta aNmiBuffer, y
+    txa
+    iny
+    sta aNmiBuffer, y
+    iny
+    ; write the data length into the buffer
+    lda #0
+    sta aNmiBuffer, y
+    iny
+    ; update our write index
+    sty zbWriteIndex
+    rts
+.endproc
+
+; buffer data to write to an already buffered address.
+; < A = data byte
+; changes: X
+.proc nmi_write_data
+    ; write a byte of data into the buffer
+    ldx zbWriteIndex
+    sta aNmiBuffer, x
+    ; update our write index
+    inc zbWriteIndex
+    ; increment the data length
+    ; this is kind of wasteful but it keeps the buffered data consistent
+    ldx zbBufferEnd
+    inx
+    inx
+    inc aNmiBuffer, x
+    rts
+.endproc
+
+; indicates that all data has been buffer and it can be rendered on the next frame.
+; changes: A
+.proc nmi_write_done
+    lda zbWriteIndex
+    sta zbBufferEnd
+    rts
 .endproc

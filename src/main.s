@@ -1,74 +1,67 @@
 
 .include "main.inc"
 .include "const.inc"
+.include "tmp.inc"
+.include "con.inc"
 .include "nmi.inc"
+.include "x86.inc"
 
 .export main
-
-BLANK_TILE = <-1
-
-.segment "ZEROPAGE"
-
-.segment "BSS"
 
 .segment "CODE"
 
 .proc main
-    ; initialize the screen
-    ; TODO: consider moving this logic to nmi.s
-    lda #$20
-    sta PPU_ADDR
-    lda #$00
-    sta PPU_ADDR
-
-    lda #BLANK_TILE
-    ldx #(SCREEN_W_TILE * SCREEN_H_TILE) / 4
-
-@clear_screen:
-    sta PPU_DATA
-    sta PPU_DATA
-    sta PPU_DATA
-    sta PPU_DATA
-    dex
-    bne @clear_screen
-
-    ; initialize palette data.
-    ; TODO: consider moving this logic to nmi.s
-    lda #$3f
-    sta PPU_ADDR
-    lda #$00
-    sta PPU_ADDR
-
-    lda #$0f ; universal background color (black).
-    ldy #$30 ; white.
-    ldx #4
-
-@set_pallets:
-    ; set the 2 colors that the screen will use.
-    sta PPU_DATA
-    sty PPU_DATA
-    sty PPU_DATA
-    sty PPU_DATA
-    dex
-    bne @set_pallets
-
-    ; the NMI handler will set the scroll position.
-    lda #0
-    sta gzbPpuScrollX
-    sta gzbPpuScrolly
-
-    ; enable rendering
-    lda #PPU_MASK_b | PPU_MASK_m
-    sta PPU_MASK
-    lda #PPU_CTRL_V
-    sta PPU_CTRL
+    jsr con
+    jsr x86
+    jsr x86_print
 
 main_loop:
+    jsr input_wait
 
-    lda gzbNmiCount
-@nmi_wait:
-    ; NMI will increment this to break us out of the loop.
-    cmp gzbNmiCount
-    beq @nmi_wait
+    jsr x86_step
+    jsr x86_print
+
+    jsr nmi_wait
     jmp main_loop
+.endproc
+
+
+.proc input_wait
+    jsr button_press_wait
+    jsr button_release_wait
+    rts
+.endproc
+
+.proc button_press_wait
+    jsr check_input
+    bcs button_press_wait ; branch if no input received
+    rts
+.endproc
+
+.proc button_release_wait
+    jsr check_input
+    bcc button_release_wait ; branch if input received
+    rts
+.endproc
+
+; > C = 0 input received
+;   C = 1 no input received
+.proc check_input
+; latch the joypad
+    lda #$01
+    sta JOYPAD1
+    lsr a ; A = 0
+    sta JOYPAD1
+    ldx #8
+loop:
+    lda JOYPAD1
+    ror a
+    bcs done
+    dex
+    bne loop
+    sec
+    SKIP_BYTE
+done:
+    clc
+    rts
 .endproc

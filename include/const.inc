@@ -2,9 +2,6 @@
 .ifndef _CONST_
 .define _CONST_
 
-.include "ppu.inc"
-.include "api.inc"
-
 ; joypad addresses
 JOYPAD1 = $4016
 JOYPAD2 = $4017

@@ -1,6 +1,7 @@
 
 .include "reset.inc"
-.include "const.inc"
+.include "ppu.inc"
+.include "apu.inc"
 .include "main.inc"
 
 .export reset

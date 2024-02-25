@@ -18,8 +18,8 @@ _start:
     mov byte [temp_len], 2
 
     ; overflow
-    mov al, 0b11111111
-    add al, 0b10000000
+    mov al, 0x80
+    sub al, 0x01
     call print_of
 
     ; exit

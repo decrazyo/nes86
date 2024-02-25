@@ -36,3 +36,21 @@ e.g. an array of structs should be named like this.
 function names should generally be a verb or verb-noun pair
 exported functions should be prefixed with the name of the module that they are being exported from.
 snake case should be used for function names.
+
+## Definition of Terms
+
+TODO: define the terms i'm using so that comments are consistent and understandable
+
+| term  | description |
+|-------|-------------|
+|  |  |
+
+## Common Abbreviations
+
+| abbreviations | description |
+|---------------|-------------|
+| reg8          | 8-bit register |
+| reg16         | 16-bit register |
+| imm8          | 8-bit immediate value |
+| imm16         | 16-bit immediate value |
+

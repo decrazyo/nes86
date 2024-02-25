@@ -110,34 +110,37 @@ zaInstrBufEnd:
 
 ; invalid/unimplemented instruction
 BAD = <-1
-; special cases
-SP0 = $80 | $00
-SP1 = $80 | $01
-SP2 = $80 | $02
-; instruction encodings
-EN0 = $00 ; single byte instruction with reg in bits 0-2 (INC reg16)
-EN1 = $01 ; single byte instruction with seg reg in bits 3-5 (POP segreg)
-EN2 = $02 ; single byte instruction with w flag in bit 0 (STOS)
-EN3 = $03 ; multi-byte instruction with reg in bits 0-2 and w flag in bit 3 (MOV reg, immed)
-EN4 = $04 ; 
 
-; map x86 opcodes to their encoding scheme.
-; the encoding scheme is used, in part, to determine the length of the instruction
+.enum
+    ; instruction encodings
+    ; 1 byte instruction with reg16 in bits 0-2.
+    ; INC reg16
+    ; DEC reg16
+    EN0
+
+    ; special cases
+    SP0 = $80 | $00
+.endenum
+
+; map x86 opcodes to their reg/mem encoding scheme.
+; the encoding scheme is used to determine the length of the instruction
 ; and how it should be decoded.
+; opcode from different instructions may share the same encoding.
+; i.e. opcodes for INC reg16 and DEC reg16 have the same encoding.
 rbaOpcodeEncoding:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,EN1,BAD,BAD,BAD,BAD,BAD,BAD,BAD,EN1 ; 0_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,EN1,BAD,BAD,BAD,BAD,BAD,BAD,BAD,EN1 ; 1_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 0_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 1_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 2_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 3_
-.byte EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 4_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0 ; 5_
+.byte EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0 ; 4_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 8_
-.byte EN0,EN0,EN0,EN0,EN0,EN0,EN0,EN0,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,EN2,EN2,BAD,BAD,EN2,EN2,BAD,BAD,BAD,BAD ; A_
-.byte EN3,EN3,EN3,EN3,EN3,EN3,EN3,EN3,EN3,EN3,EN3,EN3,EN3,EN3,EN3,EN3 ; B_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; B_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; E_
@@ -145,26 +148,58 @@ rbaOpcodeEncoding:
 
 ; map instruction encodings to instruction lengths.
 rbaEncodingLength:
-.byte $01,$01,$01
+.byte $01 ; EN0
 
 ; map encodings to their decoding functions.
 rbaDecodeFuncLo:
-.byte <(decode_inc_reg16-1)
+.byte <(decode_reg16_to_src1-1)
 rbaDecodeFuncHi:
-.byte >(decode_inc_reg16-1)
+.byte >(decode_reg16_to_src1-1)
+
+; map encodings to their write-back functions.
+rbaWriteFuncLo:
+.byte <(write_dst_to_reg16-1)
+rbaWriteFuncHi:
+.byte >(write_dst_to_reg16-1)
+
+
+.enum
+    IN0 ; INC
+    IN1 ; DEC
+.endenum
+
+; map x86 opcodes to their instruction type.
+; i.e. opcodes $40, $41, $42, and $43 are all INC instructions.
+; this is used to determine which handler function should be called for an instruction.
+rbaOpcodeInstruction:
+;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 0_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 1_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 2_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 3_
+.byte IN0,IN0,IN0,IN0,IN0,IN0,IN0,IN0,IN1,IN1,IN1,IN1,IN1,IN1,IN1,IN1 ; 4_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 7_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; B_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; E_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; F_
 
 ; map instructions, not opcodes, to their execution functions.
 rbaExecuteFuncLo:
 .byte <(execute_inc_reg16-1)
+.byte <(execute_dec_reg16-1)
 rbaExecuteFuncHi:
 .byte >(execute_inc_reg16-1)
+.byte >(execute_dec_reg16-1)
 
-; map encodings to their write-back functions.
-rbaWriteFuncLo:
-.byte <(write_inc_reg16-1)
-rbaWriteFuncHi:
-.byte >(write_inc_reg16-1)
 
+; TODO: move these maps into zero-page to improve performance.
 
 rbaRegMapsBegin:
 ; map register numbers to their emulated 16-bit segment register addresses.
@@ -201,6 +236,10 @@ raCodeLen:
 
 
 .segment "CODE"
+
+; ==============================================================================
+; high level x86 functions
+; ==============================================================================
 
 ; initialize the module.
 .proc x86
@@ -239,7 +278,7 @@ raCodeLen:
     ; probably an opcode but maybe a prefix or unsupported instruction.
     jsr get_ip_byte
 
-    ; if they byte is an opcode then this will give us its encoding.
+    ; if the byte is an opcode then this will give us its encoding.
     tax
     lda rbaOpcodeEncoding, x
 
@@ -267,7 +306,7 @@ not_bad:
 .endproc
 
 ; analyze the instruction buffer.
-; determine which instruction should be executed.
+; determine which registers/memory addresses need to be accessed.
 ; move data into temporary working memory.
 .proc x86_decode
     ldx zbInstrEnc
@@ -279,12 +318,15 @@ not_bad:
 .endproc
 
 
-; execute the decoded instruction.
+; execute the instruction.
 .proc x86_execute
-    ldx zbInstrEnc
-    lda rbaExecuteFuncHi, x
+    ; find the instruction that this opcode maps to.
+    ldx zbInstrOpcode
+    ldy rbaOpcodeInstruction, x
+    ; find the correct handler for this instruction.
+    lda rbaExecuteFuncHi, y
     pha
-    lda rbaExecuteFuncLo, x
+    lda rbaExecuteFuncLo, y
     pha
     rts
 .endproc
@@ -310,6 +352,9 @@ not_bad:
     rts
 .endproc
 
+; ==============================================================================
+; x86 register / pseudo-register operations
+; ==============================================================================
 
 ; read a byte pointed to by the instruction pointer.
 ; increment the instruction pointer
@@ -327,44 +372,6 @@ no_panic:
     lda raCode, x
     inc zwIP+1
     ldx gzbTmp0
-    rts
-.endproc
-
-
-; < Y = bits to set
-.proc set_flag_lo
-    tya
-    ora zwFlagsLo
-    sta zwFlagsLo
-    rts
-.endproc
-
-
-; < Y = bits to clear
-.proc clear_flag_lo
-    tya
-    eor #$ff
-    and zwFlagsLo
-    sta zwFlagsLo
-    rts
-.endproc
-
-
-; < Y = bits to set
-.proc set_flag_hi
-    tya
-    ora zwFlagsHi
-    sta zwFlagsHi
-    rts
-.endproc
-
-
-; < Y = bits to clear
-.proc clear_flag_hi
-    tya
-    eor #$ff
-    and zwFlagsHi
-    sta zwFlagsHi
     rts
 .endproc
 
@@ -408,6 +415,47 @@ loop:
 .endproc
 
 
+; ==============================================================================
+; x86 flags setters
+; ==============================================================================
+
+; < Y = bits to set
+.proc set_flag_lo
+    tya
+    ora zwFlagsLo
+    sta zwFlagsLo
+    rts
+.endproc
+
+
+; < Y = bits to clear
+.proc clear_flag_lo
+    tya
+    eor #$ff
+    and zwFlagsLo
+    sta zwFlagsLo
+    rts
+.endproc
+
+
+; < Y = bits to set
+.proc set_flag_hi
+    tya
+    ora zwFlagsHi
+    sta zwFlagsHi
+    rts
+.endproc
+
+
+; < Y = bits to clear
+.proc clear_flag_hi
+    tya
+    eor #$ff
+    and zwFlagsHi
+    sta zwFlagsHi
+    rts
+.endproc
+
 ; set the parity flag based the result of an execution.
 ; only considers the lowest 8 bits
 .proc set_parity_flag
@@ -441,6 +489,20 @@ set_flag:
 
     lda zbWorkDstL
     and #$0f
+    beq set_flag ; branch if carry happened
+    jmp clear_flag_lo ; jsr rts -> jmp
+set_flag:
+    jmp set_flag_lo ; jsr rts -> jmp
+.endproc
+
+
+; set the auxiliary carry flag if subtraction caused a carry in the low nibble.
+.proc set_auxiliary_flag_sub
+    ldy #<FLAG_AF
+
+    lda zbWorkDstL
+    and #$0f
+    eor #$0f
     beq set_flag ; branch if carry happened
     jmp clear_flag_lo ; jsr rts -> jmp
 set_flag:
@@ -513,26 +575,52 @@ clear_flag:
 .endproc
 
 
-; decode INC reg16
-.proc decode_inc_reg16
+; set the overflow flag if subtraction caused an arithmetic overflow.
+.proc set_overflow_flag_sub_16
+    ldy #>FLAG_OF
+
+    lda zbWorkSrc1H
+    eor zbWorkSrc2H
+    bpl clear_flag ; branch if source registers have the same signs
+
+    lda zbWorkSrc1H
+    eor zbWorkDstH
+    bpl clear_flag ; branch if source 1 and destination have the same sign
+
+    jmp set_flag_hi ; jsr rts -> jmp
+clear_flag:
+    jmp clear_flag_hi ; jsr rts -> jmp
+.endproc
+
+; ==============================================================================
+; decode handlers
+; ==============================================================================
+
+.proc decode_reg16_to_src1
     lda zbInstrOpcode
     ; isolate the register bits
     and #%00000111
     jsr copy_reg16_to_src1
-    ; setting source 2 to 0x0001.
-    ; this is just for setting flags after execution.
-    ; it's kinda wasteful.
-    ldx #1
-    stx zbWorkSrc2L
-    dex
-    stx zbWorkSrc2H
     rts
 .endproc
 
+; ==============================================================================
+; write back handlers
+; ==============================================================================
 
-; execute INC reg16
+.proc write_dst_to_reg16
+    lda zbInstrOpcode
+    ; isolate the register bits
+    and #%00000111
+    jmp copy_dst_to_reg16 ; jsr rts -> jmp
+.endproc
+
+; ==============================================================================
+; execution handlers
+; ==============================================================================
+
 .proc execute_inc_reg16
-    sec
+    sec ; add 1 for the first iteration
     ldx #2
 loop:
     dex
@@ -543,28 +631,46 @@ loop:
     jmp loop
 done:
 
+    ; this is needed for setting the overflow flag.
+    lda #0
+    sta zbWorkSrc2L
+
     jsr set_parity_flag
     jsr set_auxiliary_flag_add
     jsr set_zero_flag_16
     jsr set_sign_flag_16
-    jmp set_overflow_flag_add_16 ; jsr rts -> jmp
+    jsr set_overflow_flag_add_16
+    rts
 .endproc
 
 
-; execute INC reg16
-.proc write_inc_reg16
-    lda zbInstrOpcode
-    ; isolate the register bits
-    and #%00000111
-    jmp copy_dst_to_reg16 ; jsr rts -> jmp
+.proc execute_dec_reg16
+    clc ; subtract 1 for the first iteration
+    ldx #2
+loop:
+    dex
+    bmi done
+    lda zwWorkSrc1X, x
+    sbc #0
+    sta zwWorkDstX, x
+    jmp loop
+done:
+
+    ; this is needed for setting the overflow flag.
+    lda #0
+    sta zbWorkSrc2L
+
+    jsr set_parity_flag
+    jsr set_auxiliary_flag_sub
+    jsr set_zero_flag_16
+    jsr set_sign_flag_16
+    jsr set_overflow_flag_sub_16
+    rts
 .endproc
 
-
-
-
-
-
-
+; ==============================================================================
+; shitty debugging code
+; ==============================================================================
 
 .segment "RODATA"
 

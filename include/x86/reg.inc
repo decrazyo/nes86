@@ -50,6 +50,28 @@
     .importzp zbInstrOpcode
     .importzp zbInstrOperands
 
+    .enum Reg8
+        AL
+        CL
+        DL
+        BL
+        AH
+        CH
+        DH
+        BH
+    .endenum
+
+    .enum Reg16
+        AX
+        CX
+        DX
+        BX
+        SP
+        BP
+        SI
+        DI
+    .endenum
+
     .import reg
 
     ;          FEDCBA9876543210

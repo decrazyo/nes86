@@ -9,12 +9,14 @@
     .import panic
 
     .enum Err
-        REG
-        MMU
-        FETCH
-        DECODE
-        EXECUTE
-        WRITE
+        REG_INDEX
+        CODE_END
+        FETCH_BAD
+        FETCH_LEN
+        DECODE_FUNC
+        EXECUTE_BAD
+        EXECUTE_FUNC
+        WRITE_FUNC
         UNKNOWN
     .endenum
 

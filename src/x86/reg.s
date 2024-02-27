@@ -225,10 +225,9 @@ loop:
 ; TODO: consider consolidating the set/clear flag functions
 
 ; set one or more bits in the low byte of the flag register.
-; < Y = bits to set
+; < A = bits to set
 ; changes: A
 .proc set_flag_lo
-    tya
     ora zbFlagsLo
     sta zbFlagsLo
     rts
@@ -236,10 +235,9 @@ loop:
 
 
 ; clear one or more bits in the low byte of the flag register.
-; < Y = bits to clear
+; < A = bits to clear
 ; changes: A
 .proc clear_flag_lo
-    tya
     eor #$ff
     and zbFlagsLo
     sta zbFlagsLo
@@ -248,10 +246,9 @@ loop:
 
 
 ; set one or more bits in the high byte of the flag register.
-; < Y = bits to set
+; < A = bits to set
 ; changes: A
 .proc set_flag_hi
-    tya
     ora zbFlagsHi
     sta zbFlagsHi
     rts
@@ -259,10 +256,9 @@ loop:
 
 
 ; clear one or more bits in the high byte of the flag register.
-; < Y = bits to clear
+; < A = bits to clear
 ; changes: A
 .proc clear_flag_hi
-    tya
     eor #$ff
     and zbFlagsHi
     sta zbFlagsHi
@@ -343,7 +339,7 @@ loop:
 .proc test_reg_index
     cmp #8
     bcc no_panic
-    lda X86::Err::REG
+    lda X86::Err::REG_INDEX
     jsr X86::panic
 no_panic:
     rts
@@ -801,7 +797,7 @@ rsBlank:
     lda #<zbInstrBuffer
     jsr Tmp::set_zp_ptr0
     ldy zbInstrLen
-    jsr Con::print_hex_arr_rev
+    jsr Con::print_hex_arr
 
     lda #<rsBlank
     ldx #>rsBlank

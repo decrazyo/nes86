@@ -113,12 +113,14 @@ done:
     jsr Nmi::write_addr
 
     ldy #0
+    beq start
 loop:
     lda (Tmp::zw0), y
     jsr print_nibble_hi
     lda (Tmp::zw0), y
     jsr print_nibble_lo
     iny
+start:
     cpy Tmp::zb3
     bcc loop
 

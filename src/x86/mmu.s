@@ -44,7 +44,7 @@ raCodeEnd:
     ; check that the instruction pointer is still pointing at code.
     cpx #<(raCodeEnd - raCode)
     bcc no_panic
-    lda #X86::Err::MMU
+    lda #X86::Err::CODE_END
     jsr X86::panic
 no_panic:
 

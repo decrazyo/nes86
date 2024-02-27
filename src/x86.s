@@ -20,36 +20,44 @@
 .segment "RODATA"
 
 rsErrorsLo:
-.byte <rsReg
-.byte <rsMmu
-.byte <rsFetch
-.byte <rsDecode
-.byte <rsExecute
-.byte <rsWrite
-.byte <rsPanic
+.byte <rsRegIndex
+.byte <rsCodeEnd
+.byte <rsFetchBad
+.byte <rsFetchLen
+.byte <rsDecodeFunc
+.byte <rsExecuteBad
+.byte <rsExecuteFunc
+.byte <rsWriteFunc
+.byte <rsUnknown
 rsErrorsHi:
-.byte >rsReg
-.byte >rsMmu
-.byte >rsFetch
-.byte >rsDecode
-.byte >rsExecute
-.byte >rsWrite
-.byte >rsPanic
+.byte >rsRegIndex
+.byte >rsCodeEnd
+.byte >rsFetchBad
+.byte >rsFetchLen
+.byte >rsDecodeFunc
+.byte >rsExecuteBad
+.byte >rsExecuteFunc
+.byte >rsWriteFunc
+.byte >rsUnknown
 
-rsReg:
-.byte "Error in reg\n", 0
-rsMmu:
-.byte "Error in mmu\n", 0
-rsFetch:
-.byte "Error in fetch\n", 0
-rsDecode:
-.byte "Error in decode\n", 0
-rsExecute:
-.byte "Error in execute\n", 0
-rsWrite:
-.byte "Error in write\n", 0
-rsPanic:
-.byte "Panic!\n", 0
+rsRegIndex:
+.byte "Register index out of range\n", 0
+rsCodeEnd:
+.byte "End of code\n", 0
+rsFetchBad:
+.byte "Fetched bad instruction\n", 0
+rsFetchLen:
+.byte "No instruction length\n", 0
+rsDecodeFunc:
+.byte "No decode function\n", 0
+rsExecuteBad:
+.byte "Executed bad instruction\n", 0
+rsExecuteFunc:
+.byte "No execute function\n", 0
+rsWriteFunc:
+.byte "No write function\n", 0
+rsUnknown:
+.byte "Unknown error\n", 0
 
 .segment "CODE"
 

@@ -2,6 +2,8 @@
 .ifndef _RESET_
 .define _RESET_
 
-.global reset
+.scope Reset
+    .global reset
+.endscope
 
 .endif

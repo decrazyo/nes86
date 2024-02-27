@@ -13,21 +13,27 @@ BINC_DIR := binclude
 SRC_DIR := src
 TOOLS_DIR := tools
 
+SRC_SUB_DIRS := $(wildcard $(SRC_DIR)/*/)
+BUILD_SUB_DIRS := $(SRC_SUB_DIRS:$(SRC_DIR)/%=$(BUILD_DIR)/%)
+
 LD_CONF := $(CONF_DIR)/ld.cfg
 
-SRCS := $(shell find $(SRC_DIR) -name *.s)
+SRCS := $(shell find $(SRC_DIR) -type f -name *.s)
 OBJS := $(SRCS:$(SRC_DIR)/%.s=$(BUILD_DIR)/%.o)
-INCS := $(shell find $(INC_DIR) -name *.inc)
-DATA := $(shell find $(DATA_DIR) -name *.chr -or -name *.pal)
+INCS := $(wildcard $(INC_DIR)/*.inc)
+BINCS := $(wildcard $(BINC_DIR)/*)
 
 ROM := $(BIN_DIR)/$(NAME).nes
 DBG := $(ROM:%.nes=%.dbg)
 
-AS_FLAGS := -I $(INC_DIR) --bin-include-dir $(BINC_DIR) --feature string_escapes --debug-info
+AS_FLAGS := -I $(INC_DIR) --bin-include-dir $(BINC_DIR) --feature string_escapes -D DEBUG --debug-info
 LD_FLAGS := -C $(LD_CONF) --dbgfile $(DBG)
 
 .PHONY: all
-all: $(BIN_DIR) $(BUILD_DIR) $(BINC_DIR) $(TOOLS_DIR) $(DATA_DIR) $(ROM)
+all: $(TOOLS_DIR) $(DATA_DIR) $(ROM)
+
+.PHONY: $(NAME)
+$(NAME):$(ROM)
 
 .PHONY: clean
 clean:
@@ -42,7 +48,8 @@ $(TOOLS_DIR):
 	$(MAKE) -C $(TOOLS_DIR)
 
 .PHONY: $(DATA_DIR)
-$(DATA_DIR):
+$(DATA_DIR): $(BINC_DIR)
+	# TODO: refactor this so that "make all" doesn't rebuild everything every time
 	$(MAKE) -C $(DATA_DIR)
 	cp $(DATA_DIR)/*/$(BIN_DIR)/* $(BINC_DIR)
 
@@ -51,15 +58,16 @@ mesen: all
 	mono ~/.local/bin/Mesen.exe $(ROM) &
 
 # link object and library files into a iNES file
-$(ROM): $(OBJS)
+$(ROM): $(OBJS) $(LD_CONF) $(BIN_DIR)
 	$(LD) $(LD_FLAGS) -o $(ROM) $(OBJS)
 
 # assemble source files into objects
-$(BUILD_DIR)/%.o: $(SRC_DIR)/%.s $(DATA) $(INCS)
+$(BUILD_DIR)/%.o: $(SRC_DIR)/%.s $(INCS) $(BINCS) $(BINC_DIR) $(BUILD_DIR)
 	$(AS) $(AS_FLAGS) -o $@ $<
 
 $(BUILD_DIR):
 	-mkdir $(BUILD_DIR)
+	-mkdir -p $(BUILD_SUB_DIRS)
 
 $(BIN_DIR):
 	-mkdir $(BIN_DIR)

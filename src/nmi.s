@@ -2,19 +2,20 @@
 .include "nmi.inc"
 .include "ppu.inc"
 
-.exportzp gzbScrollX
-.exportzp gzbScrollY
+.exportzp zbScrollX
+.exportzp zbScrollY
 
 .export nmi
-.export nmi_wait
-.export nmi_write_addr
-.export nmi_write_data
-.export nmi_write_done
+.export wait
+.export write_addr
+.export write_data
+.export write_done
 
 .segment "ZEROPAGE"
 
-gzbScrollX: .res 1
-gzbScrollY: .res 1
+zbScrollX: .res 1
+zbScrollY: .res 1
+
 zbNmiCount: .res 1
 zbBufferEnd: .res 1
 zbReadIndex: .res 1
@@ -26,6 +27,7 @@ aNmiBuffer: .res 256
 
 .segment "CODE"
 
+; NMI handler
 .proc nmi
     ; save CPU state
     pha ; save a register
@@ -41,15 +43,15 @@ aNmiBuffer: .res 256
     ; copying data might take longer than vblank.
     ; disable rendering to prevent corrupting PPU memory.
     ; may cause occasional screen flickering. don't care.
-    jsr ppu_disable_rendering
+    jsr Ppu::disable_rendering
 
 parse_buffer:
     ; set PPU write address.
     lda aNmiBuffer, x
-    sta PPU_ADDR
+    sta Ppu::ADDR
     inx
     lda aNmiBuffer, x
-    sta PPU_ADDR
+    sta Ppu::ADDR
     inx
 
     ; get data length
@@ -62,7 +64,7 @@ parse_buffer:
 
 copy_data:
     lda aNmiBuffer, x
-    sta PPU_DATA
+    sta Ppu::DATA
     inx
     dey
     bne copy_data
@@ -76,14 +78,14 @@ parsing_done:
     sta zbReadIndex
 
     ; set scroll position
-    lda gzbScrollX
-    sta PPU_SCROLL
-    lda gzbScrollY
-    sta PPU_SCROLL
+    lda zbScrollX
+    sta Ppu::SCROLL
+    lda zbScrollY
+    sta Ppu::SCROLL
 
-    jsr ppu_restore_rendering
+    jsr Ppu::restore_rendering
 
-    inc zbNmiCount ; alert nmi_wait that an NMI finished.
+    inc zbNmiCount ; alert wait that an NMI finished.
 
     ; restore CPU state
     pla ; restore y register
@@ -95,7 +97,7 @@ parsing_done:
     rti
 .endproc
 
-.proc nmi_wait
+.proc wait
     lda zbNmiCount
 loop:
     ; NMI will increment this to break us out of the loop.
@@ -104,27 +106,27 @@ loop:
     rts
 .endproc
 
-; the following nmi_write_* functions must be used to write data to the PPU through NMI.
+; the following write_* functions must be used to write data to the PPU through NMI.
 ; example:
 ;     ; write "x86" to the upper left corner of the screen.
 ;     lda #$20
 ;     ldx #$00
-;     jsr nmi_write_addr
+;     jsr Nmi::write_addr
 ;     ldy #0
 ; loop:
 ;     lda text, y
-;     jsr nmi_write_data
+;     jsr Nmi::write_data
 ;     iny
 ;     cpy #5
 ;     bne loop
-;     jsr nmi_write_done
+;     jsr Nmi::write_done
 ; text: .byte "Hello"
 
 ; buffer an address to write data to.
 ; < A = high address byte
 ; < X = low address byte
 ; changes: A, Y
-.proc nmi_write_addr
+.proc write_addr
     ; write the address into the buffer
     ldy zbWriteIndex
     sta aNmiBuffer, y
@@ -144,7 +146,7 @@ loop:
 ; buffer data to write to an already buffered address.
 ; < A = data byte
 ; changes: X
-.proc nmi_write_data
+.proc write_data
     ; write a byte of data into the buffer
     ldx zbWriteIndex
     sta aNmiBuffer, x
@@ -161,7 +163,7 @@ loop:
 
 ; indicates that all data has been buffer and it can be rendered on the next frame.
 ; changes: A
-.proc nmi_write_done
+.proc write_done
     lda zbWriteIndex
     sta zbBufferEnd
     rts

@@ -3,15 +3,25 @@
 .ifndef _CON_
 .define _CON_
 
-.global con
+.scope Con
+    .import con
 
-.global con_csr_home
+    .import csr_home
 
-; these functions aren't terribly efficient but they are mostly for debugging/testing.
-.global con_print_chr
-.global con_print_str
-.global con_print_hex
-.global con_print_arr
-.global con_print_bin
+    ; these functions aren't terribly efficient but they are mostly for debugging/testing.
+    .import print_chr
+    .import print_str
+
+    .import print_hex
+    .import print_hex_arr
+    .import print_hex_arr_rev
+
+    .import print_bin
+
+    ; TODO: print binary array
+    ; .import print_bin_arr
+    ; TODO: print binary array in reverse
+    ; .import print_bin_arr_rev
+.endscope
 
 .endif

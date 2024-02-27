@@ -11,36 +11,37 @@
 .segment "CODE"
 
 .proc main
-    jsr con
-    jsr x86
-    jsr x86_print
+    jsr Con::con
+    jsr X86::x86
+
+    jsr X86::debug_x86
 
 main_loop:
-    jsr input_wait
+    ;jsr wait_input
 
-    jsr x86_step
-    jsr x86_print
+    jsr X86::step
 
-    jsr nmi_wait
+    jsr X86::debug_x86
+
     jmp main_loop
 .endproc
 
 
-.proc input_wait
-    jsr button_press_wait
-    jsr button_release_wait
+.proc wait_input
+    jsr wait_button_press
+    jsr wait_button_release
     rts
 .endproc
 
-.proc button_press_wait
+.proc wait_button_press
     jsr check_input
-    bcs button_press_wait ; branch if no input received
+    bcs wait_button_press ; branch if no input received
     rts
 .endproc
 
-.proc button_release_wait
+.proc wait_button_release
     jsr check_input
-    bcc button_release_wait ; branch if input received
+    bcc wait_button_release ; branch if input received
     rts
 .endproc
 
@@ -49,12 +50,12 @@ main_loop:
 .proc check_input
 ; latch the joypad
     lda #$01
-    sta JOYPAD1
+    sta Const::JOYPAD1
     lsr a ; A = 0
-    sta JOYPAD1
+    sta Const::JOYPAD1
     ldx #8
 loop:
-    lda JOYPAD1
+    lda Const::JOYPAD1
     ror a
     bcs done
     dex

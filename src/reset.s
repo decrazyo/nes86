@@ -13,27 +13,27 @@
     cld ; disable decimal mode.
 
     ; disable APU frame IRQ.
-    ldx #APU_FRAME_I
-    stx APU_FRAME
+    ldx #Apu::FRAME_I
+    stx Apu::FRAME
 
     ; set up stack.
     ldx #$ff
     txs
 
     inx ; now X = 0
-    stx PPU_CTRL ; disable NMI.
-    stx PPU_MASK ; disable rendering.
-    stx APU_DMC_1 ; disable DMC IRQs.
+    stx Ppu::CTRL ; disable NMI.
+    stx Ppu::MASK ; disable rendering.
+    stx Apu::DMC_1 ; disable DMC IRQs.
 
     ; The vblank flag is in an unknown state after reset,
     ; so it is cleared here to make sure that @vblank_wait1
     ; does not exit immediately.
-    bit PPU_STATUS
+    bit Ppu::STATUS
 
     ; First of two waits for vertical blank to make sure that the
     ; PPU has stabilized
 @vblank_wait1:
-    bit PPU_STATUS
+    bit Ppu::STATUS
     bpl @vblank_wait1
 
     ; We now have about 30,000 cycles to burn before the PPU stabilizes.
@@ -54,9 +54,9 @@
     bne @clear_ram
 
 @vblank_wait2:
-    bit PPU_STATUS
+    bit Ppu::STATUS
     bpl @vblank_wait2
 
-    jmp main
+    jmp Main::main
     ; TODO: locate "main" here to avoid the jump
 .endproc

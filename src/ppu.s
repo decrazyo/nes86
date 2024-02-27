@@ -4,44 +4,44 @@
 .include "nmi.inc"
 .include "const.inc"
 
-.exportzp gzbPpuMask
-.exportzp gzbPpuCtrl
+.exportzp zbMask
+.exportzp zbCtrl
 
 .export ppu
-.export ppu_disable_rendering
-.export ppu_restore_rendering
+.export disable_rendering
+.export restore_rendering
 
 .segment "ZEROPAGE"
 
-gzbPpuMask: .res 1
-gzbPpuCtrl: .res 1
+zbMask: .res 1
+zbCtrl: .res 1
 
 .segment "CODE"
 
 ; initialize the ppu
 .proc ppu
     lda #$20
-    sta PPU_ADDR
+    sta Ppu::ADDR
     lda #$00
-    sta PPU_ADDR
+    sta Ppu::ADDR
 
     ; initialize tiles on screen.
-    lda #BLANK_TILE
-    ldx #(SCREEN_W_TILE * SCREEN_H_TILE) / 4
+    lda #Chr::BLANK_TILE
+    ldx #(Const::SCREEN_W_TILE * Const::SCREEN_H_TILE) / 4
 
 @clear_screen:
-    sta PPU_DATA
-    sta PPU_DATA
-    sta PPU_DATA
-    sta PPU_DATA
+    sta Ppu::DATA
+    sta Ppu::DATA
+    sta Ppu::DATA
+    sta Ppu::DATA
     dex
     bne @clear_screen
 
     ; initialize palette data.
     lda #$3f
-    sta PPU_ADDR
+    sta Ppu::ADDR
     lda #$00
-    sta PPU_ADDR
+    sta Ppu::ADDR
 
     lda #$0f ; universal background color (black).
     ldy #$30 ; white.
@@ -49,38 +49,38 @@ gzbPpuCtrl: .res 1
 
 @set_pallets:
     ; set the 2 colors that the screen will use.
-    sta PPU_DATA
-    sty PPU_DATA
-    sty PPU_DATA
-    sty PPU_DATA
+    sta Ppu::DATA
+    sty Ppu::DATA
+    sty Ppu::DATA
+    sty Ppu::DATA
     dex
     bne @set_pallets
 
     ; enable NMI interrupts
-    lda #PPU_CTRL_V
-    sta gzbPpuCtrl
-    sta PPU_CTRL
+    lda #Ppu::CTRL_V
+    sta zbCtrl
+    sta Ppu::CTRL
 
     ; NMI will handle setting the scroll position.
-    jsr nmi_wait
+    jsr Nmi::wait
 
     ; enable rendering
-    lda #PPU_MASK_b | PPU_MASK_m
-    sta gzbPpuMask
-    sta PPU_MASK
+    lda #Ppu::MASK_b | Ppu::MASK_m
+    sta zbMask
+    sta Ppu::MASK
 
     rts
 .endproc
 
-.proc ppu_disable_rendering
-    lda gzbPpuMask
-    and #<~(PPU_MASK_s | PPU_MASK_b)
-    sta PPU_MASK
+.proc disable_rendering
+    lda zbMask
+    and #<~(Ppu::MASK_s | Ppu::MASK_b)
+    sta Ppu::MASK
     rts
 .endproc
 
-.proc ppu_restore_rendering
-    lda gzbPpuMask
-    sta PPU_MASK
+.proc restore_rendering
+    lda zbMask
+    sta Ppu::MASK
     rts
 .endproc

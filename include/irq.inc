@@ -2,6 +2,8 @@
 .ifndef _IRQ_
 .define _IRQ_
 
-.global irq
+.scope Irq
+    .global irq
+.endscope
 
 .endif

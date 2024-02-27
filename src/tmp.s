@@ -1,20 +1,82 @@
 
 .include "tmp.inc"
 
-.exportzp gzdTmp0
-.exportzp gzwTmp0
-.exportzp gzbTmp0
-.exportzp gzbTmp1
-.exportzp gzwTmp1
-.exportzp gzbTmp2
-.exportzp gzbTmp3
+.exportzp zd0
+.exportzp zw0
+.exportzp zb0
+.exportzp zb1
+.exportzp zw1
+.exportzp zb2
+.exportzp zb3
+
+.export set_zp_ptr0
+.export set_zp_ptr1
+.export set_ptr0
+.export set_ptr1
+
+.export memcpy
 
 .segment "ZEROPAGE"
-gzdTmp0:
-gzwTmp0:
-gzbTmp0: .res 1
-gzbTmp1: .res 1
-gzwTmp1:
-gzbTmp2: .res 1
-gzbTmp3: .res 1
 
+zd0:
+zw0:
+zb0: .res 1
+zb1: .res 1
+zw1:
+zb2: .res 1
+zb3: .res 1
+
+.segment "CODE"
+
+; copy a zero-page pointer into the 0th temp word.
+; < A = address low byte
+; changes: X
+.proc set_zp_ptr0
+    ldx #0
+    jmp set_ptr0
+.endproc
+
+
+; copy a zero-page pointer into the 1st temp word.
+; < A = address low byte
+; changes: X
+.proc set_zp_ptr1
+    ldx #0
+    jmp set_ptr1
+.endproc
+
+
+; copy a pointer into the 0th temp word.
+; < A = address low byte
+; < X = address high byte
+.proc set_ptr0
+    sta zw0
+    stx zw0+1
+    rts
+.endproc
+
+
+; copy a pointer into the 1st temp word.
+; < A = address low byte
+; < X = address high byte
+.proc set_ptr1
+    sta zw1
+    stx zw1+1
+    rts
+.endproc
+
+
+; copy Y bytes from the 0th temp pointer to the 1st temp pointer.
+; < zw0 = source pointer
+; < zw1 = destination pointer
+; < Y = number of bytes to copy
+; changes: A, Y
+.proc memcpy
+    dey
+loop:
+    lda (zw0), y
+    sta (zw1), y
+    dey
+    bpl loop
+    rts
+.endproc

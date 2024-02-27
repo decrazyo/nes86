@@ -7,12 +7,19 @@
 .include "tmp.inc"
 
 .export con
-.export con_csr_home
-.export con_print_chr
-.export con_print_str
-.export con_print_hex
-.export con_print_arr
-.export con_print_bin
+
+.export csr_home
+
+.export print_chr
+.export print_str
+
+.export print_hex
+.export print_hex_arr
+.export print_hex_arr_rev
+
+.export print_bin
+; .export print_bin_arr
+; .export print_bin_arr_rev
 
 .segment "ZEROPAGE"
 
@@ -24,15 +31,20 @@ zbCursorY: .res 1
 
 .segment "CODE"
 
+; ==============================================================================
+; public functions
+; ==============================================================================
+
+; initialize the console
 .proc con
-    jmp ppu
+    jmp Ppu::ppu
     ; jsr rts -> jmp
 .endproc
 
 
 ; move the cursor to the upper left corner of the screen
 ; changes: A
-.proc con_csr_home
+.proc csr_home
     lda #0
     sta zbCursorX
     sta zbCursorY
@@ -42,88 +54,113 @@ zbCursorY: .res 1
 
 ; print a single character to the screen.
 ; < A = char to print
-.proc con_print_chr
-    sta gzbTmp1
+.proc print_chr
+    sta Tmp::zb1
     jsr csr_to_addr
-    jsr nmi_write_addr
+    jsr Nmi::write_addr
 
-    lda gzbTmp1
+    lda Tmp::zb1
     jsr pur_char
 
-    jsr nmi_write_done
+    jsr Nmi::write_done
     rts
 .endproc
 
+
 ; print a C string to the screen.
-; < gzwTmp0 = pointer to a C string.
-.proc con_print_str
+; < Tmp::zw0 = pointer to a C string.
+.proc print_str
     jsr csr_to_addr
-    jsr nmi_write_addr
+    jsr Nmi::write_addr
 
     ldy #0
 loop:
-    lda (gzwTmp0), y
+    lda (Tmp::zw0), y
     cmp #0
     beq done
     iny
     jsr pur_char
     jmp loop
 done:
-    jsr nmi_write_done
+    jsr Nmi::write_done
     rts
 .endproc
 
 ; print a single byte in hex.
 ; < A = byte to print
-.proc con_print_hex
-    sta gzbTmp1
+.proc print_hex
+    sta Tmp::zb1
     jsr csr_to_addr
-    jsr nmi_write_addr
+    jsr Nmi::write_addr
 
-    lda gzbTmp1
+    lda Tmp::zb1
     jsr print_nibble_hi
 
-    lda gzbTmp1
+    lda Tmp::zb1
     jsr print_nibble_lo
 
-    jsr nmi_write_done
+    jsr Nmi::write_done
     rts
 .endproc
 
 ; print an array of bytes as hex digits.
-; < gzwTmp0 = pointer to an array.
+; < Tmp::zw0 = pointer to an array.
 ; < Y length of the array
-.proc con_print_arr
+.proc print_hex_arr
     ; this should all work as long as we don't change pur_char to use Y too much.
     jsr csr_to_addr
-    sty gzbTmp3 ; must do this after csr_to_addr
-    jsr nmi_write_addr
+    sty Tmp::zb3 ; must do this after csr_to_addr
+    jsr Nmi::write_addr
 
     ldy #0
 loop:
-    lda (gzwTmp0), y
+    lda (Tmp::zw0), y
     jsr print_nibble_hi
-    lda (gzwTmp0), y
+    lda (Tmp::zw0), y
     jsr print_nibble_lo
     iny
-    cpy gzbTmp3
+    cpy Tmp::zb3
     bcc loop
 
-    jsr nmi_write_done
+    jsr Nmi::write_done
     rts
 .endproc
 
+; print an array of bytes as hex digits in reverse.
+; < Tmp::zw0 = pointer to an array.
+; < Y length of the array
+.proc print_hex_arr_rev
+    ; this should all work as long as we don't change pur_char to use Y too much.
+    jsr csr_to_addr
+    sty Tmp::zb3 ; must do this after csr_to_addr
+    jsr Nmi::write_addr
+
+    ldy Tmp::zb3
+    beq done
+    dey
+loop:
+    lda (Tmp::zw0), y
+    jsr print_nibble_hi
+    lda (Tmp::zw0), y
+    jsr print_nibble_lo
+    dey
+    bpl loop
+
+done:
+    jsr Nmi::write_done
+    rts
+.endproc
 
 ; print a single byte in binary.
 ; < A = byte to print
-.proc con_print_bin
-    sta gzbTmp1
+.proc print_bin
+    sta Tmp::zb1
     jsr csr_to_addr
-    jsr nmi_write_addr
+    jsr Nmi::write_addr
 
     ldy #8
 loop:
-    rol gzbTmp1
+    rol Tmp::zb1
     bcs one
     lda #$30
     SKIP_WORD
@@ -133,41 +170,44 @@ one:
     dey
     bne loop
 
-    jsr nmi_write_done
+    jsr Nmi::write_done
     rts
 .endproc
 
+; ==============================================================================
+; private functions
+; ==============================================================================
 
 ; convert the cursor position into a VRAM address.
-; pass the calculated address to nmi_write_addr.
+; pass the calculated address to Nmi::write_addr.
 ; change: A, X
 .proc csr_to_addr
     lda #0
-    sta gzbTmp2 ; high byte
+    sta Tmp::zb2 ; high byte
     lda zbCursorY
-    sta gzbTmp3 ; low byte
+    sta Tmp::zb3 ; low byte
 
     ; multiply cursor y by 32 tiles per row.
     ldx #5
 mul32:
-    asl gzbTmp3
-    rol gzbTmp2
+    asl Tmp::zb3
+    rol Tmp::zb2
     dex
     bne mul32
 
     ; add x offset
     lda zbCursorX
-    ora gzbTmp3
-    sta gzbTmp3
+    ora Tmp::zb3
+    sta Tmp::zb3
 
     ; add VRAM base address
     clc
-    lda gzbTmp2
+    lda Tmp::zb2
     adc #$20
-    sta gzbTmp2
+    sta Tmp::zb2
 
-    lda gzbTmp2
-    ldx gzbTmp3
+    lda Tmp::zb2
+    ldx Tmp::zb3
     rts
 .endproc
 
@@ -212,7 +252,7 @@ digit:
 .proc pur_char
     jsr handle_control
     bcc done
-    jsr nmi_write_data
+    jsr Nmi::write_data
     jsr csr_advance
     bcc done
     jsr new_write
@@ -228,7 +268,7 @@ done:
 .proc csr_right
     ldx zbCursorX
     inx
-    cpx #SCREEN_W_TILE
+    cpx #Const::SCREEN_W_TILE
     bcs done
     stx zbCursorX
 done:
@@ -243,7 +283,7 @@ done:
 .proc csr_down
     ldx zbCursorY
     inx
-    cpx #SCREEN_H_TILE
+    cpx #Const::SCREEN_H_TILE
     bcs done
     stx zbCursorY
 done:
@@ -257,16 +297,16 @@ done:
 ; changes: X
 ;.proc csr_erase
 ;    lda #BLANK_TILE
-;    sty gzbTmp3
+;    sty Tmp::zb3
 ;    ldy zbCursorX
 ;
 ;loop:
-;    jsr nmi_write_data
+;    jsr Nmi::write_data
 ;    iny
-;    cpy #SCREEN_W_TILE
+;    cpy #Const::SCREEN_W_TILE
 ;    bne loop
 ;
-;    ldy gzbTmp3
+;    ldy Tmp::zb3
 ;    rts
 ;.endproc
 
@@ -295,11 +335,11 @@ done:
 
 
 .proc new_write
-    jsr nmi_write_done
+    jsr Nmi::write_done
     jsr csr_to_addr
-    sty gzbTmp3
-    jsr nmi_write_addr
-    ldy gzbTmp3
+    sty Tmp::zb3
+    jsr Nmi::write_addr
+    ldy Tmp::zb3
 .endproc
 
 
@@ -308,12 +348,12 @@ done:
 ; > C = 0 success
 ;   C = 1 failure
 .proc handle_control
-    cmp #$0a ; \n
+    cmp #Chr::NEW_LINE
     bne not_new_line
     jsr handle_new_line
     bcc success
 not_new_line:
-    cmp #$09 ; \t
+    cmp #Chr::TAB
     bne not_tab
     jsr handle_tab
     bcc success
@@ -330,7 +370,7 @@ success:
 ; changes: A, X
 .proc handle_new_line
     ; advance to the next line
-    ldx #<(SCREEN_W_TILE - 1)
+    ldx #<(Const::SCREEN_W_TILE - 1)
     stx zbCursorX
     jsr csr_advance
     jsr new_write
@@ -344,7 +384,7 @@ success:
 ; changes: A
 .proc handle_tab
     lda #' '
-    jsr nmi_write_data
+    jsr Nmi::write_data
     jsr csr_advance
     lda zbCursorX
     and #%00000011 ; tab stop every 4 chars

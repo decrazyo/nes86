@@ -1,15 +1,18 @@
 
 BIN_DIR := bin
 
-CHRS := $(shell find ./ -name *.chr)
+CHRS := $(wildcard *.chr)
+BINS := $(CHRS:%.chr=$(BIN_DIR)/%.chr)
 
 .PHONY: all
-all: $(BIN_DIR)
-	cp $(CHRS) $(BIN_DIR)
+all: $(BINS)
 
 .PHONY: clean
 clean:
 	-rm -rf $(BIN_DIR)
+
+$(BIN_DIR)/%.chr: %.chr $(BIN_DIR)
+	cp $< $@
 
 $(BIN_DIR):
 	-mkdir $(BIN_DIR)

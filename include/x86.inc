@@ -2,13 +2,25 @@
 .ifndef _X86_
 .define _X86_
 
-.global x86
-.global x86_print
-.global x86_panic
-.global x86_fetch
-.global x86_decode
-.global x86_execute
-.global x86_write
-.global x86_step
+.scope X86
+    .import x86
+    .import step
+    .import run
+    .import panic
+
+    .enum Err
+        REG
+        MMU
+        FETCH
+        DECODE
+        EXECUTE
+        WRITE
+        UNKNOWN
+    .endenum
+
+    .ifdef DEBUG
+    .import debug_x86
+    .endif
+.endscope
 
 .endif

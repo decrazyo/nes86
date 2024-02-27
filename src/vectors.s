@@ -4,6 +4,7 @@
 .include "irq.inc"
 
 .segment "VECTORS"
-.word nmi
-.word reset
-.word irq
+
+.word Nmi::nmi
+.word Reset::reset
+.word Irq::irq

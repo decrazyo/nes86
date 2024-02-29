@@ -198,24 +198,6 @@ loop:
     dex
     bpl loop
 
-    ; initialize registers
-    lda #$fe
-    sta zwAX
-    lda #$ff
-    sta zwAX+1
-
-    lda #$fe
-    sta zwBX
-    lda #$7f
-    sta zwBX+1
-
-    lda #$00
-    sta zwCX
-    sta zwCX+1
-
-    sta zbFlagsHi
-    sta zbFlagsLo
-
     lda #$ff
     sta zwCS
     sta zwCS+1

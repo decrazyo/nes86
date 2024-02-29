@@ -38,6 +38,8 @@
     ; end conditional jumps
     E25 ; AND 8
     E26 ; AND 16
+    E27 ; OR 8
+    E28 ; OR 16
 
     BAD = <-1  ; used for unimplemented or non-existent instructions
 .endenum
@@ -73,6 +75,8 @@ rbaExecuteFuncLo:
 .byte <(execute_jg-1)
 .byte <(execute_and_8-1)
 .byte <(execute_and_16-1)
+.byte <(execute_or_8-1)
+.byte <(execute_or_16-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
 .byte >(execute_inc_16-1)
@@ -101,11 +105,13 @@ rbaExecuteFuncHi:
 .byte >(execute_jg-1)
 .byte >(execute_and_8-1)
 .byte >(execute_and_16-1)
+.byte >(execute_or_8-1)
+.byte >(execute_or_16-1)
 
 ; map opcodes to instruction types.
 rbaInstrExecute:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte BAD,BAD,BAD,BAD,E03,E04,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 0_
+.byte BAD,BAD,BAD,BAD,E03,E04,BAD,BAD,BAD,BAD,BAD,BAD,E27,E28,BAD,BAD ; 0_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 1_
 .byte BAD,BAD,BAD,BAD,E25,E26,BAD,BAD,BAD,BAD,BAD,BAD,E05,E06,BAD,BAD ; 2_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 3_
@@ -423,9 +429,44 @@ rel_jmp_clear_do_jump:
 
 
 .proc execute_and_16
-    clc
     ldy #2
     jsr and_y_bytes
+
+    lda #<Reg::FLAG_CF
+    jsr Reg::clear_flag_lo
+
+    jsr set_parity_flag
+    jsr set_zero_flag_16
+    jsr set_sign_flag_16
+
+    lda #>Reg::FLAG_OF
+    jsr Reg::clear_flag_hi
+
+    rts
+.endproc
+
+
+.proc execute_or_8
+    ldy #1
+    jsr or_y_bytes
+
+    lda #<Reg::FLAG_CF
+    jsr Reg::clear_flag_lo
+
+    jsr set_parity_flag
+    jsr set_zero_flag_8
+    jsr set_sign_flag_8
+
+    lda #>Reg::FLAG_OF
+    jsr Reg::clear_flag_hi
+
+    rts
+.endproc
+
+
+.proc execute_or_16
+    ldy #2
+    jsr or_y_bytes
 
     lda #<Reg::FLAG_CF
     jsr Reg::clear_flag_lo
@@ -521,12 +562,26 @@ add_offset:
 .endproc
 
 
-; < Y = number of bytes to add
+; < Y = number of bytes to and
 .proc and_y_bytes
     ldx #0
 loop:
     lda Reg::zdS0, x
     and Reg::zdS1, x
+    sta Reg::zdD0, x
+    inx
+    dey
+    bne loop
+    rts
+.endproc
+
+
+; < Y = number of bytes to or
+.proc or_y_bytes
+    ldx #0
+loop:
+    lda Reg::zdS0, x
+    ora Reg::zdS1, x
     sta Reg::zdD0, x
     inx
     dey

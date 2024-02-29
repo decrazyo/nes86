@@ -40,6 +40,8 @@
     E26 ; AND 16
     E27 ; OR 8
     E28 ; OR 16
+    E29 ; XOR 8
+    E30 ; XOR 16
 
     BAD = <-1  ; used for unimplemented or non-existent instructions
 .endenum
@@ -77,6 +79,8 @@ rbaExecuteFuncLo:
 .byte <(execute_and_16-1)
 .byte <(execute_or_8-1)
 .byte <(execute_or_16-1)
+.byte <(execute_xor_8-1)
+.byte <(execute_xor_16-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
 .byte >(execute_inc_16-1)
@@ -107,6 +111,9 @@ rbaExecuteFuncHi:
 .byte >(execute_and_16-1)
 .byte >(execute_or_8-1)
 .byte >(execute_or_16-1)
+.byte >(execute_xor_8-1)
+.byte >(execute_xor_16-1)
+
 
 ; map opcodes to instruction types.
 rbaInstrExecute:
@@ -114,7 +121,7 @@ rbaInstrExecute:
 .byte BAD,BAD,BAD,BAD,E03,E04,BAD,BAD,BAD,BAD,BAD,BAD,E27,E28,BAD,BAD ; 0_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 1_
 .byte BAD,BAD,BAD,BAD,E25,E26,BAD,BAD,BAD,BAD,BAD,BAD,E05,E06,BAD,BAD ; 2_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 3_
+.byte BAD,BAD,BAD,BAD,E29,E30,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 3_
 .byte E01,E01,E01,E01,E01,E01,E01,E01,E02,E02,E02,E02,E02,E02,E02,E02 ; 4_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
@@ -481,6 +488,42 @@ rel_jmp_clear_do_jump:
     rts
 .endproc
 
+
+.proc execute_xor_8
+    ldy #1
+    jsr xor_y_bytes
+
+    lda #<Reg::FLAG_CF
+    jsr Reg::clear_flag_lo
+
+    jsr set_parity_flag
+    jsr set_zero_flag_8
+    jsr set_sign_flag_8
+
+    lda #>Reg::FLAG_OF
+    jsr Reg::clear_flag_hi
+
+    rts
+.endproc
+
+
+.proc execute_xor_16
+    ldy #2
+    jsr xor_y_bytes
+
+    lda #<Reg::FLAG_CF
+    jsr Reg::clear_flag_lo
+
+    jsr set_parity_flag
+    jsr set_zero_flag_16
+    jsr set_sign_flag_16
+
+    lda #>Reg::FLAG_OF
+    jsr Reg::clear_flag_hi
+
+    rts
+.endproc
+
 ; ==============================================================================
 ; utility functions
 ; ==============================================================================
@@ -582,6 +625,20 @@ loop:
 loop:
     lda Reg::zdS0, x
     ora Reg::zdS1, x
+    sta Reg::zdD0, x
+    inx
+    dey
+    bne loop
+    rts
+.endproc
+
+
+; < Y = number of bytes to xor
+.proc xor_y_bytes
+    ldx #0
+loop:
+    lda Reg::zdS0, x
+    eor Reg::zdS1, x
     sta Reg::zdD0, x
     inx
     dey

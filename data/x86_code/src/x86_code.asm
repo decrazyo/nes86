@@ -1,6 +1,6 @@
 
 [BITS 16]
 
-    mov ax, 1
-    add al, 0xff
-    adc ax, 0xff
+    mov ax, 0
+    sub al, 1
+    sbb ax, 0

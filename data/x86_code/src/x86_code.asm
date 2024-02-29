@@ -9,4 +9,3 @@ foo:
     add ax, 0x420
     add ax, 0x69
     jnz foo
-

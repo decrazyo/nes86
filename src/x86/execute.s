@@ -35,6 +35,9 @@
     E22 ; JGE
     E23 ; JLE
     E24 ; JG
+    ; end conditional jumps
+    E25 ; AND 8
+    E26 ; AND 16
 
     BAD = <-1  ; used for unimplemented or non-existent instructions
 .endenum
@@ -68,6 +71,8 @@ rbaExecuteFuncLo:
 .byte <(execute_jge-1)
 .byte <(execute_jle-1)
 .byte <(execute_jg-1)
+.byte <(execute_and_8-1)
+.byte <(execute_and_16-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
 .byte >(execute_inc_16-1)
@@ -94,14 +99,15 @@ rbaExecuteFuncHi:
 .byte >(execute_jge-1)
 .byte >(execute_jle-1)
 .byte >(execute_jg-1)
-
+.byte >(execute_and_8-1)
+.byte >(execute_and_16-1)
 
 ; map opcodes to instruction types.
 rbaInstrExecute:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
 .byte BAD,BAD,BAD,BAD,E03,E04,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 0_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 1_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E05,E06,BAD,BAD ; 2_
+.byte BAD,BAD,BAD,BAD,E25,E26,BAD,BAD,BAD,BAD,BAD,BAD,E05,E06,BAD,BAD ; 2_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 3_
 .byte E01,E01,E01,E01,E01,E01,E01,E01,E02,E02,E02,E02,E02,E02,E02,E02 ; 4_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
@@ -380,9 +386,9 @@ execute_jle:
 ; so i'm just using normal labels with stupidly long names :s
 rel_jmp_set:
     bne rel_jmp_set_do_jump
-    jmp copy_s0_to_d0
+    jmp copy_s0_to_d0 ; jsr rts -> jmp
 rel_jmp_set_do_jump:
-    jmp rel_jmp
+    jmp rel_jmp ; jsr rts -> jmp
 
 
 execute_jg:
@@ -393,10 +399,46 @@ execute_jg:
 rel_jmp_clear:
     beq rel_jmp_clear_do_jump
 rel_jmp_clear_no_jump:
-    jmp copy_s0_to_d0
+    jmp copy_s0_to_d0 ; jsr rts -> jmp
 rel_jmp_clear_do_jump:
-    jmp rel_jmp
+    jmp rel_jmp ; jsr rts -> jmp
 
+
+.proc execute_and_8
+    ldy #1
+    jsr and_y_bytes
+
+    lda #<Reg::FLAG_CF
+    jsr Reg::clear_flag_lo
+
+    jsr set_parity_flag
+    jsr set_zero_flag_8
+    jsr set_sign_flag_8
+
+    lda #>Reg::FLAG_OF
+    jsr Reg::clear_flag_hi
+
+    rts
+.endproc
+
+
+.proc execute_and_16
+    clc
+    ldy #2
+    jsr and_y_bytes
+
+    lda #<Reg::FLAG_CF
+    jsr Reg::clear_flag_lo
+
+    jsr set_parity_flag
+    jsr set_zero_flag_16
+    jsr set_sign_flag_16
+
+    lda #>Reg::FLAG_OF
+    jsr Reg::clear_flag_hi
+
+    rts
+.endproc
 
 ; ==============================================================================
 ; utility functions
@@ -475,6 +517,20 @@ add_offset:
     sta Reg::zdD0+2
     lda Reg::zdS0+3
     sta Reg::zdD0+3
+    rts
+.endproc
+
+
+; < Y = number of bytes to add
+.proc and_y_bytes
+    ldx #0
+loop:
+    lda Reg::zdS0, x
+    and Reg::zdS1, x
+    sta Reg::zdD0, x
+    inx
+    dey
+    bne loop
     rts
 .endproc
 

@@ -9,57 +9,114 @@
 
 ; instruction types
 .enum
-    IN0 ; INC 16
-    IN1 ; DEC 16
-    IN2 ; ADD 8
-    IN3 ; ADD 16
-    IN4 ; SUB 8
-    IN5 ; SUB 16
-    IN6 ; MOV
+    E00 ; NOP
+    E01 ; INC 16
+    E02 ; DEC 16
+    E03 ; ADD 8
+    E04 ; ADD 16
+    E05 ; SUB 8
+    E06 ; SUB 16
+    E07 ; MOV 8
+    E08 ; MOV 16
+    ; conditional jumps
+    E09 ; JO
+    E10 ; JNO
+    E11 ; JB
+    E12 ; JNB
+    E13 ; JZ
+    E14 ; JNZ
+    E15 ; JBE
+    E16 ; JA
+    E17 ; JS
+    E18 ; JNS
+    E19 ; JPE
+    E20 ; JPO
+    E21 ; JL
+    E22 ; JGE
+    E23 ; JLE
+    E24 ; JG
 
-    BAD = <-1
+    BAD = <-1  ; used for unimplemented or non-existent instructions
 .endenum
 
-; map x86 opcodes to their instruction type.
-; i.e. opcodes $40, $41, $42, and $43 are all INC instructions.
-; this is used to determine which handler function should be called for an instruction.
-rbaOpcodeInstruction:
-;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte BAD,BAD,BAD,BAD,IN2,IN3,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 0_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 1_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,IN4,IN5,BAD,BAD ; 2_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 3_
-.byte IN0,IN0,IN0,IN0,IN0,IN0,IN0,IN0,IN1,IN1,IN1,IN1,IN1,IN1,IN1,IN1 ; 4_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 8_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
-.byte IN6,IN6,IN6,IN6,IN6,IN6,IN6,IN6,IN6,IN6,IN6,IN6,IN6,IN6,IN6,IN6 ; B_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; E_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; F_
+; TODO: optimize this a bit
 
-; map instructions, not opcodes, to their execution functions.
+; map instruction types to their execution functions.
 rbaExecuteFuncLo:
+.byte <(execute_nop-1)
 .byte <(execute_inc_16-1)
 .byte <(execute_dec_16-1)
 .byte <(execute_add_8-1)
 .byte <(execute_add_16-1)
 .byte <(execute_sub_8-1)
 .byte <(execute_sub_16-1)
-.byte <(execute_mov-1)
+.byte <(execute_mov_8-1)
+.byte <(execute_mov_16-1)
+.byte <(execute_jo-1)
+.byte <(execute_jno-1)
+.byte <(execute_jb-1)
+.byte <(execute_jnb-1)
+.byte <(execute_jz-1)
+.byte <(execute_jnz-1)
+.byte <(execute_jbe-1)
+.byte <(execute_ja-1)
+.byte <(execute_js-1)
+.byte <(execute_jns-1)
+.byte <(execute_jpe-1)
+.byte <(execute_jpo-1)
+.byte <(execute_jl-1)
+.byte <(execute_jge-1)
+.byte <(execute_jle-1)
+.byte <(execute_jg-1)
 rbaExecuteFuncHi:
+.byte >(execute_nop-1)
 .byte >(execute_inc_16-1)
 .byte >(execute_dec_16-1)
 .byte >(execute_add_8-1)
 .byte >(execute_add_16-1)
 .byte >(execute_sub_8-1)
 .byte >(execute_sub_16-1)
-.byte >(execute_mov-1)
-rbaExecuteFuncEnd:
+.byte >(execute_mov_8-1)
+.byte >(execute_mov_16-1)
+.byte >(execute_jo-1)
+.byte >(execute_jno-1)
+.byte >(execute_jb-1)
+.byte >(execute_jnb-1)
+.byte >(execute_jz-1)
+.byte >(execute_jnz-1)
+.byte >(execute_jbe-1)
+.byte >(execute_ja-1)
+.byte >(execute_js-1)
+.byte >(execute_jns-1)
+.byte >(execute_jpe-1)
+.byte >(execute_jpo-1)
+.byte >(execute_jl-1)
+.byte >(execute_jge-1)
+.byte >(execute_jle-1)
+.byte >(execute_jg-1)
+
+
+; map opcodes to instruction types.
+rbaInstrExecute:
+;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
+.byte BAD,BAD,BAD,BAD,E03,E04,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 0_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 1_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E05,E06,BAD,BAD ; 2_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 3_
+.byte E01,E01,E01,E01,E01,E01,E01,E01,E02,E02,E02,E02,E02,E02,E02,E02 ; 4_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
+.byte E09,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24 ; 7_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 8_
+.byte E00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
+.byte E07,E07,E07,E07,E07,E07,E07,E07,E08,E08,E08,E08,E08,E08,E08,E08 ; B_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; E_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; F_
+
+
 
 ; ==============================================================================
 ; public interface
@@ -69,18 +126,10 @@ rbaExecuteFuncEnd:
 .proc execute
     ; find the instruction that this opcode maps to.
     ldx Reg::zbInstrOpcode
-    ldy rbaOpcodeInstruction, x
-
-    ; check for an unsupported instruction.
-    ; check for an unsupported instruction.
-    cpy #BAD
-    bne not_bad
-    lda #X86::Err::EXECUTE_BAD
-    jsr X86::panic
-not_bad:
+    ldy rbaInstrExecute, x
 
     ; check for an unsupported encoding.
-    cpy #(rbaExecuteFuncEnd - rbaExecuteFuncHi)
+    cpy #(rbaExecuteFuncHi - rbaExecuteFuncLo)
     bcc func_ok
     lda #X86::Err::EXECUTE_FUNC
     jsr X86::panic
@@ -94,12 +143,16 @@ func_ok:
     rts
 .endproc
 
-
 ; ==============================================================================
 ; execution handlers
 ; ==============================================================================
 
 ; TODO: optimize jsr rts
+
+.proc execute_nop
+    rts
+.endproc
+
 
 .proc execute_inc_16
     ; write $0001 to source 1 so we can use a generic add function.
@@ -207,9 +260,143 @@ func_ok:
 .endproc
 
 
-.proc execute_mov
+.proc execute_mov_8
+    lda Reg::zdS0
+    sta Reg::zdD0
     rts
 .endproc
+
+
+.proc execute_mov_16
+    jsr execute_mov_8
+    lda Reg::zdS0+1
+    sta Reg::zdD0+1
+    rts
+.endproc
+
+
+.proc execute_jo
+    lda Reg::zbFlagsHi
+    and #>Reg::FLAG_OF
+    jmp rel_jmp_set
+.endproc
+
+
+.proc execute_jno
+    lda Reg::zbFlagsHi
+    and #>Reg::FLAG_OF
+    jmp rel_jmp_clear
+.endproc
+
+
+.proc execute_jb
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_CF
+    jmp rel_jmp_set
+.endproc
+
+
+.proc execute_jnb
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_CF
+    jmp rel_jmp_clear
+.endproc
+
+
+.proc execute_jz
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_ZF
+    jmp rel_jmp_set
+.endproc
+
+
+.proc execute_jnz
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_ZF
+    jmp rel_jmp_clear
+.endproc
+
+
+.proc execute_jbe
+    lda Reg::zbFlagsLo
+    and #<(Reg::FLAG_CF | Reg::FLAG_ZF)
+    jmp rel_jmp_set
+.endproc
+
+
+.proc execute_ja
+    lda Reg::zbFlagsLo
+    and #<(Reg::FLAG_CF | Reg::FLAG_ZF)
+    jmp rel_jmp_clear
+.endproc
+
+
+.proc execute_js
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_SF
+    jmp rel_jmp_set
+.endproc
+
+
+.proc execute_jns
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_SF
+    jmp rel_jmp_clear
+.endproc
+
+
+.proc execute_jpe
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_PF
+    jmp rel_jmp_set
+.endproc
+
+
+.proc execute_jpo
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_PF
+    jmp rel_jmp_clear
+.endproc
+
+
+.proc execute_jl
+    jsr cmp_cf_of
+    jmp rel_jmp_set
+.endproc
+
+
+.proc execute_jge
+    jsr cmp_cf_of
+    jmp rel_jmp_clear
+.endproc
+
+
+execute_jle:
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_ZF
+    bne rel_jmp_set_do_jump ; branch if x86 zero flag is set
+    jsr cmp_cf_of
+; i'm SO fucking sick of fighting the assembler to make this shit work .proc
+; so i'm just using normal labels with stupidly long names :s
+rel_jmp_set:
+    bne rel_jmp_set_do_jump
+    jmp copy_s0_to_d0
+rel_jmp_set_do_jump:
+    jmp rel_jmp
+
+
+execute_jg:
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_ZF
+    bne rel_jmp_clear_no_jump ; branch if x86 zero flag is set
+    jsr cmp_cf_of
+rel_jmp_clear:
+    beq rel_jmp_clear_do_jump
+rel_jmp_clear_no_jump:
+    jmp copy_s0_to_d0
+rel_jmp_clear_do_jump:
+    jmp rel_jmp
+
 
 ; ==============================================================================
 ; utility functions
@@ -229,6 +416,7 @@ loop:
     rts
 .endproc
 
+
 ; < Y = number of bytes to add
 ; < C = initial borrow
 .proc sub_with_borrow
@@ -240,6 +428,53 @@ loop:
     inx
     dey
     bne loop
+    rts
+.endproc
+
+
+; > Z = 0 if overflow flag and sign flag match
+;   Z = 1 if overflow flag and sign flag don't match
+.proc cmp_cf_of
+    ; get the overflow flag
+    lda Reg::zbFlagsHi
+    and #>Reg::FLAG_OF
+    ; move the overflow flag to the position of the sign flag
+    asl
+    asl
+    asl
+    asl
+    ; compare overflow flag to sign flag
+    eor Reg::zbFlagsLo
+    and #<Reg::FLAG_SF
+    rts
+.endproc
+
+
+.proc rel_jmp
+    clc
+    ldy #4
+
+    lda Reg::zdS1
+    bpl add_offset
+
+    eor #$ff
+    sta Reg::zdS1
+    jmp sub_with_borrow
+
+add_offset:
+    jmp add_with_carry
+.endproc
+
+
+.proc copy_s0_to_d0
+    lda Reg::zdS0
+    sta Reg::zdD0
+    lda Reg::zdS0+1
+    sta Reg::zdD0+1
+    lda Reg::zdS0+2
+    sta Reg::zdD0+2
+    lda Reg::zdS0+3
+    sta Reg::zdD0+3
     rts
 .endproc
 

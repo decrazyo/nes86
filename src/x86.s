@@ -23,9 +23,7 @@ rsErrorsLo:
 .byte <rsRegIndex
 .byte <rsCodeEnd
 .byte <rsFetchBad
-.byte <rsFetchLen
 .byte <rsDecodeFunc
-.byte <rsExecuteBad
 .byte <rsExecuteFunc
 .byte <rsWriteFunc
 .byte <rsUnknown
@@ -33,9 +31,7 @@ rsErrorsHi:
 .byte >rsRegIndex
 .byte >rsCodeEnd
 .byte >rsFetchBad
-.byte >rsFetchLen
 .byte >rsDecodeFunc
-.byte >rsExecuteBad
 .byte >rsExecuteFunc
 .byte >rsWriteFunc
 .byte >rsUnknown
@@ -46,12 +42,8 @@ rsCodeEnd:
 .byte "End of code\n", 0
 rsFetchBad:
 .byte "Fetched bad instruction\n", 0
-rsFetchLen:
-.byte "No instruction length\n", 0
 rsDecodeFunc:
 .byte "No decode function\n", 0
-rsExecuteBad:
-.byte "Executed bad instruction\n", 0
 rsExecuteFunc:
 .byte "No execute function\n", 0
 rsWriteFunc:
@@ -104,6 +96,7 @@ valid_error:
 
     jsr Con::csr_home
     jsr Con::print_str
+    jsr Nmi::wait
 
     .ifdef DEBUG
     jsr debug_x86

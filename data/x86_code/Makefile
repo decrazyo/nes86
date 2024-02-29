@@ -7,7 +7,7 @@ SRC_DIR := src
 SRCS := $(wildcard $(SRC_DIR)/*.asm)
 BINS := $(SRCS:$(SRC_DIR)/%.asm=$(BIN_DIR)/%.com)
 
-AS_FLAGS := -f bin
+AS_FLAGS := -f bin -Wx -Werror -O0
 
 .PHONY: all
 all: $(BINS)

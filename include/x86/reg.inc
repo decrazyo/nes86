@@ -50,28 +50,6 @@
     .importzp zbInstrOpcode
     .importzp zbInstrOperands
 
-    .enum Reg8
-        AL
-        CL
-        DL
-        BL
-        AH
-        CH
-        DH
-        BH
-    .endenum
-
-    .enum Reg16
-        AX
-        CX
-        DX
-        BX
-        SP
-        BP
-        SI
-        DI
-    .endenum
-
     .import reg
 
     ;          FEDCBA9876543210
@@ -98,12 +76,39 @@
     .import set_flag_hi
     .import clear_flag_hi
 
+    REG_MASK = %00000111
+
+    .enum Reg8
+        AL
+        CL
+        DL
+        BL
+        AH
+        CH
+        DH
+        BH
+    .endenum
+
     .import reg8_to_src0
-    .import reg16_to_src0
     .import reg8_to_src1
-    .import reg16_to_src1
     .import dst0_to_reg8
+
+    .enum Reg16
+        AX
+        CX
+        DX
+        BX
+        SP
+        BP
+        SI
+        DI
+    .endenum
+
+    .import reg16_to_src0
+    .import reg16_to_src1
     .import dst0_to_reg16
+
+    SEGREG_MASK = %00111000
 
     .ifdef DEBUG
     .import debug_reg

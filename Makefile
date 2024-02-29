@@ -31,6 +31,7 @@ LD_FLAGS := -C $(LD_CONF) --dbgfile $(DBG)
 
 .PHONY: all
 all: $(TOOLS_DIR) $(DATA_DIR) $(ROM)
+	ndisasm -b 16 $(BINC_DIR)/x86_code.com
 
 .PHONY: $(NAME)
 $(NAME):$(ROM)

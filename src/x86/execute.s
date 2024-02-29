@@ -42,6 +42,8 @@
     E28 ; OR 16
     E29 ; XOR 8
     E30 ; XOR 16
+    E31 ; ADC 8
+    E32 ; ADC 16
 
     BAD = <-1  ; used for unimplemented or non-existent instructions
 .endenum
@@ -81,6 +83,8 @@ rbaExecuteFuncLo:
 .byte <(execute_or_16-1)
 .byte <(execute_xor_8-1)
 .byte <(execute_xor_16-1)
+.byte <(execute_adc_8-1)
+.byte <(execute_adc_16-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
 .byte >(execute_inc_16-1)
@@ -113,13 +117,15 @@ rbaExecuteFuncHi:
 .byte >(execute_or_16-1)
 .byte >(execute_xor_8-1)
 .byte >(execute_xor_16-1)
+.byte >(execute_adc_8-1)
+.byte >(execute_adc_16-1)
 
 
 ; map opcodes to instruction types.
 rbaInstrExecute:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
 .byte BAD,BAD,BAD,BAD,E03,E04,BAD,BAD,BAD,BAD,BAD,BAD,E27,E28,BAD,BAD ; 0_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 1_
+.byte BAD,BAD,BAD,BAD,E31,E32,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 1_
 .byte BAD,BAD,BAD,BAD,E25,E26,BAD,BAD,BAD,BAD,BAD,BAD,E05,E06,BAD,BAD ; 2_
 .byte BAD,BAD,BAD,BAD,E29,E30,BAD,BAD,BAD,BAD,BAD,BAD,E05,E06,BAD,BAD ; 3_
 .byte E01,E01,E01,E01,E01,E01,E01,E01,E02,E02,E02,E02,E02,E02,E02,E02 ; 4_
@@ -233,6 +239,42 @@ func_ok:
 
 .proc execute_add_16
     clc
+    ldy #2
+    jsr add_with_carry
+
+    jsr set_carry_flag_add_16
+    jsr set_parity_flag
+    jsr set_auxiliary_flag_add
+    jsr set_zero_flag_16
+    jsr set_sign_flag_16
+    jsr set_overflow_flag_add_16
+
+    rts
+.endproc
+
+
+.proc execute_adc_8
+    lda Reg::zbFlagsLo
+    lsr
+
+    ldy #1
+    jsr add_with_carry
+
+    jsr set_carry_flag_add_8
+    jsr set_parity_flag
+    jsr set_auxiliary_flag_add
+    jsr set_zero_flag_8
+    jsr set_sign_flag_8
+    jsr set_overflow_flag_add_8
+
+    rts
+.endproc
+
+
+.proc execute_adc_16
+    lda Reg::zbFlagsLo
+    lsr
+
     ldy #2
     jsr add_with_carry
 

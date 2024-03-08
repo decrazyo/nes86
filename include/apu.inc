@@ -2,7 +2,7 @@
 ; definitions for the audio processing unit (APU).
 
 .ifndef _APU_
-.define _APU_
+_APU_ = 1
 
 .scope Apu
     ; APU registers

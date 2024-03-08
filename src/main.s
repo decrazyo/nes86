@@ -2,9 +2,9 @@
 .include "main.inc"
 
 .include "const.inc"
-.include "tmp.inc"
 .include "con.inc"
 .include "nmi.inc"
+.include "tmp.inc"
 .include "x86.inc"
 
 .export main
@@ -18,7 +18,7 @@
     jsr X86::debug_x86
 
 main_loop:
-    ;jsr wait_input
+    jsr wait_input
 
     jsr X86::step
 

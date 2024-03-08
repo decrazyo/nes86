@@ -1,7 +1,10 @@
 
 .include "x86/write.inc"
 .include "x86/reg.inc"
+.include "x86/mmu.inc"
 .include "x86.inc"
+
+.include "const.inc"
 
 .export write
 
@@ -9,20 +12,19 @@
 
 ; instruction encodings
 .enum
-    ; nothing to write
-    WR0
-    ; D0 -> 8-bit register embedded in opcode
-    WR1
-    ; D0 -> 16-bit register embedded in opcode
-    WR2
-    ; D0 -> AL
-    WR3
-    ; D0 -> AX
-    WR4
-    ; D0 -> EIP
-    WR5
+    W00 ; nothing to write
+    W01 ; D0 -> 8-bit register embedded in opcode
+    W02 ; D0 -> 16-bit register embedded in opcode
+    W03 ; D0 -> AL
+    W04 ; D0 -> AX
+    W05 ; D0 -> IP
+    W06 ; D0 -> ModR/M rm8
+    W07 ; D0 -> ModR/M rm16
+    W08 ; D0 -> ModR/M reg8
+    W09 ; D0 -> ModR/M reg16
 
-    BAD = <-1 ; used for unimplemented or non-existent instructions
+    BAD ; used for unimplemented or non-existent instructions
+    FUNC_COUNT ; used to check function table size at compile-time
 .endenum
 
 ; map instruction encodings to their write functions.
@@ -32,34 +34,50 @@ rbaWriteFuncLo:
 .byte <(write_embed_reg16-1)
 .byte <(write_al-1)
 .byte <(write_ax-1)
-.byte <(write_eip-1)
+.byte <(write_ip-1)
+.byte <(write_modrm_rm8-1)
+.byte <(write_modrm_rm16-1)
+.byte <(write_modrm_reg8-1)
+.byte <(write_modrm_reg16-1)
+.byte <(write_bad-1)
 rbaWriteFuncHi:
 .byte >(write_nop-1)
 .byte >(write_embed_reg8-1)
 .byte >(write_embed_reg16-1)
 .byte >(write_al-1)
 .byte >(write_ax-1)
-.byte >(write_eip-1)
+.byte >(write_ip-1)
+.byte >(write_modrm_rm8-1)
+.byte >(write_modrm_rm16-1)
+.byte >(write_modrm_reg8-1)
+.byte >(write_modrm_reg16-1)
+.byte >(write_bad-1)
+rbaWriteFuncEnd:
+
+.assert (rbaWriteFuncHi - rbaWriteFuncLo) = (rbaWriteFuncEnd - rbaWriteFuncHi), error, "incomplete write function"
+.assert (rbaWriteFuncHi - rbaWriteFuncLo) = FUNC_COUNT, error, "write function count"
 
 ; map opcodes to instruction encodings
 rbaInstrWrite:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte BAD,BAD,BAD,BAD,WR3,WR4,BAD,BAD,BAD,BAD,BAD,BAD,WR3,WR4,BAD,BAD ; 0_
-.byte BAD,BAD,BAD,BAD,WR3,WR4,BAD,BAD,BAD,BAD,BAD,BAD,WR3,WR4,BAD,BAD ; 1_
-.byte BAD,BAD,BAD,BAD,WR3,WR4,BAD,BAD,BAD,BAD,BAD,BAD,WR3,WR4,BAD,BAD ; 2_
-.byte BAD,BAD,BAD,BAD,WR3,WR4,BAD,BAD,BAD,BAD,BAD,BAD,WR0,WR0,BAD,BAD ; 3_
-.byte WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2 ; 4_
+.byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W03,W04,BAD,BAD ; 0_
+.byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W03,W04,BAD,BAD ; 1_
+.byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W03,W04,BAD,BAD ; 2_
+.byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W00,W00,BAD,BAD ; 3_
+.byte W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02 ; 4_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
-.byte WR5,WR5,WR5,WR5,WR5,WR5,WR5,WR5,WR5,WR5,WR5,WR5,WR5,WR5,WR5,WR5 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 8_
-.byte WR0,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05 ; 7_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W06,W07,W08,W09,BAD,BAD,BAD,BAD ; 8_
+.byte W00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
-.byte WR1,WR1,WR1,WR1,WR1,WR1,WR1,WR1,WR2,WR2,WR2,WR2,WR2,WR2,WR2,WR2 ; B_
+.byte W01,W01,W01,W01,W01,W01,W01,W01,W02,W02,W02,W02,W02,W02,W02,W02 ; B_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; E_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; F_
+
+.segment "CODE"
 
 ; write data back to memory or registers after execution.
 .proc write
@@ -88,39 +106,125 @@ func_ok:
     rts
 .endproc
 
+
 .proc write_embed_reg8
     lda Reg::zbInstrOpcode
-    and #Reg::REG_MASK
-    jmp Reg::dst0_to_reg8 ; jsr rts -> jmp
+    and #Reg::OPCODE_REG_MASK
+
+skip_embed:
+    tay
+    ldx Reg::rzbaReg8Map, y
+
+    lda Reg::zaD0
+    sta Const::ZERO_PAGE, x
+    rts
 .endproc
+
 
 .proc write_embed_reg16
     lda Reg::zbInstrOpcode
-    and #Reg::REG_MASK
-    jmp Reg::dst0_to_reg16 ; jsr rts -> jmp
+    and #Reg::OPCODE_REG_MASK
+
+skip_embed:
+    tay
+    ldx Reg::rzbaReg16Map, y
+
+    lda Reg::zaD0
+    sta Const::ZERO_PAGE, x
+    inx
+    lda Reg::zaD0+1
+    sta Const::ZERO_PAGE, x
+
+    rts
+.endproc
+
+
+.proc write_ax
+    lda Reg::zaD0+1
+    sta Reg::zwAX+1
+    ; fall through to copy the low byte
 .endproc
 
 .proc write_al
-    lda Reg::zdD0
-    sta Reg::zdEAX
+    lda Reg::zaD0
+    sta Reg::zbAL
     rts
 .endproc
 
-.proc write_ax
-    jsr write_al
-    lda Reg::zdD0+1
-    sta Reg::zdEAX+1
+
+.proc write_ip
+    lda Reg::zaD0
+    sta Reg::zwIP
+    lda Reg::zaD0+1
+    sta Reg::zwIP+1
     rts
 .endproc
 
-.proc write_eip
-    lda Reg::zdD0
-    sta Reg::zdEIP
-    lda Reg::zdD0+1
-    sta Reg::zdEIP+1
-    lda Reg::zdD0+2
-    sta Reg::zdEIP+2
-    lda Reg::zdD0+3
-    sta Reg::zdEIP+3
-    rts
+
+.proc write_modrm_rm8
+    ; check if we're writing to a register or RAM
+    lda Reg::zaInstrOperands
+    and #Reg::MODRM_MOD_MASK
+    cmp #Reg::MODRM_MOD_MASK
+
+    bne write_ram ; branch if we need to write back to RAM.
+
+    ; write the value back to a register
+    lda Reg::zaInstrOperands
+    and #Reg::MODRM_RM_MASK
+    jmp write_embed_reg8::skip_embed ; jsr rts -> jmp
+
+write_ram:
+    lda Reg::zaD0
+    jmp Mmu::set_byte ; jsr rts -> jmp
 .endproc
+
+
+.proc write_modrm_rm16
+    ; check if we're writing to a register or RAM
+    lda Reg::zaInstrOperands
+    and #Reg::MODRM_MOD_MASK
+    cmp #Reg::MODRM_MOD_MASK
+
+    bne write_ram ; branch if we need to write back to RAM.
+
+    ; write the value back to a register
+    lda Reg::zaInstrOperands
+    and #Reg::MODRM_RM_MASK
+    jmp write_embed_reg16::skip_embed ; jsr rts -> jmp
+
+write_ram:
+    lda Reg::zaD0
+    jsr Mmu::set_byte
+    jsr Mmu::inc_address
+    lda Reg::zaD0+1
+    jsr Mmu::set_byte ; jsr rts -> jmp
+.endproc
+
+
+.proc write_modrm_reg8
+    lda Reg::zaInstrOperands
+    and #Reg::MODRM_REG_MASK
+    lsr
+    lsr
+    lsr
+    jmp write_embed_reg8::skip_embed ; jsr rts -> jmp
+.endproc
+
+
+.proc write_modrm_reg16
+    lda Reg::zaInstrOperands
+    and #Reg::MODRM_REG_MASK
+    lsr
+    lsr
+    lsr
+    jmp write_embed_reg16::skip_embed ; jsr rts -> jmp
+.endproc
+
+
+.proc write_bad
+    lda #X86::Err::WRITE_FUNC
+    jmp X86::panic
+.endproc
+
+; ==============================================================================

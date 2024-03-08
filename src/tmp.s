@@ -33,7 +33,7 @@ zb3: .res 1
 ; changes: X
 .proc set_zp_ptr0
     ldx #0
-    jmp set_ptr0
+    beq set_ptr0 ; branch always
 .endproc
 
 
@@ -42,7 +42,7 @@ zb3: .res 1
 ; changes: X
 .proc set_zp_ptr1
     ldx #0
-    jmp set_ptr1
+    beq set_ptr1 ; branch always
 .endproc
 
 
@@ -79,4 +79,10 @@ loop:
     dey
     bpl loop
     rts
+.endproc
+
+
+.proc memset
+    ; TODO: implement memset
+    ;       might be useful for zeroing out registers
 .endproc

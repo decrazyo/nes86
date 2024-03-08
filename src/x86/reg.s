@@ -7,42 +7,55 @@
 .include "tmp.inc"
 .include "nmi.inc"
 
-.exportzp zdEAX
-.exportzp zdEBX
-.exportzp zdECX
-.exportzp zdEDX
 
-.exportzp zdESI
-.exportzp zdEDI
-.exportzp zdEBP
-.exportzp zdESP
+.exportzp zwAX
+.exportzp zbAL
+.exportzp zbAH
 
-.exportzp zdEIP
+.exportzp zwBX
+.exportzp zbBL
+.exportzp zbBH
 
-.exportzp zwCS
-.exportzp zwDS
-.exportzp zwES
-.exportzp zwFS
-.exportzp zwGS
-.exportzp zwSS
+.exportzp zwCX
+.exportzp zbCL
+.exportzp zbCH
 
+.exportzp zwDX
+.exportzp zbDL
+.exportzp zbDH
+
+.exportzp zwSI
+.exportzp zwDI
+.exportzp zwBP
+.exportzp zwSP
+
+.exportzp zwIP
+
+.exportzp zaES
+.exportzp zaCS
+.exportzp zaSS
+.exportzp zaDS
+
+.exportzp zwFlags
 .exportzp zbFlagsLo
 .exportzp zbFlagsHi
-.exportzp zbEFlagsLo
-.exportzp zbEFlagsHi
 
-.exportzp zdS0
-.exportzp zdS1
-.exportzp zdD0
-
-.exportzp zbInstrEnc
+.exportzp zaS0
+.exportzp zaS1
+.exportzp zaD0
 
 .exportzp zbInstrLen
-
 .exportzp zbInstrPrefix
-
 .exportzp zbInstrOpcode
-.exportzp zbInstrOperands
+.exportzp zaInstrOperands
+
+.exportzp rzbaRegMapsBegin
+.exportzp rzbaSegRegMap
+.exportzp rzbaReg8Map
+.exportzp rzbaReg16Map
+.exportzp rzbaMem0Map
+.exportzp rzbaMem1Map
+.exportzp rzbaRegMapsEnd
 
 .export reg
 
@@ -51,86 +64,67 @@
 .export set_flag_hi
 .export clear_flag_hi
 
-.export reg8_to_src0
-.export reg16_to_src0
-.export reg8_to_src1
-.export reg16_to_src1
-.export dst0_to_reg8
-.export dst0_to_reg16
-
 .segment "ZEROPAGE"
-
-; 80386 registers have been implemented so i don't have to refactor this as much later.
 
 ; main registers:
 ; accumulator register
-zdEAX:
 zwAX:
 zbAL: .res 1
-zbAH: .res 3
+zbAH: .res 1
 ; base register
-zdEBX:
 zwBX:
 zbBL: .res 1
-zbBH: .res 3
+zbBH: .res 1
 ; count register
-zdECX:
 zwCX:
 zbCL: .res 1
-zbCH: .res 3
+zbCH: .res 1
 ; data register
-zdEDX:
 zwDX:
 zbDL: .res 1
-zbDH: .res 3
+zbDH: .res 1
 
 ; index registers:
 ; source index register
-zdESI:
-zwSI: .res 4
+zwSI: .res 2
 ; destination index register
-zdEDI:
-zwDI: .res 4
+zwDI: .res 2
 ; base pointer register
-zdEBP:
-zwBP: .res 4
+zwBP: .res 2
 ; stack pointer register
-zdESP:
-zwSP: .res 4
+zwSP: .res 2
 
 ; instruction pointer register
-zdEIP:
-zwIP: .res 4
+zwIP: .res 2
 
 ; segment registers:
-; code segment register
-zwCS: .res 2
-; data segment register
-zwDS: .res 2
+; segments are 16-bit shifted left by 4 bits to make calculations easier.
+; like the other registers, data is stored little-endian
+; low byte              high byte
+; 7654 3210  7654 3210  7654 3210
+; ssss 0000  ssss ssss  0000 ssss
 ; extra segment register
-zwES: .res 2
-; "F" segment register
-zwFS: .res 2
-; "G" segment register
-zwGS: .res 2
+zaES: .res 3
+; code segment register
+zaCS: .res 3
 ; stack segment register
-zwSS: .res 2
+zaSS: .res 3
+; data segment register
+zaDS: .res 3
 
 ; status register
+zwFlags:
 zbFlagsLo: .res 1
 zbFlagsHi: .res 1
-zbEFlagsLo: .res 1
-zbEFlagsHi: .res 1
 
 ; pseudo-registers:
+; these 24-bits wide to allow for 20-bit address calculations.
 ; source registers
-zdS0: .res 4
-zdS1: .res 4
+zaS0: .res 3
+zaS1: .res 3
 ; destination registers
-zdD0: .res 4
+zaD0: .res 3
 
-; instruction encoding
-zbInstrEnc: .res 1
 ; instruction length
 ; opcode + operands
 ; does not include prefix
@@ -140,25 +134,24 @@ zbInstrLen: .res 1
 zbInstrPrefix: .res 1
 
 ; instruction buffer
-zbInstrBuffer:
 zbInstrOpcode: .res 1
-zbInstrOperands: .res 4
+zaInstrOperands: .res 4
 
 ; register maps get copied here from ROM to save on access time
-zbaRegMapsBegin:
-zbaSegRegMap: .res 4
-zbaReg8Map: .res 8
-zbaReg16Map: .res 8
-zbaMem1Map: .res 8
-zbaMem2Map: .res 4
-zbaRegMapsEnd:
+rzbaRegMapsBegin:
+rzbaSegRegMap: .res 4
+rzbaReg8Map: .res 8
+rzbaReg16Map: .res 8
+rzbaMem0Map: .res 8
+rzbaMem1Map: .res 4
+rzbaRegMapsEnd:
 
 .segment "RODATA"
 
 rbaRegMapsBegin:
 ; map register numbers to their emulated 16-bit segment register addresses.
 rbaSegRegMap:
-.byte zwES, zwCS, zwSS, zwDS
+.byte zaES, zaCS, zaSS, zaDS
 
 ; these tables are used for instructions with implied register or with ModR/M mode %11
 
@@ -173,13 +166,15 @@ rbaReg16Map:
 ; these tables are used to calculate memory addresses with ModR/M modes %00, %01, and %10
 
 ; map register numbers to their emulated 16-bit register addresses.
-rbaMem1Map:
+rbaMem0Map:
 .byte zwBX, zwBX, zwBP, zwBP, zwSI, zwDI, zwBP, zwBX
 
 ; used with the above table for indices 0-3.
-rbaMem2Map:
+rbaMem1Map:
 .byte zwSI, zwDI, zwSI, zwDI
 rbaRegMapsEnd:
+
+.assert (rbaRegMapsEnd - rbaRegMapsBegin) = (rzbaRegMapsEnd - rzbaRegMapsBegin), error, "register map size mismatch"
 
 .segment "CODE"
 
@@ -194,13 +189,17 @@ rbaRegMapsEnd:
     ldx #((rbaRegMapsEnd - rbaRegMapsBegin) - 1)
 loop:
     lda rbaRegMapsBegin, x
-    sta zbaRegMapsBegin, x
+    sta rzbaRegMapsBegin, x
     dex
     bpl loop
 
-    lda #$ff
-    sta zwCS
-    sta zwCS+1
+    ; set the CS register to the first ROM-only address
+    lda #$00
+    sta zaCS
+    sta zaCS+1
+    lda #$02
+    sta zaCS+2
+
     rts
 .endproc
 
@@ -247,160 +246,6 @@ loop:
     rts
 .endproc
 
-
-; copy an 8-bit register to source register 0.
-; < A = register index (see rbaReg8Map)
-; changes: A, X, Y
-.proc reg8_to_src0
-    jsr reg8_ptr_to_tmp0
-    jsr src0_ptr_to_tmp1
-    ldy #1
-    jmp Tmp::memcpy
-.endproc
-
-
-; copy a 16-bit register to source register 0.
-; < A = register index  (see rbaReg16Map)
-; changes: A, X, Y
-.proc reg16_to_src0
-    jsr reg16_ptr_to_tmp0
-    jsr src0_ptr_to_tmp1
-    ldy #2
-    jmp Tmp::memcpy
-.endproc
-
-
-; copy an 8-bit register to source register 1.
-; < A = register index (see rbaReg8Map)
-; changes: A, X, Y
-.proc reg8_to_src1
-    jsr reg8_ptr_to_tmp0
-    jsr src1_ptr_to_tmp1
-    ldy #1
-    jmp Tmp::memcpy
-.endproc
-
-
-; copy a 16-bit register to source register 1.
-; < A = register index  (see rbaReg16Map)
-; changes: A, X, Y
-.proc reg16_to_src1
-    jsr reg16_ptr_to_tmp0
-    jsr src1_ptr_to_tmp1
-    ldy #2
-    jmp Tmp::memcpy
-.endproc
-
-
-; copy destination register 0 to an 8-bit register
-; < A = register index (see rbaReg8Map)
-; changes: A, X, Y
-.proc dst0_to_reg8
-    jsr reg8_ptr_to_tmp1
-    jsr dst0_ptr_to_tmp0
-    ldy #1
-    jmp Tmp::memcpy
-.endproc
-
-
-; copy destination register 0 to a 16-bit register
-; < A = register index (see rbaReg16Map)
-; changes: A, X, Y
-.proc dst0_to_reg16
-    jsr reg16_ptr_to_tmp1
-    jsr dst0_ptr_to_tmp0
-    ldy #2
-    jmp Tmp::memcpy
-.endproc
-
-; ==============================================================================
-; register / pseudo-register copying
-; ==============================================================================
-
-; < A = register index
-.proc test_reg_index
-    cmp #8
-    bcc no_panic
-    lda X86::Err::REG_INDEX
-    jsr X86::panic
-no_panic:
-    rts
-.endproc
-
-; find an 8-bit register's address from its index.
-; copy the address into temporary address 0 so it can be used as a pointer.
-; < A = index into zbaReg8Map
-; > Tmp::gzw0 = pointer to a register
-; changes: A, Y
-.proc reg8_ptr_to_tmp0
-    tay
-    lda zbaReg8Map, y
-    jmp Tmp::set_zp_ptr0
-.endproc
-
-
-; find a 16-bit register's address from its index.
-; copy the address into temporary address 0 so it can be used as a pointer.
-; < A = index into zbaReg16Map
-; > Tmp::gzw0 = pointer to a register
-; changes: A, Y
-.proc reg16_ptr_to_tmp0
-    tay
-    lda zbaReg16Map, y
-    jmp Tmp::set_zp_ptr0
-.endproc
-
-
-; find an 8-bit register's address from its index.
-; copy the address into temporary address 1 so it can be used as a pointer.
-; < A = index into zbaReg8Map
-; > Tmp::gzw1 = pointer to a register
-; changes: A, Y
-.proc reg8_ptr_to_tmp1
-    tay
-    lda zbaReg8Map, y
-    jmp Tmp::set_zp_ptr1
-.endproc
-
-
-; find a 16-bit register's address from its index.
-; copy the address into temporary address 1 so it can be used as a pointer.
-; < A = index into zbaReg16Map
-; > Tmp::gzw1 = pointer to a register
-; changes: A, Y
-.proc reg16_ptr_to_tmp1
-    tay
-    lda zbaReg16Map, y
-    jmp Tmp::set_zp_ptr1
-.endproc
-
-
-; copy the address of source 0 into temporary address 1 so it can be used as a pointer.
-; > Tmp::gzw1 = pointer to source 0 register
-; changes: A, X
-.proc src0_ptr_to_tmp1
-    lda #zdS0
-    jmp Tmp::set_zp_ptr1
-.endproc
-
-
-; copy the address of source 1 into temporary address 1 so it can be used as a pointer.
-; > Tmp::gzw1 = pointer to source 1 register
-; changes: A, X
-.proc src1_ptr_to_tmp1
-    lda #zdS1
-    jmp Tmp::set_zp_ptr1
-.endproc
-
-
-; copy the address of destination 0 into temporary address 0 so it can be used as a pointer.
-; > Tmp::gzw0 = pointer to destination 0 register
-; changes: A, X
-.proc dst0_ptr_to_tmp0
-    lda #zdD0
-    jmp Tmp::set_zp_ptr0
-.endproc
-
 ; ==============================================================================
 ; debugging
 ; ==============================================================================
@@ -409,28 +254,28 @@ no_panic:
 .segment "RODATA"
 
 rsHeader:
-.byte "\t\tE\tH L\n", 0
+.byte "\t H L\n", 0
 
-rsEAX:
-.byte "EAX:\t", 0
-rsEBX:
-.byte "EBX:\t", 0
-rsECX:
-.byte "ECX:\t", 0
-rsEDX:
-.byte "EDX:\t", 0
+rsAX:
+.byte "AX:\t", 0
+rsBX:
+.byte "BX:\t", 0
+rsCX:
+.byte "CX:\t", 0
+rsDX:
+.byte "DX:\t", 0
 
-rsESI:
-.byte "ESI:\t", 0
-rsEDI:
-.byte "EDI:\t", 0
-rsEBP:
-.byte "EBP:\t", 0
-rsESP:
-.byte "ESP:\t", 0
+rsSI:
+.byte "SI:\t", 0
+rsDI:
+.byte "DI:\t", 0
+rsBP:
+.byte "BP:\t", 0
+rsSP:
+.byte "SP:\t", 0
 
-rsEIP:
-.byte "EIP:\t", 0
+rsIP:
+.byte "IP:\t", 0
 
 rsCS:
 .byte "CS:\t", 0
@@ -438,20 +283,12 @@ rsDS:
 .byte "DS:\t", 0
 rsES:
 .byte "ES:\t", 0
-rsFS:
-.byte "FS:\t", 0
-rsGS:
-.byte "\t\t\t\t\tGS:\t", 0
 rsSS:
 .byte "SS:\t", 0
 
 rsFlags:
 .byte "\t\t----ODITSZ-A-P-C\n"
 .byte "flags:\t", 0
-
-rsEFlags:
-.byte "\t\t----------------\n"
-.byte "eflags:\t", 0
 
 rsS0:
 .byte "S0:\t\t", 0
@@ -469,62 +306,65 @@ rsBlank:
 
 .export debug_reg
 .proc debug_reg
+    lda #Chr::NEW_LINE
+    jsr Con::print_chr
+
     lda #<rsHeader
     ldx #>rsHeader
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
 
-    lda #<rsEAX
-    ldx #>rsEAX
+    lda #<rsAX
+    ldx #>rsAX
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdEAX
+    lda #<zwAX
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
 
-    lda #<rsEBX
-    ldx #>rsEBX
+    lda #<rsBX
+    ldx #>rsBX
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdEBX
+    lda #<zwBX
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
 
-    lda #<rsECX
-    ldx #>rsECX
+    lda #<rsCX
+    ldx #>rsCX
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdECX
+    lda #<zwCX
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
 
-    lda #<rsEDX
-    ldx #>rsEDX
+    lda #<rsDX
+    ldx #>rsDX
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdEDX
+    lda #<zwDX
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
@@ -536,14 +376,14 @@ rsBlank:
     jsr Nmi::wait
 
 
-    lda #<rsESI
-    ldx #>rsESI
+    lda #<rsSI
+    ldx #>rsSI
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdESI
+    lda #<zwSI
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::TAB
@@ -554,23 +394,23 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zwCS
+    lda #<zaCS
     jsr Tmp::set_zp_ptr0
-    ldy #2
+    ldy #3
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
 
-    lda #<rsEDI
-    ldx #>rsEDI
+    lda #<rsDI
+    ldx #>rsDI
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdEDI
+    lda #<zwDI
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::TAB
@@ -581,23 +421,23 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zwDS
+    lda #<zaDS
     jsr Tmp::set_zp_ptr0
-    ldy #2
+    ldy #3
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
 
-    lda #<rsEBP
-    ldx #>rsEBP
+    lda #<rsBP
+    ldx #>rsBP
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdEBP
+    lda #<zwBP
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::TAB
@@ -608,9 +448,9 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zwES
+    lda #<zaES
     jsr Tmp::set_zp_ptr0
-    ldy #2
+    ldy #3
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
@@ -620,55 +460,14 @@ rsBlank:
     jsr Nmi::wait
 
 
-    lda #<rsESP
-    ldx #>rsESP
+    lda #<rsSP
+    ldx #>rsSP
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdESP
-    jsr Tmp::set_zp_ptr0
-    ldy #4
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::TAB
-    jsr Con::print_chr
-
-    lda #<rsFS
-    ldx #>rsFS
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwFS
+    lda #<zwSP
     jsr Tmp::set_zp_ptr0
     ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    lda #<rsGS
-    ldx #>rsGS
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwGS
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    lda #<rsEIP
-    ldx #>rsEIP
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zdEIP
-    jsr Tmp::set_zp_ptr0
-    ldy #4
     jsr Con::print_hex_arr_rev
 
     lda #Chr::TAB
@@ -679,10 +478,29 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zwSS
+    lda #<zaSS
+    jsr Tmp::set_zp_ptr0
+    ldy #3
+    jsr Con::print_hex_arr_rev
+
+    lda #Chr::NEW_LINE
+    jsr Con::print_chr
+    lda #Chr::NEW_LINE
+    jsr Con::print_chr
+
+
+    lda #<rsIP
+    ldx #>rsIP
+    jsr Tmp::set_ptr0
+    jsr Con::print_str
+
+    lda #<zwIP
     jsr Tmp::set_zp_ptr0
     ldy #2
     jsr Con::print_hex_arr_rev
+
+    lda #Chr::TAB
+    jsr Con::print_chr
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr
@@ -692,21 +510,6 @@ rsBlank:
 
     jsr Nmi::wait
 
-
-    lda #<rsEFlags
-    ldx #>rsEFlags
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda zbEFlagsHi
-    jsr Con::print_bin
-    lda zbEFlagsLo
-    jsr Con::print_bin
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
 
     lda #<rsFlags
     ldx #>rsFlags
@@ -732,9 +535,9 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdS0
+    lda #<zaS0
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #3
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
@@ -746,9 +549,9 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdS1
+    lda #<zaS1
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #3
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
@@ -760,9 +563,9 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zdD0
+    lda #<zaD0
     jsr Tmp::set_zp_ptr0
-    ldy #4
+    ldy #3
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
@@ -776,7 +579,7 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zbInstrBuffer
+    lda #<zbInstrOpcode
     jsr Tmp::set_zp_ptr0
     ldy zbInstrLen
     jsr Con::print_hex_arr
@@ -786,6 +589,8 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
+    lda #Chr::NEW_LINE
+    jsr Con::print_chr
 
     jsr Nmi::wait
     rts

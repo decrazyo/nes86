@@ -26,12 +26,12 @@ BINCS := $(wildcard $(BINC_DIR)/*)
 ROM := $(BIN_DIR)/$(NAME).nes
 DBG := $(ROM:%.nes=%.dbg)
 
-AS_FLAGS := -I $(INC_DIR) --bin-include-dir $(BINC_DIR) --feature string_escapes -D DEBUG --debug-info
+AS_FLAGS := -I $(INC_DIR) --bin-include-dir $(BINC_DIR) --feature org_per_seg --feature string_escapes -D DEBUG --debug-info
 LD_FLAGS := -C $(LD_CONF) --dbgfile $(DBG)
 
 .PHONY: all
 all: $(TOOLS_DIR) $(DATA_DIR) $(ROM)
-	ndisasm -b 16 $(BINC_DIR)/x86_code.com
+	objdump -D -b binary -m i8086 -M intel $(BINC_DIR)/x86_code.com
 
 .PHONY: $(NAME)
 $(NAME):$(ROM)
@@ -60,7 +60,7 @@ mesen: all
 
 # link object and library files into a iNES file
 $(ROM): $(OBJS) $(LD_CONF) $(BIN_DIR)
-	$(LD) $(LD_FLAGS) -o $(ROM) $(OBJS)
+	$(LD) $(LD_FLAGS) -o $@ $(OBJS)
 
 # assemble source files into objects
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s $(INCS) $(BINCS) $(BINC_DIR) $(BUILD_DIR)

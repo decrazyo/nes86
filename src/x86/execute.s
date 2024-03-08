@@ -18,7 +18,7 @@
     E06 ; SUB 16
     E07 ; MOV 8
     E08 ; MOV 16
-    ; conditional jumps
+    ; begin conditional jumps
     E09 ; JO
     E10 ; JNO
     E11 ; JB
@@ -47,7 +47,8 @@
     E33 ; SBB 8
     E34 ; SBB 16
 
-    BAD = <-1  ; used for unimplemented or non-existent instructions
+    BAD ; used for unimplemented or non-existent instructions
+    FUNC_COUNT ; used to check function table size at compile-time
 .endenum
 
 ; TODO: optimize this a bit
@@ -89,6 +90,7 @@ rbaExecuteFuncLo:
 .byte <(execute_adc_16-1)
 .byte <(execute_sbb_8-1)
 .byte <(execute_sbb_16-1)
+.byte <(execute_bad-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
 .byte >(execute_inc_16-1)
@@ -125,20 +127,24 @@ rbaExecuteFuncHi:
 .byte >(execute_adc_16-1)
 .byte >(execute_sbb_8-1)
 .byte >(execute_sbb_16-1)
+.byte >(execute_bad-1)
+rbaExecuteFuncEnd:
 
+.assert (rbaExecuteFuncHi - rbaExecuteFuncLo) = (rbaExecuteFuncEnd - rbaExecuteFuncHi), error, "incomplete execute function"
+.assert (rbaExecuteFuncHi - rbaExecuteFuncLo) = FUNC_COUNT, error, "execute function count"
 
 ; map opcodes to instruction types.
 rbaInstrExecute:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte BAD,BAD,BAD,BAD,E03,E04,BAD,BAD,BAD,BAD,BAD,BAD,E27,E28,BAD,BAD ; 0_
-.byte BAD,BAD,BAD,BAD,E31,E32,BAD,BAD,BAD,BAD,BAD,BAD,E33,E34,BAD,BAD ; 1_
-.byte BAD,BAD,BAD,BAD,E25,E26,BAD,BAD,BAD,BAD,BAD,BAD,E05,E06,BAD,BAD ; 2_
-.byte BAD,BAD,BAD,BAD,E29,E30,BAD,BAD,BAD,BAD,BAD,BAD,E05,E06,BAD,BAD ; 3_
+.byte E03,E04,E03,E04,E03,E04,BAD,BAD,E27,E28,E27,E28,E27,E28,BAD,BAD ; 0_
+.byte E31,E32,E31,E32,E31,E32,BAD,BAD,E33,E34,E33,E34,E33,E34,BAD,BAD ; 1_
+.byte E25,E26,E25,E26,E25,E26,BAD,BAD,E05,E06,E05,E06,E05,E06,BAD,BAD ; 2_
+.byte E29,E30,E29,E30,E29,E30,BAD,BAD,E05,E06,E05,E06,E05,E06,BAD,BAD ; 3_
 .byte E01,E01,E01,E01,E01,E01,E01,E01,E02,E02,E02,E02,E02,E02,E02,E02 ; 4_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte E09,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E07,E08,E07,E08,BAD,BAD,BAD,BAD ; 8_
 .byte E00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte E07,E07,E07,E07,E07,E07,E07,E07,E08,E08,E08,E08,E08,E08,E08,E08 ; B_
@@ -147,7 +153,9 @@ rbaInstrExecute:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; E_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; F_
 
+.segment "CODE"
 
+; TODO: document things
 
 ; ==============================================================================
 ; public interface
@@ -155,18 +163,8 @@ rbaInstrExecute:
 
 ; execute the current instruction.
 .proc execute
-    ; find the instruction that this opcode maps to.
     ldx Reg::zbInstrOpcode
     ldy rbaInstrExecute, x
-
-    ; check for an unsupported encoding.
-    cpy #(rbaExecuteFuncHi - rbaExecuteFuncLo)
-    bcc func_ok
-    lda #X86::Err::EXECUTE_FUNC
-    jsr X86::panic
-func_ok:
-
-    ; find the correct handler for this instruction.
     lda rbaExecuteFuncHi, y
     pha
     lda rbaExecuteFuncLo, y
@@ -178,6 +176,7 @@ func_ok:
 ; execution handlers
 ; ==============================================================================
 
+; TODO: rewrite these functions to improve performance.
 ; TODO: optimize jsr rts
 
 .proc execute_nop
@@ -186,11 +185,12 @@ func_ok:
 
 
 .proc execute_inc_16
-    ; write $0001 to source 1 so we can use a generic add function.
+    ; write 1 to zwS1 so we can use a generic add function.
+    ; this also makes setting processor flags easier.
     ldx #1
-    stx Reg::zdS1
+    stx Reg::zaS1
     dex
-    stx Reg::zdS1+1
+    stx Reg::zaS1+1
 
     clc
     ldy #2
@@ -207,11 +207,12 @@ func_ok:
 
 
 .proc execute_dec_16
-    ; write $0001 to source 1 so we can use a generic subtract function.
+    ; write 1 to zwS1 so we can use a generic subtract function.
+    ; this also makes setting processor flags easier.
     ldx #1
-    stx Reg::zdS1
+    stx Reg::zaS1
     dex
-    stx Reg::zdS1+1
+    stx Reg::zaS1+1
 
     sec
     ldy #2
@@ -366,16 +367,16 @@ func_ok:
 
 
 .proc execute_mov_8
-    lda Reg::zdS0
-    sta Reg::zdD0
+    lda Reg::zaS1
+    sta Reg::zaD0
     rts
 .endproc
 
 
 .proc execute_mov_16
     jsr execute_mov_8
-    lda Reg::zdS0+1
-    sta Reg::zdD0+1
+    lda Reg::zaS1+1
+    sta Reg::zaD0+1
     rts
 .endproc
 
@@ -610,6 +611,12 @@ rel_jmp_clear_do_jump:
     rts
 .endproc
 
+
+.proc execute_bad
+    lda #X86::Err::EXECUTE_FUNC
+    jmp X86::panic
+.endproc
+
 ; ==============================================================================
 ; utility functions
 ; ==============================================================================
@@ -619,9 +626,9 @@ rel_jmp_clear_do_jump:
 .proc add_with_carry
     ldx #0
 loop:
-    lda Reg::zdS0, x
-    adc Reg::zdS1, x
-    sta Reg::zdD0, x
+    lda Reg::zaS0, x
+    adc Reg::zaS1, x
+    sta Reg::zaD0, x
     inx
     dey
     bne loop
@@ -634,9 +641,9 @@ loop:
 .proc sub_with_borrow
     ldx #0
 loop:
-    lda Reg::zdS0, x
-    sbc Reg::zdS1, x
-    sta Reg::zdD0, x
+    lda Reg::zaS0, x
+    sbc Reg::zaS1, x
+    sta Reg::zaD0, x
     inx
     dey
     bne loop
@@ -663,14 +670,21 @@ loop:
 
 
 .proc rel_jmp
-    clc
-    ldy #4
+    ; we're doing 16-bit math with an 8-bit number.
+    ; zero out Reg::zaS1+1 so 16-bit math is reliable.
+    lda #0
+    sta Reg::zaS1+1
 
-    lda Reg::zdS1
+    clc
+    ldy #2
+
+    ; check if we are jumping forward or backward
+    lda Reg::zaS1
     bpl add_offset
 
+    ; convert the negative number into a positive number that can be subtracted
     eor #$ff
-    sta Reg::zdS1
+    sta Reg::zaS1
     jmp sub_with_borrow
 
 add_offset:
@@ -679,14 +693,13 @@ add_offset:
 
 
 .proc copy_s0_to_d0
-    lda Reg::zdS0
-    sta Reg::zdD0
-    lda Reg::zdS0+1
-    sta Reg::zdD0+1
-    lda Reg::zdS0+2
-    sta Reg::zdD0+2
-    lda Reg::zdS0+3
-    sta Reg::zdD0+3
+    lda Reg::zaS0
+    sta Reg::zaD0
+    lda Reg::zaS0+1
+    sta Reg::zaD0+1
+    ; TODO: determine if we need to copy this 3rd byte
+    lda Reg::zaS0+2
+    sta Reg::zaD0+2
     rts
 .endproc
 
@@ -695,9 +708,9 @@ add_offset:
 .proc and_y_bytes
     ldx #0
 loop:
-    lda Reg::zdS0, x
-    and Reg::zdS1, x
-    sta Reg::zdD0, x
+    lda Reg::zaS0, x
+    and Reg::zaS1, x
+    sta Reg::zaD0, x
     inx
     dey
     bne loop
@@ -709,9 +722,9 @@ loop:
 .proc or_y_bytes
     ldx #0
 loop:
-    lda Reg::zdS0, x
-    ora Reg::zdS1, x
-    sta Reg::zdD0, x
+    lda Reg::zaS0, x
+    ora Reg::zaS1, x
+    sta Reg::zaD0, x
     inx
     dey
     bne loop
@@ -723,9 +736,9 @@ loop:
 .proc xor_y_bytes
     ldx #0
 loop:
-    lda Reg::zdS0, x
-    eor Reg::zdS1, x
-    sta Reg::zdD0, x
+    lda Reg::zaS0, x
+    eor Reg::zaS1, x
+    sta Reg::zaD0, x
     inx
     dey
     bne loop
@@ -739,7 +752,7 @@ loop:
 
 ; set the carry flag based the result of an 8-bit addition.
 .proc set_carry_flag_add_8
-    lda Reg::zdD0
+    lda Reg::zaD0
     beq set_carry_flag
     bne clear_carry_flag
 .endproc
@@ -747,8 +760,8 @@ loop:
 
 ; set the carry flag based the result of an 16-bit addition.
 .proc set_carry_flag_add_16
-    lda Reg::zdD0
-    ora Reg::zdD0+1
+    lda Reg::zaD0
+    ora Reg::zaD0+1
     beq set_carry_flag
     bne clear_carry_flag
 .endproc
@@ -756,7 +769,7 @@ loop:
 
 ; set the carry flag based the result of an 8-bit addition.
 .proc set_carry_flag_sub_8
-    lda Reg::zdD0
+    lda Reg::zaD0
     eor #$ff
     beq set_carry_flag
     bne clear_carry_flag
@@ -765,8 +778,8 @@ loop:
 
 ; set the carry flag based the result of an 16-bit addition.
 .proc set_carry_flag_sub_16
-    lda Reg::zdD0
-    ora Reg::zdD0+1
+    lda Reg::zaD0
+    ora Reg::zaD0+1
     eor #$ff
     beq set_carry_flag
     bne clear_carry_flag
@@ -786,7 +799,7 @@ set_carry_flag:
 .proc set_parity_flag
     ; count the number of set bits
     ldx #0
-    lda Reg::zdD0
+    lda Reg::zaD0
 loop:
     cmp #0
     beq done
@@ -811,7 +824,7 @@ set_flag:
 
 ; set the auxiliary carry flag if addition caused a carry in the low nibble.
 .proc set_auxiliary_flag_add
-    lda Reg::zdD0
+    lda Reg::zaD0
     and #$0f
     beq set_auxiliary_flag
     bne clear_auxiliary_flag
@@ -820,7 +833,7 @@ set_flag:
 
 ; set the auxiliary carry flag if subtraction caused a carry in the low nibble.
 .proc set_auxiliary_flag_sub
-    lda Reg::zdD0
+    lda Reg::zaD0
     and #$0f
     eor #$0f
     beq set_auxiliary_flag
@@ -838,7 +851,7 @@ set_auxiliary_flag:
 
 ; set the zero flag if an 8-bit operation resulted in an output of 0.
 .proc set_zero_flag_8
-    lda Reg::zdD0
+    lda Reg::zaD0
     beq set_zero_flag
     bne clear_zero_flag
 .endproc
@@ -846,8 +859,8 @@ set_auxiliary_flag:
 
 ; set the zero flag if a 16-bit operation resulted in an output of 0.
 .proc set_zero_flag_16
-    lda Reg::zdD0
-    ora Reg::zdD0+1
+    lda Reg::zaD0
+    ora Reg::zaD0+1
     beq set_zero_flag
     bne clear_zero_flag
 .endproc
@@ -863,7 +876,7 @@ set_zero_flag:
 
 ; set the sign flag if an execution resulted in a negative output.
 .proc set_sign_flag_8
-    lda Reg::zdD0
+    lda Reg::zaD0
     bmi set_sign_flag
     bpl clear_sign_flag
 .endproc
@@ -871,7 +884,7 @@ set_zero_flag:
 
 ; set the sign flag if an execution resulted in a negative output.
 .proc set_sign_flag_16
-    lda Reg::zdD0+1
+    lda Reg::zaD0+1
     bmi set_sign_flag
     bpl clear_sign_flag
 .endproc
@@ -887,11 +900,11 @@ set_sign_flag:
 
 ; set the overflow flag if 8-bit addition caused an arithmetic overflow.
 .proc set_overflow_flag_add_8
-    lda Reg::zdS0
-    eor Reg::zdS1
+    lda Reg::zaS0
+    eor Reg::zaS1
     bmi clear_overflow_flag ; branch if source registers have different signs
-    lda Reg::zdS0
-    eor Reg::zdD0
+    lda Reg::zaS0
+    eor Reg::zaD0
     bpl clear_overflow_flag ; branch if sources and destination have the same sign
     bmi set_overflow_flag
 .endproc
@@ -899,11 +912,11 @@ set_sign_flag:
 
 ; set the overflow flag if 16-bit addition caused an arithmetic overflow.
 .proc set_overflow_flag_add_16
-    lda Reg::zdS0+1
-    eor Reg::zdS1+1
+    lda Reg::zaS0+1
+    eor Reg::zaS1+1
     bmi clear_overflow_flag ; branch if source registers have different signs
-    lda Reg::zdS0+1
-    eor Reg::zdD0+1
+    lda Reg::zaS0+1
+    eor Reg::zaD0+1
     bpl clear_overflow_flag ; branch if sources and destination have the same sign
     bmi set_overflow_flag
 .endproc
@@ -911,11 +924,11 @@ set_sign_flag:
 
 ; set the overflow flag if subtraction caused an arithmetic overflow.
 .proc set_overflow_flag_sub_8
-    lda Reg::zdS0
-    eor Reg::zdS1
+    lda Reg::zaS0
+    eor Reg::zaS1
     bpl clear_overflow_flag ; branch if source registers have the same signs
-    lda Reg::zdS0
-    eor Reg::zdD0
+    lda Reg::zaS0
+    eor Reg::zaD0
     bpl clear_overflow_flag ; branch if source 1 and destination have the same sign
     bmi set_overflow_flag
 .endproc
@@ -923,11 +936,11 @@ set_sign_flag:
 
 ; set the overflow flag if subtraction caused an arithmetic overflow.
 .proc set_overflow_flag_sub_16
-    lda Reg::zdS0+1
-    eor Reg::zdS1+1
+    lda Reg::zaS0+1
+    eor Reg::zaS1+1
     bpl clear_overflow_flag ; branch if source registers have the same signs
-    lda Reg::zdS0+1
-    eor Reg::zdD0+1
+    lda Reg::zaS0+1
+    eor Reg::zaD0+1
     bpl clear_overflow_flag ; branch if source 1 and destination have the same sign
     bmi set_overflow_flag ; branch if source 1 and destination have the same sign
 .endproc

@@ -1,7 +1,7 @@
 ; console-like output functions.
 
 .ifndef _CON_
-.define _CON_
+_CON_ = 1
 
 .scope Con
     .import con

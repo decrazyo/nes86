@@ -1,6 +1,6 @@
 
 .ifndef _CHR_
-.define _CHR_
+_CHR_ = 1
 
 .scope Chr
     NULL = $00

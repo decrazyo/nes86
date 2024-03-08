@@ -1,54 +1,56 @@
 
 .ifndef _X86_REG_
-.define _X86_REG_
+_X86_REG_ = 1
 
 .scope Reg
-    ; main registers:
-    .importzp zdEAX
-    .importzp zdEBX
-    .importzp zdECX
-    .importzp zdEDX
+    .importzp zwAX
+    .importzp zbAL
+    .importzp zbAH
 
-    ; index registers:
-    .importzp zdESI
-    .importzp zdEDI
-    .importzp zdEBP
-    .importzp zdESP
+    .importzp zwBX
+    .importzp zbBL
+    .importzp zbBH
 
-    ; instruction pointer register
-    .importzp zdEIP
+    .importzp zwCX
+    .importzp zbCL
+    .importzp zbCH
 
-    ; segment registers:
-    .importzp zwCS
-    .importzp zwDS
-    .importzp zwES
-    .importzp zwFS
-    .importzp zwGS
-    .importzp zwSS
+    .importzp zwDX
+    .importzp zbDL
+    .importzp zbDH
 
-    ; status register
+    .importzp zwSI
+    .importzp zwDI
+    .importzp zwBP
+    .importzp zwSP
+
+    .importzp zwIP
+
+    .importzp zaES
+    .importzp zaCS
+    .importzp zaSS
+    .importzp zaDS
+
+    .importzp zwFlags
     .importzp zbFlagsLo
     .importzp zbFlagsHi
-    .importzp zbEFlagsLo
-    .importzp zbEFlagsHi
 
-    ; pseudo-registers:
-    .importzp zdS0
-    .importzp zdS1
-    .importzp zdD0
+    .importzp zaS0
+    .importzp zaS1
+    .importzp zaD0
 
-    ; instruction encoding
-    .importzp zbInstrEnc
-
-    ; instruction length
     .importzp zbInstrLen
-
-    ; instruction prefix
     .importzp zbInstrPrefix
-
-    ; instruction buffer
     .importzp zbInstrOpcode
-    .importzp zbInstrOperands
+    .importzp zaInstrOperands
+
+    .importzp rzbaRegMapsBegin
+    .importzp rzbaSegRegMap
+    .importzp rzbaReg8Map
+    .importzp rzbaReg16Map
+    .importzp rzbaMem0Map
+    .importzp rzbaMem1Map
+    .importzp rzbaRegMapsEnd
 
     .import reg
 
@@ -76,7 +78,18 @@
     .import set_flag_hi
     .import clear_flag_hi
 
-    REG_MASK = %00000111
+    OPCODE_REG_MASK = %00000111
+
+    MODRM_MOD_MASK = %11000000
+    MODRM_REG_MASK = %00111000
+    MODRM_RM_MASK  = %00000111
+
+    .enum Seg
+        ES
+        CS
+        SS
+        DS
+    .endenum
 
     .enum Reg8
         AL
@@ -89,10 +102,6 @@
         BH
     .endenum
 
-    .import reg8_to_src0
-    .import reg8_to_src1
-    .import dst0_to_reg8
-
     .enum Reg16
         AX
         CX
@@ -104,16 +113,11 @@
         DI
     .endenum
 
-    .import reg16_to_src0
-    .import reg16_to_src1
-    .import dst0_to_reg16
-
-    SEGREG_MASK = %00111000
-
     .ifdef DEBUG
     .import debug_reg
     .endif
 .endscope
+
 
 .endif
 

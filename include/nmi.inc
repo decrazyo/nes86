@@ -1,6 +1,6 @@
 
 .ifndef _NMI_
-.define _NMI_
+_NMI_ = 1
 
 .scope Nmi
     .importzp zbScrollX

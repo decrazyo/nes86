@@ -1,21 +1,18 @@
 
 # NES86
 An x86 emulation layer for the NES.  
-The ultimate goal of this project is to emulate an Intel 80386 processor (and supporting hardware)
-well enough to run an unmodified (or lightly modified) Linux kernel, Bourne shell, and GNU utilities.  
+The ultimate goal of this project is to emulate an Intel 8086 processor (and supporting PC hardware)
+well enough to run an unmodified (or lightly modified) Linux kernel, Bourne shell, and GNU utilities.
+Currently targeting Embeddable Linux Kernel Subset (ELKS) since the NES with an MMC5 mapper should just barely be able to run it  
 The development strategy is to...
  1. Emulate the entirety of an 8086 processor and MMU.
- 2. Enhancing the 8086 emulator to support 80186 functionality.
- 3. Enhancing the 80186 emulator to support 80286 functionality.
- 4. Probably re-write the whole fucking emulator to support 80386 functionality.
- 5. Patch in support for any necessary PC peripherals.
- 6. ???
- 7. Profit.
+ 2. Patch in support for any necessary PC peripherals.
+ 3. Run Linux and maybe some other fun stuff.
 
 ## Variable Naming Convention
 Variable names should generally be nouns.
 `PascalCase` should be used for variable names.
-Variables should be prefixed according to the following table.
+Variables should be prefixed according to the following table in the order they appear.
 
 | prefix | meaning     | description |
 |--------|-------------|-------------|
@@ -57,19 +54,5 @@ Public constants must be contained within the module's scope.
 Macros my be defined outside of the modules scope since they don't obey scopes anyway.
 All of the above also applied to header-only modules.
 
-## Definition of Terms
-TODO: define the terms i'm using so that comments are consistent and understandable  
 
-| term  | description |
-|-------|-------------|
-|  |  |
-
-## Definition of Abbreviations
-TODO: define the abbreviations i'm using so that comments are consistent and understandable  
-
-| abbreviations | description |
-|---------------|-------------|
-| reg8          | 8-bit register |
-| reg16         | 16-bit register |
-| imm8          | 8-bit immediate value |
-| imm16         | 16-bit immediate value |
+TODO: re-write the docs once the emulator is working

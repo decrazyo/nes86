@@ -1,6 +1,6 @@
 
 .ifndef _IRQ_
-.define _IRQ_
+_IRQ_ = 1
 
 .scope Irq
     .global irq

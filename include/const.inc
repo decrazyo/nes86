@@ -1,6 +1,6 @@
 
 .ifndef _CONST_
-.define _CONST_
+_CONST_ = 1
 
 .scope Const
     ; joypad addresses
@@ -28,6 +28,8 @@
     ; screen dimensions in pixels
     SCREEN_W_PIXEL = 256
     SCREEN_H_PIXEL = 240
+
+    ZERO_PAGE = $00
 
 .endscope
 

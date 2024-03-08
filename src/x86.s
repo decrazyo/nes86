@@ -22,32 +22,40 @@
 rsErrorsLo:
 .byte <rsRegIndex
 .byte <rsCodeEnd
-.byte <rsFetchBad
+.byte <rsFetchLen
+.byte <rsFetchFunc
 .byte <rsDecodeFunc
 .byte <rsExecuteFunc
 .byte <rsWriteFunc
+.byte <rsModRM
 .byte <rsUnknown
 rsErrorsHi:
 .byte >rsRegIndex
 .byte >rsCodeEnd
-.byte >rsFetchBad
+.byte >rsFetchLen
+.byte >rsFetchFunc
 .byte >rsDecodeFunc
 .byte >rsExecuteFunc
 .byte >rsWriteFunc
+.byte >rsModRM
 .byte >rsUnknown
 
 rsRegIndex:
 .byte "Register index out of range\n", 0
 rsCodeEnd:
 .byte "End of code\n", 0
-rsFetchBad:
-.byte "Fetched bad instruction\n", 0
+rsFetchLen:
+.byte "Fetched too many bytes\n", 0
+rsFetchFunc:
+.byte "No fetch function\n", 0
 rsDecodeFunc:
 .byte "No decode function\n", 0
 rsExecuteFunc:
 .byte "No execute function\n", 0
 rsWriteFunc:
 .byte "No write function\n", 0
+rsModRM:
+.byte "Unexpected modr/m value\n", 0
 rsUnknown:
 .byte "Unknown error\n", 0
 
@@ -117,6 +125,7 @@ loop:
     jsr Con::print_chr
 
     jsr Reg::debug_reg
+    jsr Mmu::debug_mmu
     rts
 .endproc
 .endif

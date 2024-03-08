@@ -1,6 +1,6 @@
 
 .ifndef _RESET_
-.define _RESET_
+_RESET_ = 1
 
 .scope Reset
     .global reset

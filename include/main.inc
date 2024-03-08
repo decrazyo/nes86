@@ -1,6 +1,6 @@
 
 .ifndef _MAIN_
-.define _MAIN_
+_MAIN_ = 1
 
 .scope Main
     .global main

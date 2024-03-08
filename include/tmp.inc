@@ -1,6 +1,6 @@
 
 .ifndef _TMP_
-.define _TMP_
+_TMP_ = 1
 
 .scope Tmp
     ; data stored in these temp locations cannot be guaranteed to exist

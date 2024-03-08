@@ -2,7 +2,7 @@
 ; definitions for the picture processing unit (PPU).
 
 .ifndef _PPU_
-.define _PPU_
+_PPU_ = 1
 
 .scope Ppu
     .importzp zbMask

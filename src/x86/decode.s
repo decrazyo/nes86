@@ -52,6 +52,13 @@ zbWord: .res 1
     D27 ; ES -> S1
     D28 ; SS -> S1
     D29 ; stack -> S1
+    D30 ; AX -> S0 ; BX -> S1
+    D31 ; AX -> S0 ; CX -> S1
+    D32 ; AX -> S0 ; DX -> S1
+    D33 ; AX -> S0 ; SP -> S1
+    D34 ; AX -> S0 ; BP -> S1
+    D35 ; AX -> S0 ; SI -> S1
+    D36 ; AX -> S0 ; DI -> S1
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -89,6 +96,13 @@ rbaDecodeFuncLo:
 .byte <(decode_s1_es-1)
 .byte <(decode_s1_ss-1)
 .byte <(decode_s1_stack-1)
+.byte <(decode_s0_ax_s1_bx-1)
+.byte <(decode_s0_ax_s1_cx-1)
+.byte <(decode_s0_ax_s1_dx-1)
+.byte <(decode_s0_ax_s1_sp-1)
+.byte <(decode_s0_ax_s1_bp-1)
+.byte <(decode_s0_ax_s1_si-1)
+.byte <(decode_s0_ax_s1_di-1)
 .byte <(decode_bad-1)
 rbaDecodeFuncHi:
 .byte >(decode_nop-1)
@@ -121,6 +135,13 @@ rbaDecodeFuncHi:
 .byte >(decode_s1_es-1)
 .byte >(decode_s1_ss-1)
 .byte >(decode_s1_stack-1)
+.byte >(decode_s0_ax_s1_bx-1)
+.byte >(decode_s0_ax_s1_cx-1)
+.byte >(decode_s0_ax_s1_dx-1)
+.byte >(decode_s0_ax_s1_sp-1)
+.byte >(decode_s0_ax_s1_bp-1)
+.byte >(decode_s0_ax_s1_si-1)
+.byte >(decode_s0_ax_s1_di-1)
 .byte >(decode_bad-1)
 rbaDecodeFuncEnd:
 
@@ -139,7 +160,7 @@ rbaInstrDecode:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06 ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
-.byte D00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte D00,D31,D32,D30,D33,D34,D35,D36,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte D15,D16,D13,D14,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte D04,D04,D04,D04,D04,D04,D04,D04,D05,D05,D05,D05,D05,D05,D05,D05 ; B_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
@@ -425,7 +446,7 @@ rbaInstrDecode:
     sta Reg::zaS1
     lda Reg::zwAX+1
     sta Reg::zaS1+1
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -434,7 +455,7 @@ rbaInstrDecode:
     sta Reg::zaS1
     lda Reg::zwBX+1
     sta Reg::zaS1+1
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -443,7 +464,7 @@ rbaInstrDecode:
     sta Reg::zaS1
     lda Reg::zwCX+1
     sta Reg::zaS1+1
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -452,7 +473,7 @@ rbaInstrDecode:
     sta Reg::zaS1
     lda Reg::zwDX+1
     sta Reg::zaS1+1
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -461,7 +482,7 @@ rbaInstrDecode:
     sta Reg::zaS1
     lda Reg::zwSP+1
     sta Reg::zaS1+1
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -470,7 +491,7 @@ rbaInstrDecode:
     sta Reg::zaS1
     lda Reg::zwBP+1
     sta Reg::zaS1+1
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -479,7 +500,7 @@ rbaInstrDecode:
     sta Reg::zaS1
     lda Reg::zwSI+1
     sta Reg::zaS1+1
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -488,7 +509,7 @@ rbaInstrDecode:
     sta Reg::zaS1
     lda Reg::zwDI+1
     sta Reg::zaS1+1
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -499,7 +520,7 @@ rbaInstrDecode:
     sta Reg::zaS1+1
     lda Reg::zaCS+2
     sta Reg::zaS1+2
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -510,7 +531,7 @@ rbaInstrDecode:
     sta Reg::zaS1+1
     lda Reg::zaDS+2
     sta Reg::zaS1+2
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -521,7 +542,7 @@ rbaInstrDecode:
     sta Reg::zaS1+1
     lda Reg::zaES+2
     sta Reg::zaS1+2
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -532,7 +553,7 @@ rbaInstrDecode:
     sta Reg::zaS1+1
     lda Reg::zaSS+2
     sta Reg::zaS1+2
-    jmp set_stack_address ; jsr rts -> jmp
+    rts
 .endproc
 
 
@@ -543,6 +564,48 @@ rbaInstrDecode:
     lda Tmp::zw0+1
     sta Reg::zaS1+1
     rts
+.endproc
+
+
+.proc decode_s0_ax_s1_bx
+    jsr decode_s0_ax
+    jmp decode_s1_bx ; jsr rts -> jmp
+.endproc
+
+
+.proc decode_s0_ax_s1_cx
+    jsr decode_s0_ax
+    jmp decode_s1_cx ; jsr rts -> jmp
+.endproc
+
+
+.proc decode_s0_ax_s1_dx
+    jsr decode_s0_ax
+    jmp decode_s1_dx ; jsr rts -> jmp
+.endproc
+
+
+.proc decode_s0_ax_s1_sp
+    jsr decode_s0_ax
+    jmp decode_s1_sp ; jsr rts -> jmp
+.endproc
+
+
+.proc decode_s0_ax_s1_bp
+    jsr decode_s0_ax
+    jmp decode_s1_bp ; jsr rts -> jmp
+.endproc
+
+
+.proc decode_s0_ax_s1_si
+    jsr decode_s0_ax
+    jmp decode_s1_si ; jsr rts -> jmp
+.endproc
+
+
+.proc decode_s0_ax_s1_di
+    jsr decode_s0_ax
+    jmp decode_s1_di ; jsr rts -> jmp
 .endproc
 
 
@@ -779,12 +842,10 @@ done:
 .endproc
 
 
-.proc set_stack_address
-    ldy #Reg::Seg::SS
-    lda Reg::zwSP
-    sta Tmp::zw0
-    lda Reg::zwSP+1
-    sta Tmp::zw0+1
-    jsr Mmu::set_address
+.proc decode_s0_ax
+    lda Reg::zwAX
+    sta Reg::zaS0
+    lda Reg::zwAX+1
+    sta Reg::zaS0+1
     rts
 .endproc

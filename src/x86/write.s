@@ -38,6 +38,13 @@
     W22 ; D0 -> DS
     W23 ; D0 -> ES
     W24 ; D0 -> SS
+    W25 ; S0 -> BX ; S1 -> AX
+    W26 ; S0 -> CX ; S1 -> AX
+    W27 ; S0 -> DX ; S1 -> AX
+    W28 ; S0 -> SP ; S1 -> AX
+    W29 ; S0 -> BP ; S1 -> AX
+    W30 ; S0 -> SI ; S1 -> AX
+    W31 ; S0 -> DI ; S1 -> AX
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -70,6 +77,13 @@ rbaWriteFuncLo:
 .byte <(write_ds-1)
 .byte <(write_es-1)
 .byte <(write_ss-1)
+.byte <(write_bx_ax-1)
+.byte <(write_cx_ax-1)
+.byte <(write_dx_ax-1)
+.byte <(write_sp_ax-1)
+.byte <(write_bp_ax-1)
+.byte <(write_si_ax-1)
+.byte <(write_di_ax-1)
 .byte <(write_bad-1)
 rbaWriteFuncHi:
 .byte >(write_nop-1)
@@ -97,6 +111,13 @@ rbaWriteFuncHi:
 .byte >(write_ds-1)
 .byte >(write_es-1)
 .byte >(write_ss-1)
+.byte >(write_bx_ax-1)
+.byte >(write_cx_ax-1)
+.byte >(write_dx_ax-1)
+.byte >(write_sp_ax-1)
+.byte >(write_bp_ax-1)
+.byte >(write_si_ax-1)
+.byte >(write_di_ax-1)
 .byte >(write_bad-1)
 rbaWriteFuncEnd:
 
@@ -115,7 +136,7 @@ rbaInstrWrite:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05 ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W06,W07,W08,W09,W07,BAD,W10,BAD ; 8_
-.byte W00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte W00,W26,W27,W25,W28,W29,W30,W31,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte W03,W04,W11,W12,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte W01,W01,W01,W01,W01,W01,W01,W01,W02,W02,W02,W02,W02,W02,W02,W02 ; B_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
@@ -421,9 +442,80 @@ write_ram:
 .endproc
 
 
+.proc write_bx_ax
+    lda Reg::zaS0
+    sta Reg::zwBX
+    lda Reg::zaS0+1
+    sta Reg::zwBX+1
+    jmp write_s0_ax ; jsr rts -> jmp
+.endproc
+
+
+.proc write_cx_ax
+    lda Reg::zaS0
+    sta Reg::zwCX
+    lda Reg::zaS0+1
+    sta Reg::zwCX+1
+    jmp write_s0_ax ; jsr rts -> jmp
+.endproc
+
+
+.proc write_dx_ax
+    lda Reg::zaS0
+    sta Reg::zwDX
+    lda Reg::zaS0+1
+    sta Reg::zwDX+1
+    jmp write_s0_ax ; jsr rts -> jmp
+.endproc
+
+
+.proc write_sp_ax
+    lda Reg::zaS0
+    sta Reg::zwSP
+    lda Reg::zaS0+1
+    sta Reg::zwSP+1
+    jmp write_s0_ax ; jsr rts -> jmp
+.endproc
+
+
+.proc write_bp_ax
+    lda Reg::zaS0
+    sta Reg::zwBP
+    lda Reg::zaS0+1
+    sta Reg::zwBP+1
+    jmp write_s0_ax ; jsr rts -> jmp
+.endproc
+
+
+.proc write_si_ax
+    lda Reg::zaS0
+    sta Reg::zwSI
+    lda Reg::zaS0+1
+    sta Reg::zwSI+1
+    jmp write_s0_ax ; jsr rts -> jmp
+.endproc
+
+
+.proc write_di_ax
+    lda Reg::zaS0
+    sta Reg::zwDI
+    lda Reg::zaS0+1
+    sta Reg::zwDI+1
+    jmp write_s0_ax ; jsr rts -> jmp
+.endproc
+
+
 .proc write_bad
     lda #X86::Err::WRITE_FUNC
     jmp X86::panic
 .endproc
 
 ; ==============================================================================
+
+.proc write_s0_ax
+    lda Reg::zaS1
+    sta Reg::zwAX
+    lda Reg::zaS1+1
+    sta Reg::zwAX+1
+    rts
+.endproc

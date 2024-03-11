@@ -48,7 +48,6 @@
     E34 ; SBB 16
     E35 ; MOV r/m, seg
     E36 ; MOV seg, r/m
-
     ; begin flag instructions
     E37 ; CMC
     E38 ; CLC
@@ -58,6 +57,9 @@
     E42 ; CLD
     E43 ; STD
     ; end flag instructions
+    E44 ; PUSH reg
+    E45 ; PUSH seg
+
 
 
     BAD ; used for unimplemented or non-existent instructions
@@ -112,6 +114,8 @@ rbaExecuteFuncLo:
 .byte <(execute_sti-1)
 .byte <(execute_cld-1)
 .byte <(execute_std-1)
+.byte <(execute_push_reg-1)
+.byte <(execute_push_seg-1)
 .byte <(execute_bad-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
@@ -158,6 +162,8 @@ rbaExecuteFuncHi:
 .byte >(execute_sti-1)
 .byte >(execute_cld-1)
 .byte >(execute_std-1)
+.byte >(execute_push_reg-1)
+.byte >(execute_push_seg-1)
 .byte >(execute_bad-1)
 rbaExecuteFuncEnd:
 
@@ -167,12 +173,12 @@ rbaExecuteFuncEnd:
 ; map opcodes to instruction types.
 rbaInstrExecute:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte E03,E04,E03,E04,E03,E04,BAD,BAD,E27,E28,E27,E28,E27,E28,BAD,BAD ; 0_
-.byte E31,E32,E31,E32,E31,E32,BAD,BAD,E33,E34,E33,E34,E33,E34,BAD,BAD ; 1_
+.byte E03,E04,E03,E04,E03,E04,E45,BAD,E27,E28,E27,E28,E27,E28,E45,BAD ; 0_
+.byte E31,E32,E31,E32,E31,E32,E45,BAD,E33,E34,E33,E34,E33,E34,E45,BAD ; 1_
 .byte E25,E26,E25,E26,E25,E26,BAD,BAD,E05,E06,E05,E06,E05,E06,BAD,BAD ; 2_
 .byte E29,E30,E29,E30,E29,E30,BAD,BAD,E05,E06,E05,E06,E05,E06,BAD,BAD ; 3_
 .byte E01,E01,E01,E01,E01,E01,E01,E01,E02,E02,E02,E02,E02,E02,E02,E02 ; 4_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
+.byte E44,E44,E44,E44,E44,E44,E44,E44,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte E09,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24 ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E07,E08,E07,E08,E35,BAD,E36,BAD ; 8_
@@ -769,6 +775,16 @@ rel_jmp_clear_do_jump:
     ora #>Reg::FLAG_DF
     sta Reg::zbFlagsHi
     rts
+.endproc
+
+
+; TODO: remove these
+.proc execute_push_reg
+    jmp execute_mov_16
+.endproc
+
+.proc execute_push_seg
+    jmp execute_mov_rm_seg
 .endproc
 
 

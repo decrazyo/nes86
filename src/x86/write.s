@@ -4,6 +4,7 @@
 .include "x86/mmu.inc"
 .include "x86.inc"
 
+.include "tmp.inc"
 .include "const.inc"
 
 .export write
@@ -25,6 +26,7 @@
     W10 ; D0 -> ModR/M seg16
     W11 ; D0 -> mmu8
     W12 ; D0 -> mmu16
+    W13 ; D0 -> push
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -45,6 +47,7 @@ rbaWriteFuncLo:
 .byte <(write_modrm_seg16-1)
 .byte <(write_mmu8-1)
 .byte <(write_mmu16-1)
+.byte <(write_push-1)
 .byte <(write_bad-1)
 rbaWriteFuncHi:
 .byte >(write_nop-1)
@@ -60,6 +63,7 @@ rbaWriteFuncHi:
 .byte >(write_modrm_seg16-1)
 .byte >(write_mmu8-1)
 .byte >(write_mmu16-1)
+.byte >(write_push-1)
 .byte >(write_bad-1)
 rbaWriteFuncEnd:
 
@@ -69,12 +73,12 @@ rbaWriteFuncEnd:
 ; map opcodes to instruction encodings
 rbaInstrWrite:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W03,W04,BAD,BAD ; 0_
-.byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W03,W04,BAD,BAD ; 1_
+.byte W06,W07,W08,W09,W03,W04,W13,BAD,W06,W07,W08,W09,W03,W04,W13,BAD ; 0_
+.byte W06,W07,W08,W09,W03,W04,W13,BAD,W06,W07,W08,W09,W03,W04,W13,BAD ; 1_
 .byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W03,W04,BAD,BAD ; 2_
 .byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W00,W00,BAD,BAD ; 3_
 .byte W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02 ; 4_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
+.byte W13,W13,W13,W13,W13,W13,W13,W13,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05 ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W06,W07,W08,W09,W07,BAD,W10,BAD ; 8_
@@ -265,6 +269,15 @@ write_ram:
     jsr Mmu::inc_address
     lda Reg::zaD0+1
     jmp Mmu::set_byte ; jsr rts -> jmp
+.endproc
+
+
+.proc write_push
+    lda Reg::zaD0
+    sta Tmp::zw0
+    lda Reg::zaD0+1
+    sta Tmp::zw0+1
+    jmp Mmu::push_word
 .endproc
 
 

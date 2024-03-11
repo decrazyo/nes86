@@ -3,6 +3,9 @@
 _X86_MMU_ = 1
 
 .scope Mmu
+    .importzp zbStackDirty
+    .importzp zbCodeDirty
+
     .import mmu
 
     .import set_address
@@ -11,6 +14,11 @@ _X86_MMU_ = 1
     .import get_byte
     .import get_next_byte
     .import peek_next_byte
+
+    .import push_word
+    .import pop_word
+
+    .import get_ip_byte
 
     .import set_byte
 

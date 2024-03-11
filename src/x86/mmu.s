@@ -9,6 +9,9 @@
 .include "nmi.inc"
 .include "chr.inc"
 
+.exportzp zbStackDirty
+.exportzp zbCodeDirty
+
 .export mmu
 .export set_address
 .export inc_address
@@ -16,6 +19,11 @@
 .export get_byte
 .export get_next_byte
 .export peek_next_byte
+
+.export push_word
+.export pop_word
+
+.export get_ip_byte
 
 .export set_byte
 
@@ -31,8 +39,19 @@
 zpAddress:
 zbAddressLo: .res 1
 zbAddressHi: .res 1
-
 zbBank: .res 1
+
+zpStackAddress:
+zbStackAddressLo: .res 1
+zbStackAddressHi: .res 1
+zbStackBank: .res 1
+zbStackDirty: .res 1
+
+zpCodeAddress:
+zbCodeAddressLo: .res 1
+zbCodeAddressHi: .res 1
+zbCodeBank: .res 1
+zbCodeDirty: .res 1
 
 .segment "RODATA"
 
@@ -68,11 +87,11 @@ WIN2_BANK = $5115
 WIN3_BANK = $5116
 WIN4_BANK = $5117
 
-WINDOW0 = $6000 ; RAM only
-WINDOW1 = $8000 ; RAM/ROM
-WINDOW2 = $A000 ; RAM/ROM
-WINDOW3 = $C000 ; RAM/ROM
-WINDOW4 = $E000 ; ROM only
+WINDOW0 = $6000 ; RAM only  (stack segment)
+WINDOW1 = $8000 ; RAM/ROM   (any segment)
+WINDOW2 = $A000 ; RAM/ROM   (TODO: code segment)
+WINDOW3 = $C000 ; RAM/ROM   (unused)
+WINDOW4 = $E000 ; ROM only  (unused)
 
 ; selects RAM or ROM access
 SELECT_MASK = %10000000
@@ -113,6 +132,11 @@ BANK_MASK = %01111111
     lsr
     sta PROTECT2
 
+    ; mark the stack and code addresses as dirty.
+    ; this will force the addresses to be set correctly when they are used.
+    lda #1
+    sta zbStackDirty
+    sta zbCodeDirty
     rts
 .endproc
 
@@ -223,22 +247,71 @@ done:
 .proc peek_next_byte
     ; save the current address
     ldy zbAddressLo
-    sty Tmp::zd0
-    ldy zbAddressHi
     sty Tmp::zd0+1
-    ldy zbBank
+    ldy zbAddressHi
     sty Tmp::zd0+2
+    ldy zbBank
+    sty Tmp::zd0+3
 
     jsr get_next_byte
 
     ; restore the previous address
-    ldy Tmp::zd0
-    sty zbAddressLo
     ldy Tmp::zd0+1
-    sty zbAddressHi
+    sty zbAddressLo
     ldy Tmp::zd0+2
+    sty zbAddressHi
+    ldy Tmp::zd0+3
     sty zbBank
 
+    rts
+.endproc
+
+
+; push a 16-bit word onto the stack
+; < Tmp::zw0 = value to push to the stack
+; changes: A, Y
+.proc push_word
+    lda zbStackDirty
+    beq do_push ; branch if the stack address in the MMU is still valid
+    jsr set_stack_address
+
+do_push:
+    ldy #0
+    jsr dec_stack_address
+    lda Tmp::zw0+1
+    sta (zpStackAddress), y
+
+    jsr dec_stack_address
+    lda Tmp::zw0
+    sta (zpStackAddress), y
+    rts
+.endproc
+
+
+; pop a 16-bit word from the stack
+; > Tmp::zw0 = value popped from the stack
+.proc pop_word
+    lda zbStackDirty
+    beq do_pop ; branch if the stack address in the MMU is still valid
+    jsr set_stack_address
+
+do_pop:
+    ldy #0
+    lda (zpStackAddress), y
+    sta Tmp::zw0
+    jsr inc_stack_address
+
+    lda (zpStackAddress), y
+    sta Tmp::zw0+1
+    jmp inc_stack_address ; jsr rts -> jmp
+.endproc
+
+
+; TODO: implement this
+; get the byte pointed to by CS + IP.
+; increment IP and the MMU's internal code address.
+; > A = byte read from RAM or ROM
+.proc get_ip_byte
     rts
 .endproc
 
@@ -254,6 +327,95 @@ done:
 
     ldy #0
     sta (zpAddress), y
+    rts
+.endproc
+
+; ==============================================================================
+; utility functions
+; ==============================================================================
+
+; set the MMU's stack address based on the value in SS + SP
+.proc set_stack_address
+    ; SS + SP
+    clc
+    lda Reg::zwSP
+    adc Reg::zaSS
+    sta zbStackAddressLo
+    lda Reg::zwSP+1
+    adc Reg::zaSS+1
+    sta zbStackAddressHi
+    lda Reg::zwSP+1
+    adc Reg::zaSS+1
+    sta zbStackBank
+
+    ; extract the bank number from the address
+    lda zbStackBank
+    and #%00001111
+    asl
+    asl
+    asl
+    sta zbStackBank
+
+    lda zbStackAddressHi
+    and #%11100000
+    asl
+    rol
+    rol
+    rol
+    ora zbStackBank
+    sta zbStackBank
+
+    ; adjust the pointer to point to one of the MMC5 mapper windows.
+    lda zbStackAddressHi
+    and #%00011111
+    ora #>WINDOW0
+    sta zbStackAddressHi
+
+    ; flag the stack as no longer dirty
+    lda #0
+    sta zbStackDirty
+    rts
+.endproc
+
+
+; increment SP and the MMU's internal stack address
+; changes: A
+.proc inc_stack_address
+    inc Reg::zwSP
+    inc zbStackAddressLo
+    bne done
+    inc Reg::zwSP+1
+    sec
+    lda zbStackAddressHi
+    adc #0
+    cmp #>WINDOW1
+    bcc set_addr_hi ; branch if the address is still inside the window
+    lda #>WINDOW0
+    inc zbStackBank
+set_addr_hi:
+    sta zbStackAddressHi
+done:
+    rts
+.endproc
+
+; decrement SP and the MMU's internal stack address
+.proc dec_stack_address
+    dec Reg::zwSP
+    lda zbStackAddressLo
+    sec
+    sbc #1
+    sta zbStackAddressLo
+    bcs done
+    dec Reg::zwSP+1
+    lda zbStackAddressHi
+    sbc #0
+    cmp #>WINDOW0
+    bcs set_addr_hi ; branch if the address is still inside the window
+    lda #>WINDOW1-1
+    dec zbStackBank
+set_addr_hi:
+    sta zbStackAddressHi
+done:
     rts
 .endproc
 

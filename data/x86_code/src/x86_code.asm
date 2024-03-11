@@ -1,15 +1,11 @@
 
 [BITS 16]
 
-    cmc ; Complement Carry Flag
-    clc ; Clear Carry Flag
-    stc ; Set Carry Flag
-    cmc ; Complement Carry Flag
+    mov sp, 0x80
+    mov ax, 0x1234
+    mov es, ax
+    push es
 
-    sti ; Set Interrupt Flag
-    cli ; Clear Interrupt Flag
 
-    std ; Set Direction Flag
-    cld ; Clear Direction Flag
 
     hlt

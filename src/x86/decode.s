@@ -39,18 +39,19 @@ zbWord: .res 1
     D14 ; ptr16 -> mmu ; AX -> S1
     D15 ; ptr8 -> mmu -> S1
     D16 ; ptr16 -> mmu -> S1
-    D17 ; SS:SP -> mmu ; AX -> S1
-    D18 ; SS:SP -> mmu ; BX -> S1
-    D19 ; SS:SP -> mmu ; CX -> S1
-    D20 ; SS:SP -> mmu ; DX -> S1
-    D21 ; SS:SP -> mmu ; SP -> S1
-    D22 ; SS:SP -> mmu ; BP -> S1
-    D23 ; SS:SP -> mmu ; SI -> S1
-    D24 ; SS:SP -> mmu ; DI -> S1
-    D25 ; SS:SP -> mmu ; CS -> S1
-    D26 ; SS:SP -> mmu ; DS -> S1
-    D27 ; SS:SP -> mmu ; ES -> S1
-    D28 ; SS:SP -> mmu ; SS -> S1
+    D17 ; AX -> S1
+    D18 ; BX -> S1
+    D19 ; CX -> S1
+    D20 ; DX -> S1
+    D21 ; SP -> S1
+    D22 ; BP -> S1
+    D23 ; SI -> S1
+    D24 ; DI -> S1
+    D25 ; CS -> S1
+    D26 ; DS -> S1
+    D27 ; ES -> S1
+    D28 ; SS -> S1
+    D29 ; stack -> S1
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -87,6 +88,7 @@ rbaDecodeFuncLo:
 .byte <(decode_s1_ds-1)
 .byte <(decode_s1_es-1)
 .byte <(decode_s1_ss-1)
+.byte <(decode_s1_stack-1)
 .byte <(decode_bad-1)
 rbaDecodeFuncHi:
 .byte >(decode_nop-1)
@@ -118,6 +120,7 @@ rbaDecodeFuncHi:
 .byte >(decode_s1_ds-1)
 .byte >(decode_s1_es-1)
 .byte >(decode_s1_ss-1)
+.byte >(decode_s1_stack-1)
 .byte >(decode_bad-1)
 rbaDecodeFuncEnd:
 
@@ -127,12 +130,12 @@ rbaDecodeFuncEnd:
 ; map opcodes to instruction encodings
 rbaInstrDecode:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte D07,D08,D09,D10,D02,D03,D27,BAD,D07,D08,D09,D10,D02,D03,D25,BAD ; 0_
-.byte D07,D08,D09,D10,D02,D03,D28,BAD,D07,D08,D09,D10,D02,D03,D26,BAD ; 1_
+.byte D07,D08,D09,D10,D02,D03,D27,D29,D07,D08,D09,D10,D02,D03,D25,BAD ; 0_
+.byte D07,D08,D09,D10,D02,D03,D28,D29,D07,D08,D09,D10,D02,D03,D26,D29 ; 1_
 .byte D07,D08,D09,D10,D02,D03,BAD,BAD,D07,D08,D09,D10,D02,D03,BAD,BAD ; 2_
 .byte D07,D08,D09,D10,D02,D03,BAD,BAD,D07,D08,D09,D10,D02,D03,BAD,BAD ; 3_
 .byte D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01 ; 4_
-.byte D17,D19,D20,D18,D21,D22,D23,D24,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
+.byte D17,D19,D20,D18,D21,D22,D23,D24,D29,D29,D29,D29,D29,D29,D29,D29 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06 ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
@@ -530,6 +533,16 @@ rbaInstrDecode:
     lda Reg::zaSS+2
     sta Reg::zaS1+2
     jmp set_stack_address ; jsr rts -> jmp
+.endproc
+
+
+.proc decode_s1_stack
+    jsr Mmu::pop_word
+    lda Tmp::zw0
+    sta Reg::zaS1
+    lda Tmp::zw0+1
+    sta Reg::zaS1+1
+    rts
 .endproc
 
 

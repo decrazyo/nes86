@@ -26,7 +26,18 @@
     W10 ; D0 -> ModR/M seg16
     W11 ; D0 -> mmu8
     W12 ; D0 -> mmu16
-    W13 ; D0 -> push
+    W13 ; D0 -> stack
+    W14 ; D0 -> BX
+    W15 ; D0 -> CX
+    W16 ; D0 -> DX
+    W17 ; D0 -> SP
+    W18 ; D0 -> BP
+    W19 ; D0 -> SI
+    W20 ; D0 -> DI
+    W21 ; D0 -> CS
+    W22 ; D0 -> DS
+    W23 ; D0 -> ES
+    W24 ; D0 -> SS
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -47,7 +58,18 @@ rbaWriteFuncLo:
 .byte <(write_modrm_seg16-1)
 .byte <(write_mmu8-1)
 .byte <(write_mmu16-1)
-.byte <(write_push-1)
+.byte <(write_stack-1)
+.byte <(write_bx-1)
+.byte <(write_cx-1)
+.byte <(write_dx-1)
+.byte <(write_sp-1)
+.byte <(write_bp-1)
+.byte <(write_si-1)
+.byte <(write_di-1)
+.byte <(write_cs-1)
+.byte <(write_ds-1)
+.byte <(write_es-1)
+.byte <(write_ss-1)
 .byte <(write_bad-1)
 rbaWriteFuncHi:
 .byte >(write_nop-1)
@@ -63,7 +85,18 @@ rbaWriteFuncHi:
 .byte >(write_modrm_seg16-1)
 .byte >(write_mmu8-1)
 .byte >(write_mmu16-1)
-.byte >(write_push-1)
+.byte >(write_stack-1)
+.byte >(write_bx-1)
+.byte >(write_cx-1)
+.byte >(write_dx-1)
+.byte >(write_sp-1)
+.byte >(write_bp-1)
+.byte >(write_si-1)
+.byte >(write_di-1)
+.byte >(write_cs-1)
+.byte >(write_ds-1)
+.byte >(write_es-1)
+.byte >(write_ss-1)
 .byte >(write_bad-1)
 rbaWriteFuncEnd:
 
@@ -73,12 +106,12 @@ rbaWriteFuncEnd:
 ; map opcodes to instruction encodings
 rbaInstrWrite:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte W06,W07,W08,W09,W03,W04,W13,BAD,W06,W07,W08,W09,W03,W04,W13,BAD ; 0_
-.byte W06,W07,W08,W09,W03,W04,W13,BAD,W06,W07,W08,W09,W03,W04,W13,BAD ; 1_
+.byte W06,W07,W08,W09,W03,W04,W13,W23,W06,W07,W08,W09,W03,W04,W13,BAD ; 0_
+.byte W06,W07,W08,W09,W03,W04,W13,W24,W06,W07,W08,W09,W03,W04,W13,W22 ; 1_
 .byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W03,W04,BAD,BAD ; 2_
 .byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W00,W00,BAD,BAD ; 3_
 .byte W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02 ; 4_
-.byte W13,W13,W13,W13,W13,W13,W13,W13,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
+.byte W13,W13,W13,W13,W13,W13,W13,W13,W04,W15,W16,W14,W17,W18,W19,W20 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05 ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W06,W07,W08,W09,W07,BAD,W10,BAD ; 8_
@@ -272,12 +305,119 @@ write_ram:
 .endproc
 
 
-.proc write_push
+.proc write_stack
     lda Reg::zaD0
     sta Tmp::zw0
     lda Reg::zaD0+1
     sta Tmp::zw0+1
     jmp Mmu::push_word
+.endproc
+
+
+.proc write_bx
+    lda Reg::zaD0
+    sta Reg::zwBX
+    lda Reg::zaD0+1
+    sta Reg::zwBX+1
+    rts
+.endproc
+
+
+.proc write_cx
+    lda Reg::zaD0
+    sta Reg::zwCX
+    lda Reg::zaD0+1
+    sta Reg::zwCX+1
+    rts
+.endproc
+
+
+.proc write_dx
+    lda Reg::zaD0
+    sta Reg::zwDX
+    lda Reg::zaD0+1
+    sta Reg::zwDX+1
+    rts
+.endproc
+
+
+.proc write_sp
+    lda Reg::zaD0
+    sta Reg::zwSP
+    lda Reg::zaD0+1
+    sta Reg::zwSP+1
+    rts
+.endproc
+
+
+.proc write_bp
+    lda Reg::zaD0
+    sta Reg::zwBP
+    lda Reg::zaD0+1
+    sta Reg::zwBP+1
+    rts
+.endproc
+
+
+.proc write_si
+    lda Reg::zaD0
+    sta Reg::zwSI
+    lda Reg::zaD0+1
+    sta Reg::zwSI+1
+    rts
+.endproc
+
+
+.proc write_di
+    lda Reg::zaD0
+    sta Reg::zwDI
+    lda Reg::zaD0+1
+    sta Reg::zwDI+1
+    rts
+.endproc
+
+
+.proc write_cs
+    lda Reg::zaD0
+    sta Reg::zaCS
+    lda Reg::zaD0+1
+    sta Reg::zaCS+1
+    lda Reg::zaD0+2
+    sta Reg::zaCS+2
+    rts
+.endproc
+
+
+.proc write_ds
+    lda Reg::zaD0
+    sta Reg::zaDS
+    lda Reg::zaD0+1
+    sta Reg::zaDS+1
+    lda Reg::zaD0+2
+    sta Reg::zaDS+2
+    rts
+.endproc
+
+
+.proc write_es
+    lda Reg::zaD0
+    sta Reg::zaES
+    lda Reg::zaD0+1
+    sta Reg::zaES+1
+    lda Reg::zaD0+2
+    sta Reg::zaES+2
+    rts
+.endproc
+
+
+.proc write_ss
+    lda Reg::zaD0
+    sta Reg::zaSS
+    lda Reg::zaD0+1
+    sta Reg::zaSS+1
+    lda Reg::zaD0+2
+    sta Reg::zaSS+2
+    rts
 .endproc
 
 

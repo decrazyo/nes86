@@ -47,6 +47,9 @@
     E33 ; SBB 8
     E34 ; SBB 16
 
+    E35 ; MOV r/m, seg
+    E36 ; MOV seg, r/m
+
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
 .endenum
@@ -90,6 +93,8 @@ rbaExecuteFuncLo:
 .byte <(execute_adc_16-1)
 .byte <(execute_sbb_8-1)
 .byte <(execute_sbb_16-1)
+.byte <(execute_mov_rm_seg-1)
+.byte <(execute_mov_seg_rm-1)
 .byte <(execute_bad-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
@@ -127,6 +132,8 @@ rbaExecuteFuncHi:
 .byte >(execute_adc_16-1)
 .byte >(execute_sbb_8-1)
 .byte >(execute_sbb_16-1)
+.byte >(execute_mov_rm_seg-1)
+.byte >(execute_mov_seg_rm-1)
 .byte >(execute_bad-1)
 rbaExecuteFuncEnd:
 
@@ -144,9 +151,9 @@ rbaInstrExecute:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte E09,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E07,E08,E07,E08,BAD,BAD,BAD,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E07,E08,E07,E08,E35,BAD,E36,BAD ; 8_
 .byte E00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
+.byte E07,E08,E07,E08,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte E07,E07,E07,E07,E07,E07,E07,E07,E08,E08,E08,E08,E08,E08,E08,E08 ; B_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
@@ -607,6 +614,79 @@ rel_jmp_clear_do_jump:
 
     lda #>Reg::FLAG_OF
     jsr Reg::clear_flag_hi
+
+    rts
+.endproc
+
+
+; move a segment register into a register or memory
+; zaS1 will be shifted right by 4 bits
+.proc execute_mov_rm_seg
+    ; assemble the first byte
+    lda Reg::zaS1
+    lsr
+    lsr
+    lsr
+    lsr
+    sta Reg::zaD0
+    lda Reg::zaS1+1
+    asl
+    asl
+    asl
+    asl
+    ora Reg::zaD0
+    sta Reg::zaD0
+
+    ; assemble the second byte
+    lda Reg::zaS1+1
+    lsr
+    lsr
+    lsr
+    lsr
+    sta Reg::zaD0+1
+    lda Reg::zaS1+2
+    asl
+    asl
+    asl
+    asl
+    ora Reg::zaD0+1
+    sta Reg::zaD0+1
+
+    rts
+.endproc
+
+
+; move a register or memory into a segment register
+; zaS1 will be shifted left by 4 bits
+.proc execute_mov_seg_rm
+    ; shift the first byte
+    lda Reg::zaS1
+    asl
+    asl
+    asl
+    asl
+    sta Reg::zaD0
+    lda Reg::zaS1
+    lsr
+    lsr
+    lsr
+    lsr
+    sta Reg::zaD0+1
+
+    ; shift the second byte
+    lda Reg::zaS1+1
+    asl
+    asl
+    asl
+    asl
+    ora Reg::zaD0+1
+    sta Reg::zaD0+1
+    lda Reg::zaS1+1
+    lsr
+    lsr
+    lsr
+    lsr
+    sta Reg::zaD0+2
 
     rts
 .endproc

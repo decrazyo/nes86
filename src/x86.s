@@ -41,23 +41,23 @@ rsErrorsHi:
 .byte >rsUnknown
 
 rsRegIndex:
-.byte "Register index out of range\n", 0
+.byte "\nRegister index out of range\n", 0
 rsCodeEnd:
-.byte "End of code\n", 0
+.byte "\nEnd of code\n", 0
 rsFetchLen:
-.byte "Fetched too many bytes\n", 0
+.byte "\nFetched too many bytes\n", 0
 rsFetchFunc:
-.byte "No fetch function\n", 0
+.byte "\nNo fetch function\n", 0
 rsDecodeFunc:
-.byte "No decode function\n", 0
+.byte "\nNo decode function\n", 0
 rsExecuteFunc:
-.byte "No execute function\n", 0
+.byte "\nNo execute function\n", 0
 rsWriteFunc:
-.byte "No write function\n", 0
+.byte "\nNo write function\n", 0
 rsModRM:
-.byte "Unexpected modr/m value\n", 0
+.byte "\nUnexpected modr/m value\n", 0
 rsUnknown:
-.byte "Unknown error\n", 0
+.byte "\nUnknown error\n", 0
 
 .segment "CODE"
 

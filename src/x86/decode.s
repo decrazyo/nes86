@@ -7,7 +7,16 @@
 .include "tmp.inc"
 .include "const.inc"
 
+.export zbWord
+
 .export decode
+
+.segment "ZEROPAGE"
+
+; indicates if the current instruction is performing a 16-bit.
+; 0 = 8-bit
+; 1 = 16-bit
+zbWord: .res 1
 
 .segment "RODATA"
 
@@ -24,6 +33,12 @@
     D08 ; rm16 -> S0 ; reg16 -> S1
     D09 ; reg8 -> S0 ; rm8 -> S1
     D10 ; reg16 -> S0 ; rm16 -> S1
+    D11 ; rm16 -> S0 ; seg16 -> S1
+    D12 ; seg16 -> S0 ; rm16 -> S1
+    D13 ; ptr8 -> mmu ; AL -> S1
+    D14 ; ptr16 -> mmu ; AX -> S1
+    D15 ; ptr8 -> mmu -> S1
+    D16 ; ptr16 -> mmu -> S1
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -42,6 +57,12 @@ rbaDecodeFuncLo:
 .byte <(decode_s0_modrm_rm16_s1_modrm_reg16-1)
 .byte <(decode_s0_modrm_reg8_s1_modrm_rm8-1)
 .byte <(decode_s0_modrm_reg16_s1_modrm_rm16-1)
+.byte <(decode_s0_modrm_rm16_s1_modrm_seg16-1)
+.byte <(decode_s0_modrm_seg16_s1_modrm_rm16-1)
+.byte <(decode_mmu_ptr8_s1_al-1)
+.byte <(decode_mmu_ptr16_s1_ax-1)
+.byte <(decode_s1_ptr8-1)
+.byte <(decode_s1_ptr16-1)
 .byte <(decode_bad-1)
 rbaDecodeFuncHi:
 .byte >(decode_nop-1)
@@ -55,6 +76,12 @@ rbaDecodeFuncHi:
 .byte >(decode_s0_modrm_rm16_s1_modrm_reg16-1)
 .byte >(decode_s0_modrm_reg8_s1_modrm_rm8-1)
 .byte >(decode_s0_modrm_reg16_s1_modrm_rm16-1)
+.byte >(decode_s0_modrm_rm16_s1_modrm_seg16-1)
+.byte >(decode_s0_modrm_seg16_s1_modrm_rm16-1)
+.byte >(decode_mmu_ptr8_s1_al-1)
+.byte >(decode_mmu_ptr16_s1_ax-1)
+.byte >(decode_s1_ptr8-1)
+.byte >(decode_s1_ptr16-1)
 .byte >(decode_bad-1)
 rbaDecodeFuncEnd:
 
@@ -72,9 +99,9 @@ rbaInstrDecode:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,D07,D08,D09,D10,BAD,BAD,BAD,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
 .byte D00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
+.byte D15,D16,D13,D14,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte D04,D04,D04,D04,D04,D04,D04,D04,D05,D05,D05,D05,D05,D05,D05,D05 ; B_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
@@ -90,6 +117,9 @@ rbaInstrDecode:
 ; determine which registers/memory needs to be accessed.
 ; move data into pseudo-registers.
 .proc decode
+    lda #0
+    sta zbWord
+
     ldx Reg::zbInstrOpcode
     ldy rbaInstrDecode, x
     lda rbaDecodeFuncHi, y
@@ -112,6 +142,8 @@ rbaInstrDecode:
 
 ; handle an opcode that contains an index to a 16-bit register
 .proc decode_s0_embed_reg16
+    inc zbWord
+
     ; lookup the address of the register
     lda Reg::zbInstrOpcode
     and #Reg::OPCODE_REG_MASK
@@ -131,6 +163,8 @@ rbaInstrDecode:
 
 ; opcode implies that AX is used and a 16-bit operand follows it
 .proc decode_s0_ax_s1_imm16
+    inc zbWord
+
     lda Reg::zwAX+1
     sta Reg::zaS0+1
 
@@ -153,6 +187,8 @@ rbaInstrDecode:
 
 ; opcode is followed by a 16-bit operand
 .proc decode_s1_imm16
+    inc zbWord
+
     lda Reg::zaInstrOperands+1
     sta Reg::zaS1+1
 
@@ -195,6 +231,8 @@ rbaInstrDecode:
 
 
 .proc decode_s0_modrm_rm16_s1_modrm_reg16
+    inc zbWord
+
     jsr handle_modrm_rm
     lda Tmp::zw0
     sta Reg::zaS0
@@ -225,6 +263,8 @@ rbaInstrDecode:
 
 
 .proc decode_s0_modrm_reg16_s1_modrm_rm16
+    inc zbWord
+
     jsr handle_modrm_reg
     lda Tmp::zw0
     sta Reg::zaS0
@@ -237,6 +277,106 @@ rbaInstrDecode:
     lda Tmp::zw0+1
     sta Reg::zaS1+1
 
+    rts
+.endproc
+
+
+.proc decode_s0_modrm_rm16_s1_modrm_seg16
+    inc zbWord
+
+    jsr handle_modrm_rm
+    lda Tmp::zw0
+    sta Reg::zaS0
+    lda Tmp::zw0+1
+    sta Reg::zaS0+1
+
+    jsr handle_modrm_seg
+    lda Tmp::zw0
+    sta Reg::zaS1
+    lda Tmp::zw0+1
+    sta Reg::zaS1+1
+    lda Tmp::zw0+2
+    sta Reg::zaS1+2
+
+    rts
+.endproc
+
+
+.proc decode_s0_modrm_seg16_s1_modrm_rm16
+    inc zbWord
+
+    jsr handle_modrm_seg
+    lda Tmp::zw0
+    sta Reg::zaS0
+    lda Tmp::zw0+1
+    sta Reg::zaS0+1
+    lda Tmp::zw0+2
+    sta Reg::zaS0+2
+
+    jsr handle_modrm_rm
+    lda Tmp::zw0
+    sta Reg::zaS1
+    lda Tmp::zw0+1
+    sta Reg::zaS1+1
+
+    rts
+.endproc
+
+
+; opcode implies AX is needed
+.proc decode_mmu_ptr16_s1_ax
+    inc zbWord
+
+    lda Reg::zwAX+1
+    sta Reg::zaS1+1
+    ; fall through to copy the low bytes
+.endproc
+
+; opcode implies AL is needed
+.proc decode_mmu_ptr8_s1_al
+    lda Reg::zbAL
+    sta Reg::zaS1
+
+    ; TODO: check for a segment override prefix
+    ldy #Reg::Seg::DS
+    lda Reg::zaInstrOperands
+    sta Tmp::zw0
+    lda Reg::zaInstrOperands+1
+    sta Tmp::zw0+1
+    jsr Mmu::set_address
+    rts
+.endproc
+
+
+.proc decode_s1_ptr8
+    ; TODO: check for a segment override prefix
+    ldy #Reg::Seg::DS
+    lda Reg::zaInstrOperands
+    sta Tmp::zw0
+    lda Reg::zaInstrOperands+1
+    sta Tmp::zw0+1
+    jsr Mmu::set_address
+
+    jsr Mmu::get_byte
+    sta Reg::zaS1
+    rts
+.endproc
+
+.proc decode_s1_ptr16
+    inc zbWord
+
+    ; TODO: check for a segment override prefix
+    ldy #Reg::Seg::DS
+    lda Reg::zaInstrOperands
+    sta Tmp::zw0
+    lda Reg::zaInstrOperands+1
+    sta Tmp::zw0+1
+    jsr Mmu::set_address
+
+    jsr Mmu::get_byte
+    sta Reg::zaS1
+    jsr Mmu::peek_next_byte
+    sta Reg::zaS1+1
     rts
 .endproc
 
@@ -301,6 +441,31 @@ rbaModRMFuncEnd:
     lsr
     lsr
     jmp modrm_rm_mode3 ; jsr rts -> jmp
+.endproc
+
+
+; handle the segreg portion of a ModR/M byte.
+; > Tmp::zw0 16-bit data
+.proc handle_modrm_seg
+    ; lookup the address of the segment register
+    lda Reg::zaInstrOperands
+    and #Reg::MODRM_SEG_MASK
+    lsr
+    lsr
+    lsr
+    tay
+    ldx Reg::rzbaSegRegMap, y
+
+    lda Const::ZERO_PAGE, x
+    sta Tmp::zw0
+    inx
+    lda Const::ZERO_PAGE, x
+    sta Tmp::zw0+1
+    inx
+    lda Const::ZERO_PAGE, x
+    sta Tmp::zw0+2
+
+    rts
 .endproc
 
 
@@ -371,7 +536,7 @@ get_bytes:
     tay
 
     ; check if the opcode is dealing with 16-bit data
-    lda Reg::zbInstrOpcode
+    lda zbWord
     lsr
     bcc reg8 ; branch if 8-bit data is needed
 
@@ -437,9 +602,8 @@ done:
     sta Tmp::zw0
 
     ; check if the opcode is dealing with 16-bit data
-    lda Reg::zbInstrOpcode
-    lsr
-    bcc done ; branch if the opcode is operating on 8-bit data
+    lda zbWord
+    beq done ; branch if the opcode is operating on 8-bit data
 
     ; get the next byte
     jsr Mmu::peek_next_byte

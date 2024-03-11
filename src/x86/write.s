@@ -22,6 +22,9 @@
     W07 ; D0 -> ModR/M rm16
     W08 ; D0 -> ModR/M reg8
     W09 ; D0 -> ModR/M reg16
+    W10 ; D0 -> ModR/M seg16
+    W11 ; D0 -> mmu8
+    W12 ; D0 -> mmu16
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -39,6 +42,9 @@ rbaWriteFuncLo:
 .byte <(write_modrm_rm16-1)
 .byte <(write_modrm_reg8-1)
 .byte <(write_modrm_reg16-1)
+.byte <(write_modrm_seg16-1)
+.byte <(write_mmu8-1)
+.byte <(write_mmu16-1)
 .byte <(write_bad-1)
 rbaWriteFuncHi:
 .byte >(write_nop-1)
@@ -51,6 +57,9 @@ rbaWriteFuncHi:
 .byte >(write_modrm_rm16-1)
 .byte >(write_modrm_reg8-1)
 .byte >(write_modrm_reg16-1)
+.byte >(write_modrm_seg16-1)
+.byte >(write_mmu8-1)
+.byte >(write_mmu16-1)
 .byte >(write_bad-1)
 rbaWriteFuncEnd:
 
@@ -68,9 +77,9 @@ rbaInstrWrite:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W06,W07,W08,W09,BAD,BAD,BAD,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W06,W07,W08,W09,W07,BAD,W10,BAD ; 8_
 .byte W00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
+.byte W03,W04,W11,W12,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte W01,W01,W01,W01,W01,W01,W01,W01,W02,W02,W02,W02,W02,W02,W02,W02 ; B_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
@@ -219,6 +228,43 @@ write_ram:
     lsr
     lsr
     jmp write_embed_reg16::skip_embed ; jsr rts -> jmp
+.endproc
+
+
+.proc write_modrm_seg16
+    ; lookup the address of the segment register
+    lda Reg::zaInstrOperands
+    and #Reg::MODRM_SEG_MASK
+    lsr
+    lsr
+    lsr
+    tay
+    ldx Reg::rzbaSegRegMap, y
+
+    lda Reg::zaD0
+    sta Const::ZERO_PAGE, x
+    inx
+    lda Reg::zaD0+1
+    sta Const::ZERO_PAGE, x
+    inx
+    lda Reg::zaD0+2
+    sta Const::ZERO_PAGE, x
+
+    rts
+.endproc
+
+
+.proc write_mmu8
+    lda Reg::zaD0
+    jmp Mmu::set_byte ; jsr rts -> jmp
+.endproc
+
+
+.proc write_mmu16
+    jsr write_mmu8
+    jsr Mmu::inc_address
+    lda Reg::zaD0+1
+    jmp Mmu::set_byte ; jsr rts -> jmp
 .endproc
 
 

@@ -46,9 +46,19 @@
     E32 ; ADC 16
     E33 ; SBB 8
     E34 ; SBB 16
-
     E35 ; MOV r/m, seg
     E36 ; MOV seg, r/m
+
+    ; begin flag instructions
+    E37 ; CMC
+    E38 ; CLC
+    E39 ; STC
+    E40 ; CLI
+    E41 ; STI
+    E42 ; CLD
+    E43 ; STD
+    ; end flag instructions
+
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -95,6 +105,13 @@ rbaExecuteFuncLo:
 .byte <(execute_sbb_16-1)
 .byte <(execute_mov_rm_seg-1)
 .byte <(execute_mov_seg_rm-1)
+.byte <(execute_cmc-1)
+.byte <(execute_clc-1)
+.byte <(execute_stc-1)
+.byte <(execute_cli-1)
+.byte <(execute_sti-1)
+.byte <(execute_cld-1)
+.byte <(execute_std-1)
 .byte <(execute_bad-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
@@ -134,6 +151,13 @@ rbaExecuteFuncHi:
 .byte >(execute_sbb_16-1)
 .byte >(execute_mov_rm_seg-1)
 .byte >(execute_mov_seg_rm-1)
+.byte >(execute_cmc-1)
+.byte >(execute_clc-1)
+.byte >(execute_stc-1)
+.byte >(execute_cli-1)
+.byte >(execute_sti-1)
+.byte >(execute_cld-1)
+.byte >(execute_std-1)
 .byte >(execute_bad-1)
 rbaExecuteFuncEnd:
 
@@ -158,7 +182,7 @@ rbaInstrExecute:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; E_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; F_
+.byte BAD,BAD,BAD,BAD,BAD,E37,BAD,BAD,E38,E39,E40,E41,E42,E43,BAD,BAD ; F_
 
 .segment "CODE"
 
@@ -688,6 +712,62 @@ rel_jmp_clear_do_jump:
     lsr
     sta Reg::zaD0+2
 
+    rts
+.endproc
+
+
+.proc execute_cmc
+    lda Reg::zbFlagsLo
+    eor #<Reg::FLAG_CF
+    sta Reg::zbFlagsLo
+    rts
+.endproc
+
+
+.proc execute_clc
+    lda Reg::zbFlagsLo
+    and #<(~Reg::FLAG_CF)
+    sta Reg::zbFlagsLo
+    rts
+.endproc
+
+
+.proc execute_stc
+    lda Reg::zbFlagsLo
+    ora #<Reg::FLAG_CF
+    sta Reg::zbFlagsLo
+    rts
+.endproc
+
+
+.proc execute_cli
+    lda Reg::zbFlagsHi
+    and #>(~Reg::FLAG_IF)
+    sta Reg::zbFlagsHi
+    rts
+.endproc
+
+
+.proc execute_sti
+    lda Reg::zbFlagsHi
+    ora #>Reg::FLAG_IF
+    sta Reg::zbFlagsHi
+    rts
+.endproc
+
+
+.proc execute_cld
+    lda Reg::zbFlagsHi
+    and #>(~Reg::FLAG_DF)
+    sta Reg::zbFlagsHi
+    rts
+.endproc
+
+
+.proc execute_std
+    lda Reg::zbFlagsHi
+    ora #>Reg::FLAG_DF
+    sta Reg::zbFlagsHi
     rts
 .endproc
 

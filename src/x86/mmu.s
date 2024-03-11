@@ -141,6 +141,18 @@ BANK_MASK = %01111111
 .endproc
 
 
+; select the required bank for general RAM/ROM access
+; changes: A, Y
+.proc set_bank
+    ldy zbBank
+skip_load:
+    lda rbaBankMap, y ; determines if we access RAM or ROM
+    ora zbBank
+    sta WIN1_BANK
+    rts
+.endproc
+
+
 ; compute a 20-bit address from a 16-bit address and a segment register.
 ; < Y = segment index
 ; < Tmp::zw0 = 16-bit address
@@ -187,14 +199,14 @@ BANK_MASK = %01111111
     asl
     ora zbBank
     sta zbBank
-
-    rts
+    tay
+    jmp set_bank::skip_load ; jsr rts -> jmp
 .endproc
 
 
 ; increment the address and bank if needed.
 ; this is faster than setting an address for sequential reads.
-; changes: A
+; changes: A, Y
 .proc inc_address
     inc zbAddressLo
     bne done
@@ -206,6 +218,8 @@ carry:
     bcc set_addr_hi ; branch if the address is still inside window 1
     lda #>WINDOW1
     inc zbBank
+    sta zbAddressHi
+    jmp set_bank ; jsr rts -> jmp
 set_addr_hi:
     sta zbAddressHi
 done:
@@ -267,6 +281,21 @@ done:
 .endproc
 
 
+; write a byte to RAM at the address specified with set_address.
+; > A = byte to write to RAM
+; change: A, Y
+.proc set_byte
+    ; select the necessary bank.
+    ; defaults to RAM
+    ldy zbBank
+    sty WIN1_BANK
+
+    ldy #0
+    sta (zpAddress), y
+    rts
+.endproc
+
+
 ; push a 16-bit word onto the stack
 ; < Tmp::zw0 = value to push to the stack
 ; changes: A, Y
@@ -290,6 +319,7 @@ do_push:
 
 ; pop a 16-bit word from the stack
 ; > Tmp::zw0 = value popped from the stack
+; changes: A, Y
 .proc pop_word
     lda zbStackDirty
     beq do_pop ; branch if the stack address in the MMU is still valid
@@ -307,26 +337,20 @@ do_pop:
 .endproc
 
 
-; TODO: implement this
 ; get the byte pointed to by CS + IP.
 ; increment IP and the MMU's internal code address.
 ; > A = byte read from RAM or ROM
+; changes: A, Y
 .proc get_ip_byte
-    rts
-.endproc
-
-
-; write a byte to RAM at the address specified with set_address.
-; > A = byte to write to RAM
-; change: A, Y
-.proc set_byte
-    ; select the necessary bank.
-    ; defaults to RAM
-    ldy zbBank
-    sty WIN1_BANK
-
+    lda zbCodeDirty
+    beq do_get_ip_byte ; branch if the code address in the MMU is still valid
+    jsr set_code_address
+do_get_ip_byte:
     ldy #0
-    sta (zpAddress), y
+    lda (zpCodeAddress), y
+    pha
+    jsr inc_code_address
+    pla
     rts
 .endproc
 
@@ -335,6 +359,7 @@ do_pop:
 ; ==============================================================================
 
 ; set the MMU's stack address based on the value in SS + SP
+; changes: A
 .proc set_stack_address
     ; SS + SP
     clc
@@ -344,8 +369,8 @@ do_pop:
     lda Reg::zwSP+1
     adc Reg::zaSS+1
     sta zbStackAddressHi
-    lda Reg::zwSP+1
-    adc Reg::zaSS+1
+    lda Reg::zwSP+2
+    adc Reg::zaSS+2
     sta zbStackBank
 
     ; extract the bank number from the address
@@ -364,6 +389,7 @@ do_pop:
     rol
     ora zbStackBank
     sta zbStackBank
+    sta WIN0_BANK
 
     ; adjust the pointer to point to one of the MMC5 mapper windows.
     lda zbStackAddressHi
@@ -392,6 +418,10 @@ do_pop:
     bcc set_addr_hi ; branch if the address is still inside the window
     lda #>WINDOW0
     inc zbStackBank
+    sta zbStackAddressHi
+    lda zbStackBank
+    sta WIN0_BANK
+    rts
 set_addr_hi:
     sta zbStackAddressHi
 done:
@@ -399,6 +429,7 @@ done:
 .endproc
 
 ; decrement SP and the MMU's internal stack address
+; changes: A
 .proc dec_stack_address
     dec Reg::zwSP
     lda zbStackAddressLo
@@ -413,8 +444,93 @@ done:
     bcs set_addr_hi ; branch if the address is still inside the window
     lda #>WINDOW1-1
     dec zbStackBank
+    sta zbStackAddressHi
+    lda zbStackBank
+    sta WIN0_BANK
+    rts
 set_addr_hi:
     sta zbStackAddressHi
+done:
+    rts
+.endproc
+
+
+; select the necessary bank in the code segment window
+; changes: A, Y
+.proc set_code_bank
+    ldy zbCodeBank
+skip_load:
+    lda rbaBankMap, y ; determines if we access RAM or ROM
+    ora zbCodeBank
+    sta WIN2_BANK
+    rts
+.endproc
+
+
+; set the MMU's code address based on the value in CS + IP
+; changes: A, Y
+.proc set_code_address
+    ; CS + IP
+    clc
+    lda Reg::zwIP
+    adc Reg::zaCS
+    sta zbCodeAddressLo
+    lda Reg::zwIP+1
+    adc Reg::zaCS+1
+    sta zbCodeAddressHi
+    lda Reg::zwIP+2
+    adc Reg::zaCS+2
+    sta zbCodeBank
+
+    ; extract the bank number from the address
+    lda zbCodeBank
+    and #%00001111
+    asl
+    asl
+    asl
+    sta zbCodeBank
+
+    lda zbCodeAddressHi
+    and #%11100000
+    asl
+    rol
+    rol
+    rol
+    ora zbCodeBank
+    sta zbCodeBank
+    tay
+    jsr set_code_bank::skip_load
+
+    ; adjust the pointer to point to one of the MMC5 mapper windows.
+    lda zbCodeAddressHi
+    and #%00011111
+    ora #>WINDOW2
+    sta zbCodeAddressHi
+
+    ; flag the code address as no longer dirty
+    lda #0
+    sta zbCodeDirty
+    rts
+.endproc
+
+
+; increment IP and the MMU's internal code address
+; changes: A, Y
+.proc inc_code_address
+    inc Reg::zwIP
+    inc zbCodeAddressLo
+    bne done
+    inc Reg::zwIP+1
+    ldy zbCodeAddressHi
+    iny
+    cpy #>WINDOW3
+    bcc set_addr_hi ; branch if the address is still inside the window
+    ldy #>WINDOW2
+    inc zbCodeBank
+    sty zbCodeAddressHi
+    jmp set_code_bank ; jsr rts -> jmp
+set_addr_hi:
+    sty zbCodeAddressHi
 done:
     rts
 .endproc
@@ -426,6 +542,9 @@ done:
 .ifdef DEBUG
 .segment "RODATA"
 
+
+rsHeader:
+.byte "\t\tcode\tstack\tother", 0
 rsBank:
 .byte "bank:\t", 0
 rsAddr:
@@ -438,10 +557,35 @@ rsAddr:
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
+    lda #<rsHeader
+    ldx #>rsHeader
+    jsr Tmp::set_ptr0
+    jsr Con::print_str
+
+    lda #Chr::NEW_LINE
+    jsr Con::print_chr
+
+
     lda #<rsBank
     ldx #>rsBank
     jsr Tmp::set_ptr0
     jsr Con::print_str
+
+    lda zbCodeBank
+    jsr Con::print_hex
+
+    lda #Chr::TAB
+    jsr Con::print_chr
+    lda #Chr::TAB
+    jsr Con::print_chr
+
+    lda zbStackBank
+    jsr Con::print_hex
+
+    lda #Chr::TAB
+    jsr Con::print_chr
+    lda #Chr::TAB
+    jsr Con::print_chr
 
     lda zbBank
     jsr Con::print_hex
@@ -449,10 +593,27 @@ rsAddr:
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
+
     lda #<rsAddr
     ldx #>rsAddr
     jsr Tmp::set_ptr0
     jsr Con::print_str
+
+    lda #<zpCodeAddress
+    jsr Tmp::set_zp_ptr0
+    ldy #2
+    jsr Con::print_hex_arr_rev
+
+    lda #Chr::TAB
+    jsr Con::print_chr
+
+    lda #<zpStackAddress
+    jsr Tmp::set_zp_ptr0
+    ldy #2
+    jsr Con::print_hex_arr_rev
+
+    lda #Chr::TAB
+    jsr Con::print_chr
 
     lda #<zpAddress
     jsr Tmp::set_zp_ptr0

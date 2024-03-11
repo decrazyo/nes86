@@ -69,21 +69,13 @@ rbaInstrLength:
 ; read instruction opcode and operands into the instruction buffer.
 ; changes: A, X, Y
 .proc fetch
-    ; point the MMU at CS + IP
-    lda Reg::zwIP
-    sta Tmp::zw0
-    lda Reg::zwIP+1
-    sta Tmp::zw0+1
-    ldy #Reg::Seg::CS
-    jsr Mmu::set_address
-
     ; reset the instruction length
     lda #0
     sta Reg::zbInstrLen
 
 next:
     ; get a byte from memory
-    jsr get_ip_byte
+    jsr Mmu::get_ip_byte
 
     ; lookup the appropriate fetch handler
     tax
@@ -107,7 +99,7 @@ next:
 ; if calling copy_bytes::store_first then
 ; < A = instruction byte
 .proc copy_bytes
-    jsr get_ip_byte
+    jsr Mmu::get_ip_byte
 store_first:
     sta Reg::zbInstrOpcode, x
     inx
@@ -166,7 +158,7 @@ done:
     stx Reg::zbInstrLen
 
     ; get the ModR/M byte
-    jsr get_ip_byte
+    jsr Mmu::get_ip_byte
     tay ; save A for later
     and #Reg::MODRM_MOD_MASK
     bne check_displacement
@@ -219,24 +211,3 @@ register_index:
     jmp X86::panic
 .endproc
 
-; ==============================================================================
-; utility functions
-; ==============================================================================
-
-; get a byte from the MMU which is assumed to be pointing at CS + IP.
-; increment the MMU's address.
-; increment the instruction pointer.
-; Mmu::set_address should have been called at least once before this.
-; changes: A, Y
-.proc get_ip_byte
-    jsr Mmu::get_byte
-    tay ; save A for later
-    jsr Mmu::inc_address
-    ; increment the instruction pointer
-    inc Reg::zwIP
-    bne done
-    inc Reg::zwIP+1
-done:
-    tya
-    rts
-.endproc

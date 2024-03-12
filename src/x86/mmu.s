@@ -574,6 +574,8 @@ rsBank:
 .byte "bank:\t", 0
 rsAddr:
 .byte "addr:\t", 0
+rsDirty:
+.byte "dirty:\t", 0
 
 .segment "CODE"
 
@@ -617,6 +619,8 @@ rsAddr:
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
+    jsr Nmi::wait
+
     lda #<rsAddr
     ldx #>rsAddr
     jsr Tmp::set_ptr0
@@ -642,6 +646,25 @@ rsAddr:
     jsr Tmp::set_zp_ptr0
     ldy #2
     jsr Con::print_hex_arr_rev
+
+    lda #Chr::NEW_LINE
+    jsr Con::print_chr
+
+    lda #<rsDirty
+    ldx #>rsDirty
+    jsr Tmp::set_ptr0
+    jsr Con::print_str
+
+    lda zbCodeDirty
+    jsr Con::print_hex
+
+    lda #Chr::TAB
+    jsr Con::print_chr
+    lda #Chr::TAB
+    jsr Con::print_chr
+
+    lda zbStackDirty
+    jsr Con::print_hex
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr

@@ -40,9 +40,9 @@
 .exportzp zbFlagsLo
 .exportzp zbFlagsHi
 
-.exportzp zaS0
-.exportzp zaS1
-.exportzp zaD0
+.exportzp zwS0
+.exportzp zwS1
+.exportzp zwD0
 
 .exportzp zbInstrLen
 .exportzp zbInstrPrefix
@@ -120,10 +120,10 @@ zbFlagsHi: .res 1
 ; pseudo-registers:
 ; these 24-bits wide to allow for 20-bit address calculations.
 ; source registers
-zaS0: .res 3
-zaS1: .res 3
+zwS0: .res 2
+zwS1: .res 2
 ; destination registers
-zaD0: .res 3
+zwD0: .res 2
 
 ; instruction length
 ; opcode + operands
@@ -530,9 +530,9 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zaS0
+    lda #<zwS0
     jsr Tmp::set_zp_ptr0
-    ldy #3
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
@@ -544,9 +544,9 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zaS1
+    lda #<zwS1
     jsr Tmp::set_zp_ptr0
-    ldy #3
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
@@ -558,9 +558,9 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zaD0
+    lda #<zwD0
     jsr Tmp::set_zp_ptr0
-    ldy #3
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE

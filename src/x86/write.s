@@ -45,6 +45,7 @@
     W29 ; S0 -> BP ; S1 -> AX
     W30 ; S0 -> SI ; S1 -> AX
     W31 ; S0 -> DI ; S1 -> AX
+    W32 ; S0 -> IP ; S1 -> CS
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -84,6 +85,7 @@ rbaWriteFuncLo:
 .byte <(write_bp_ax-1)
 .byte <(write_si_ax-1)
 .byte <(write_di_ax-1)
+.byte <(write_ip_cs-1)
 .byte <(write_bad-1)
 rbaWriteFuncHi:
 .byte >(write_nop-1)
@@ -118,6 +120,7 @@ rbaWriteFuncHi:
 .byte >(write_bp_ax-1)
 .byte >(write_si_ax-1)
 .byte >(write_di_ax-1)
+.byte >(write_ip_cs-1)
 .byte >(write_bad-1)
 rbaWriteFuncEnd:
 
@@ -141,7 +144,7 @@ rbaInstrWrite:
 .byte W01,W01,W01,W01,W01,W01,W01,W01,W02,W02,W02,W02,W02,W02,W02,W02 ; B_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; E_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W05,W32,W05,BAD,BAD,BAD,BAD ; E_
 .byte BAD,BAD,BAD,BAD,BAD,W00,BAD,BAD,W00,W00,W00,W00,W00,W00,BAD,BAD ; F_
 
 .segment "CODE"
@@ -182,7 +185,7 @@ skip_embed:
     tay
     ldx Reg::rzbaReg8Map, y
 
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Const::ZERO_PAGE, x
     rts
 .endproc
@@ -196,34 +199,40 @@ skip_embed:
     tay
     ldx Reg::rzbaReg16Map, y
 
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Const::ZERO_PAGE, x
     inx
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Const::ZERO_PAGE, x
 
+    ; if we changed SP then we need to tell the MMU.
+    cpy #Reg::Reg16::SP
+    bne done ; branch if we didn't change the stack pointer
+    inc Mmu::zbStackDirty
+done:
     rts
 .endproc
 
 
 .proc write_ax
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwAX+1
     ; fall through to copy the low byte
 .endproc
 
 .proc write_al
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zbAL
     rts
 .endproc
 
 
 .proc write_ip
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwIP
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwIP+1
+    inc Mmu::zbCodeDirty
     rts
 .endproc
 
@@ -242,7 +251,7 @@ skip_embed:
     jmp write_embed_reg8::skip_embed ; jsr rts -> jmp
 
 write_ram:
-    lda Reg::zaD0
+    lda Reg::zwD0
     jmp Mmu::set_byte ; jsr rts -> jmp
 .endproc
 
@@ -261,10 +270,10 @@ write_ram:
     jmp write_embed_reg16::skip_embed ; jsr rts -> jmp
 
 write_ram:
-    lda Reg::zaD0
+    lda Reg::zwD0
     jsr Mmu::set_byte
     jsr Mmu::inc_address
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     jsr Mmu::set_byte ; jsr rts -> jmp
 .endproc
 
@@ -299,18 +308,28 @@ write_ram:
     tay
     ldx Reg::rzbaSegRegMap, y
 
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Const::ZERO_PAGE, x
     inx
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Const::ZERO_PAGE, x
 
+    ; if we changed CS or SS then we need to tell the MMU.
+    cpy #Reg::Seg::CS
+    bne check_stack ; branch if we didn't change the code segment
+    inc Mmu::zbCodeDirty
+    bne done ; branch always
+check_stack:
+    cpy #Reg::Seg::SS
+    bne done ; branch if we didn't change the stack segment
+    inc Mmu::zbStackDirty
+done:
     rts
 .endproc
 
 
 .proc write_mmu8
-    lda Reg::zaD0
+    lda Reg::zwD0
     jmp Mmu::set_byte ; jsr rts -> jmp
 .endproc
 
@@ -318,187 +337,199 @@ write_ram:
 .proc write_mmu16
     jsr write_mmu8
     jsr Mmu::inc_address
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     jmp Mmu::set_byte ; jsr rts -> jmp
 .endproc
 
 
 .proc write_stack
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Tmp::zw0
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Tmp::zw0+1
     jmp Mmu::push_word
 .endproc
 
 
 .proc write_bx
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwBX
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwBX+1
     rts
 .endproc
 
 
 .proc write_cx
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwCX
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwCX+1
     rts
 .endproc
 
 
 .proc write_dx
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwDX
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwDX+1
     rts
 .endproc
 
 
 .proc write_sp
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwSP
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwSP+1
+    inc Mmu::zbStackDirty
     rts
 .endproc
 
 
 .proc write_bp
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwBP
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwBP+1
     rts
 .endproc
 
 
 .proc write_si
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwSI
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwSI+1
     rts
 .endproc
 
 
 .proc write_di
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwDI
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwDI+1
     rts
 .endproc
 
 
 .proc write_cs
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwCS
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwCS+1
-    lda Reg::zaD0+2
-    sta Reg::zwCS+2
+    inc Mmu::zbCodeDirty
     rts
 .endproc
 
 
 .proc write_ds
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwDS
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwDS+1
-    lda Reg::zaD0+2
-    sta Reg::zwDS+2
     rts
 .endproc
 
 
 .proc write_es
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwES
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwES+1
-    lda Reg::zaD0+2
-    sta Reg::zwES+2
     rts
 .endproc
 
 
 .proc write_ss
-    lda Reg::zaD0
+    lda Reg::zwD0
     sta Reg::zwSS
-    lda Reg::zaD0+1
+    lda Reg::zwD0+1
     sta Reg::zwSS+1
-    lda Reg::zaD0+2
-    sta Reg::zwSS+2
+    inc Mmu::zbStackDirty
     rts
 .endproc
 
 
 .proc write_bx_ax
-    lda Reg::zaS0
+    lda Reg::zwS0
     sta Reg::zwBX
-    lda Reg::zaS0+1
+    lda Reg::zwS0+1
     sta Reg::zwBX+1
     jmp write_s0_ax ; jsr rts -> jmp
 .endproc
 
 
 .proc write_cx_ax
-    lda Reg::zaS0
+    lda Reg::zwS0
     sta Reg::zwCX
-    lda Reg::zaS0+1
+    lda Reg::zwS0+1
     sta Reg::zwCX+1
     jmp write_s0_ax ; jsr rts -> jmp
 .endproc
 
 
 .proc write_dx_ax
-    lda Reg::zaS0
+    lda Reg::zwS0
     sta Reg::zwDX
-    lda Reg::zaS0+1
+    lda Reg::zwS0+1
     sta Reg::zwDX+1
     jmp write_s0_ax ; jsr rts -> jmp
 .endproc
 
 
 .proc write_sp_ax
-    lda Reg::zaS0
+    lda Reg::zwS0
     sta Reg::zwSP
-    lda Reg::zaS0+1
+    lda Reg::zwS0+1
     sta Reg::zwSP+1
+    inc Mmu::zbStackDirty
     jmp write_s0_ax ; jsr rts -> jmp
 .endproc
 
 
 .proc write_bp_ax
-    lda Reg::zaS0
+    lda Reg::zwS0
     sta Reg::zwBP
-    lda Reg::zaS0+1
+    lda Reg::zwS0+1
     sta Reg::zwBP+1
     jmp write_s0_ax ; jsr rts -> jmp
 .endproc
 
 
 .proc write_si_ax
-    lda Reg::zaS0
+    lda Reg::zwS0
     sta Reg::zwSI
-    lda Reg::zaS0+1
+    lda Reg::zwS0+1
     sta Reg::zwSI+1
     jmp write_s0_ax ; jsr rts -> jmp
 .endproc
 
 
 .proc write_di_ax
-    lda Reg::zaS0
+    lda Reg::zwS0
     sta Reg::zwDI
-    lda Reg::zaS0+1
+    lda Reg::zwS0+1
     sta Reg::zwDI+1
     jmp write_s0_ax ; jsr rts -> jmp
+.endproc
+
+
+.proc write_ip_cs
+    lda Reg::zwS0
+    sta Reg::zwIP
+    lda Reg::zwS0+1
+    sta Reg::zwIP+1
+
+    lda Reg::zwS1
+    sta Reg::zwCS
+    lda Reg::zwS1+1
+    sta Reg::zwCS+1
+
+    inc Mmu::zbCodeDirty
+    rts
 .endproc
 
 
@@ -510,9 +541,9 @@ write_ram:
 ; ==============================================================================
 
 .proc write_s0_ax
-    lda Reg::zaS1
+    lda Reg::zwS1
     sta Reg::zwAX
-    lda Reg::zaS1+1
+    lda Reg::zwS1+1
     sta Reg::zwAX+1
     rts
 .endproc

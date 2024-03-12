@@ -35,9 +35,9 @@ _X86_REG_ = 1
     .importzp zbFlagsLo
     .importzp zbFlagsHi
 
-    .importzp zaS0
-    .importzp zaS1
-    .importzp zaD0
+    .importzp zwS0
+    .importzp zwS1
+    .importzp zwD0
 
     .importzp zbInstrLen
     .importzp zbInstrPrefix

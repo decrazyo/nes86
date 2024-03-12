@@ -16,7 +16,9 @@
     F00 ; 1 byte instruction
     F01 ; 2 byte instruction
     F02 ; 3 byte instruction
-    F03 ; instruction with a ModR/M byte
+    F03 ; 4 byte instruction
+    F04 ; 5 byte instruction
+    F05 ; instruction with a ModR/M byte
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
 .endenum
@@ -26,12 +28,16 @@ rbaFetchFuncLo:
 .byte <(fetch_len1-1)
 .byte <(fetch_len2-1)
 .byte <(fetch_len3-1)
+.byte <(fetch_len4-1)
+.byte <(fetch_len5-1)
 .byte <(fetch_modrm-1)
 .byte <(fetch_bad-1)
 rbaFetchFuncHi:
 .byte >(fetch_len1-1)
 .byte >(fetch_len2-1)
 .byte >(fetch_len3-1)
+.byte >(fetch_len4-1)
+.byte >(fetch_len5-1)
 .byte >(fetch_modrm-1)
 .byte >(fetch_bad-1)
 rbaFetchFuncEnd:
@@ -42,21 +48,21 @@ rbaFetchFuncEnd:
 ; map opcodes to instruction length
 rbaInstrLength:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte F03,F03,F03,F03,F01,F02,F00,F00,F03,F03,F03,F03,F01,F02,F00,BAD ; 1_
-.byte F03,F03,F03,F03,F01,F02,F00,F00,F03,F03,F03,F03,F01,F02,F00,F00 ; 0_
-.byte F03,F03,F03,F03,F01,F02,BAD,BAD,F03,F03,F03,F03,F01,F02,BAD,BAD ; 2_
-.byte F03,F03,F03,F03,F01,F02,BAD,BAD,F03,F03,F03,F03,F01,F02,BAD,BAD ; 3_
+.byte F05,F05,F05,F05,F01,F02,F00,F00,F05,F05,F05,F05,F01,F02,F00,BAD ; 1_
+.byte F05,F05,F05,F05,F01,F02,F00,F00,F05,F05,F05,F05,F01,F02,F00,F00 ; 0_
+.byte F05,F05,F05,F05,F01,F02,BAD,BAD,F05,F05,F05,F05,F01,F02,BAD,BAD ; 2_
+.byte F05,F05,F05,F05,F01,F02,BAD,BAD,F05,F05,F05,F05,F01,F02,BAD,BAD ; 3_
 .byte F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00 ; 4_
 .byte F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,F03,F03,F03,F03,F03,BAD,F03,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,F05,F05,F05,F05,F05,BAD,F05,BAD ; 8_
 .byte F00,F00,F00,F00,F00,F00,F00,F00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte F02,F02,F02,F02,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F02,F02,F02,F02,F02,F02,F02,F02 ; B_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; E_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,F02,F04,F01,BAD,BAD,BAD,BAD ; E_
 .byte BAD,BAD,BAD,BAD,BAD,F00,BAD,BAD,F00,F00,F00,F00,F00,F00,BAD,BAD ; F_
 
 .segment "CODE"
@@ -143,6 +149,22 @@ done:
 .proc fetch_len3
     ldx Reg::zbInstrLen
     ldy #3
+    sty Reg::zbInstrLen
+    jmp copy_bytes::store_first
+.endproc
+
+
+.proc fetch_len4
+    ldx Reg::zbInstrLen
+    ldy #4
+    sty Reg::zbInstrLen
+    jmp copy_bytes::store_first
+.endproc
+
+
+.proc fetch_len5
+    ldx Reg::zbInstrLen
+    ldy #5
     sty Reg::zbInstrLen
     jmp copy_bytes::store_first
 .endproc

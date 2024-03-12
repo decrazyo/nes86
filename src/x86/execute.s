@@ -658,34 +658,9 @@ rel_jmp_clear_do_jump:
 .proc execute_mov_rm_seg
     ; assemble the first byte
     lda Reg::zaS1
-    lsr
-    lsr
-    lsr
-    lsr
     sta Reg::zaD0
     lda Reg::zaS1+1
-    asl
-    asl
-    asl
-    asl
-    ora Reg::zaD0
-    sta Reg::zaD0
-
-    ; assemble the second byte
-    lda Reg::zaS1+1
-    lsr
-    lsr
-    lsr
-    lsr
     sta Reg::zaD0+1
-    lda Reg::zaS1+2
-    asl
-    asl
-    asl
-    asl
-    ora Reg::zaD0+1
-    sta Reg::zaD0+1
-
     rts
 .endproc
 
@@ -695,33 +670,9 @@ rel_jmp_clear_do_jump:
 .proc execute_mov_seg_rm
     ; shift the first byte
     lda Reg::zaS1
-    asl
-    asl
-    asl
-    asl
     sta Reg::zaD0
-    lda Reg::zaS1
-    lsr
-    lsr
-    lsr
-    lsr
-    sta Reg::zaD0+1
-
-    ; shift the second byte
     lda Reg::zaS1+1
-    asl
-    asl
-    asl
-    asl
-    ora Reg::zaD0+1
     sta Reg::zaD0+1
-    lda Reg::zaS1+1
-    lsr
-    lsr
-    lsr
-    lsr
-    sta Reg::zaD0+2
-
     rts
 .endproc
 

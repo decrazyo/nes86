@@ -355,8 +355,6 @@ rbaInstrDecode:
     sta Reg::zaS1
     lda Tmp::zw0+1
     sta Reg::zaS1+1
-    lda Tmp::zw0+2
-    sta Reg::zaS1+2
 
     rts
 .endproc
@@ -370,8 +368,6 @@ rbaInstrDecode:
     sta Reg::zaS0
     lda Tmp::zw0+1
     sta Reg::zaS0+1
-    lda Tmp::zw0+2
-    sta Reg::zaS0+2
 
     jsr handle_modrm_rm
     lda Tmp::zw0
@@ -514,44 +510,44 @@ rbaInstrDecode:
 
 
 .proc decode_s1_cs
-    lda Reg::zaCS
+    lda Reg::zwCS
     sta Reg::zaS1
-    lda Reg::zaCS+1
+    lda Reg::zwCS+1
     sta Reg::zaS1+1
-    lda Reg::zaCS+2
+    lda Reg::zwCS+2
     sta Reg::zaS1+2
     rts
 .endproc
 
 
 .proc decode_s1_ds
-    lda Reg::zaDS
+    lda Reg::zwDS
     sta Reg::zaS1
-    lda Reg::zaDS+1
+    lda Reg::zwDS+1
     sta Reg::zaS1+1
-    lda Reg::zaDS+2
+    lda Reg::zwDS+2
     sta Reg::zaS1+2
     rts
 .endproc
 
 
 .proc decode_s1_es
-    lda Reg::zaES
+    lda Reg::zwES
     sta Reg::zaS1
-    lda Reg::zaES+1
+    lda Reg::zwES+1
     sta Reg::zaS1+1
-    lda Reg::zaES+2
+    lda Reg::zwES+2
     sta Reg::zaS1+2
     rts
 .endproc
 
 
 .proc decode_s1_ss
-    lda Reg::zaSS
+    lda Reg::zwSS
     sta Reg::zaS1
-    lda Reg::zaSS+1
+    lda Reg::zwSS+1
     sta Reg::zaS1+1
-    lda Reg::zaSS+2
+    lda Reg::zwSS+2
     sta Reg::zaS1+2
     rts
 .endproc
@@ -689,9 +685,6 @@ rbaModRMFuncEnd:
     inx
     lda Const::ZERO_PAGE, x
     sta Tmp::zw0+1
-    inx
-    lda Const::ZERO_PAGE, x
-    sta Tmp::zw0+2
 
     rts
 .endproc

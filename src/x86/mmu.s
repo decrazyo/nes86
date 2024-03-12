@@ -6,6 +6,7 @@
 .include "const.inc"
 .include "tmp.inc"
 .include "con.inc"
+.include "mmc5.inc"
 .include "nmi.inc"
 .include "chr.inc"
 
@@ -55,8 +56,8 @@ zbCodeDirty: .res 1
 
 .segment "RODATA"
 
-RAM = %00000000
-ROM = %10000000
+RAM = Mmc5::RAM
+ROM = Mmc5::ROM
 
 ; NOTE: this isn't strictly needed but it makes testing/tweaking easier.
 rbaBankMap:
@@ -76,28 +77,6 @@ rbaBankMapEnd:
 
 .segment "CODE"
 
-PRG_MODE = $5100
-CHR_MODE = $5101
-PROTECT1 = $5102
-PROTECT2 = $5103
-
-WIN0_BANK = $5113
-WIN1_BANK = $5114
-WIN2_BANK = $5115
-WIN3_BANK = $5116
-WIN4_BANK = $5117
-
-WINDOW0 = $6000 ; RAM only  (stack segment)
-WINDOW1 = $8000 ; RAM/ROM   (any segment)
-WINDOW2 = $A000 ; RAM/ROM   (TODO: code segment)
-WINDOW3 = $C000 ; RAM/ROM   (unused)
-WINDOW4 = $E000 ; ROM only  (unused)
-
-; selects RAM or ROM access
-SELECT_MASK = %10000000
-; selects which bank is mapped to a window
-BANK_MASK = %01111111
-
 ; ==============================================================================
 ; public interface
 ; ==============================================================================
@@ -110,27 +89,8 @@ BANK_MASK = %01111111
 
 ; initialize the MMU
 .proc mmu
-    ; configure PRG mode 3
-    ; $6000-$7FFF: 8 KB switchable PRG RAM bank
-    ; $8000-$9FFF: 8 KB switchable PRG ROM/RAM bank
-    ; $A000-$BFFF: 8 KB switchable PRG ROM/RAM bank
-    ; $C000-$DFFF: 8 KB switchable PRG ROM/RAM bank
-    ; $E000-$FFFF: 8 KB switchable PRG ROM bank
-    lda #3
-    sta PRG_MODE
 
-    ; configure CHR mode 0
-    ; 8KB CHR pages
-    ; NOTE: consider switching to mode 3 since most games use that.
-    ;       it might give us better compatibility with cheap Famiclones.
-    lda #0
-    sta CHR_MODE
-
-    ; make PRG RAM writable
-    lda #2
-    sta PROTECT1
-    lsr
-    sta PROTECT2
+    jsr Mmc5::mmc5
 
     ; mark the stack and code addresses as dirty.
     ; this will force the addresses to be set correctly when they are used.
@@ -142,13 +102,14 @@ BANK_MASK = %01111111
 
 
 ; select the required bank for general RAM/ROM access
+; this function isn't actually public but it's placed here so the assembler doesn't bitch.
 ; changes: A, Y
 .proc set_bank
     ldy zbBank
 skip_load:
     lda rbaBankMap, y ; determines if we access RAM or ROM
     ora zbBank
-    sta WIN1_BANK
+    sta Mmc5::WIN1_BANK
     rts
 .endproc
 
@@ -156,51 +117,72 @@ skip_load:
 ; compute a 20-bit address from a 16-bit address and a segment register.
 ; < Y = segment index
 ; < Tmp::zw0 = 16-bit address
-; changes: A, Y
+; changes: A, X, Y
 .proc set_address
     ; get the zero-page offset of the segment register.
     ldx Reg::rzbaSegRegMap, y
 
-    ; add the segment register to the 16-bit address.
+    ; ptr + (seg << 4)
     clc
-    lda Tmp::zd0
-    adc Const::ZERO_PAGE, x
-    sta Tmp::zd0
-    inx
-    lda Tmp::zd0+1
-    adc Const::ZERO_PAGE, x
-    sta Tmp::zd0+1
-    inx
-    lda #0
-    adc Const::ZERO_PAGE, x
-    sta Tmp::zd0+2
+    ldy #16
+    ; shift segment low byte
+    lda Const::ZERO_PAGE, x
+    sta Mmc5::MULT_LO
+    sty Mmc5::MULT_HI
 
-    ; extract a pointer in the range [0, 0x1fff] from the address.
-    ; adjust the pointer to point to one of the MMC5 mapper windows.
-    lda Tmp::zd0
+    ; add the pointer low byte
+    lda Mmc5::MULT_LO
+    adc Tmp::zw0
     sta zbAddressLo
-    lda Tmp::zd0+1
-    and #%00011111
-    ora #>WINDOW1
+
+    ; temporarily storage the low nibble of the next byte
+    lda Mmc5::MULT_HI
     sta zbAddressHi
 
+    inx
+
+    ; shift segment high byte
+    lda Const::ZERO_PAGE, x
+    sta Mmc5::MULT_LO
+    sty Mmc5::MULT_HI
+
+    ; add the pointer high byte
+    lda Mmc5::MULT_LO
+    ora zbAddressHi
+    adc Tmp::zw0+1
+    sta zbAddressHi
+
+    ; handle carry and the last byte
+    lda Mmc5::MULT_HI
+    adc #0
+    sta zbBank
+
     ; extract the bank number from the address
-    lda Tmp::zd0+1
+    lda zbBank
+    and #%00001111
+    asl
+    asl
+    asl
+    sta zbBank
+
+    lda zbAddressHi
     and #%11100000
     asl
     rol
     rol
     rol
-    sta zbBank
-    lda Tmp::zd0+2
-    and #%00001111
-    asl
-    asl
-    asl
     ora zbBank
     sta zbBank
     tay
-    jmp set_bank::skip_load ; jsr rts -> jmp
+    jsr set_bank::skip_load
+
+    ; adjust the pointer to point to one of the MMC5 mapper windows.
+    lda zbAddressHi
+    and #%00011111
+    ora #>Mmc5::WINDOW1
+    sta zbAddressHi
+
+    rts
 .endproc
 
 
@@ -214,9 +196,9 @@ skip_load:
 carry:
     lda zbAddressHi
     adc #0
-    cmp #>WINDOW2
+    cmp #>Mmc5::WINDOW2
     bcc set_addr_hi ; branch if the address is still inside window 1
-    lda #>WINDOW1
+    lda #>Mmc5::WINDOW1
     inc zbBank
     sta zbAddressHi
     jmp set_bank ; jsr rts -> jmp
@@ -236,7 +218,7 @@ done:
     ldy zbBank
     lda rbaBankMap, y ; determines if we access RAM or ROM
     ora zbBank
-    sta WIN1_BANK
+    sta Mmc5::WIN1_BANK
 
     ldy #0
     lda (zpAddress), y
@@ -288,7 +270,7 @@ done:
     ; select the necessary bank.
     ; defaults to RAM
     ldy zbBank
-    sty WIN1_BANK
+    sty Mmc5::WIN1_BANK
 
     ldy #0
     sta (zpAddress), y
@@ -358,19 +340,41 @@ do_get_ip_byte:
 ; utility functions
 ; ==============================================================================
 
-; set the MMU's stack address based on the value in SS + SP
+; set the MMU's stack address based on the value in SP + (SS << 4)
 ; changes: A
 .proc set_stack_address
-    ; SS + SP
+    ; SP + (SS << 4)
     clc
-    lda Reg::zwSP
-    adc Reg::zaSS
+    ; shift stack segment low byte
+    lda Reg::zwSS
+    sta Mmc5::MULT_LO
+    lda #16
+    sta Mmc5::MULT_HI
+
+    ; add the stack pointer low byte
+    lda Mmc5::MULT_LO
+    adc Reg::zwSP
     sta zbStackAddressLo
-    lda Reg::zwSP+1
-    adc Reg::zaSS+1
+
+    ; temporarily storage the low nibble of the next byte
+    lda Mmc5::MULT_HI
     sta zbStackAddressHi
-    lda Reg::zwSP+2
-    adc Reg::zaSS+2
+
+    ; shift stack segment high byte
+    lda Reg::zwSS+1
+    sta Mmc5::MULT_LO
+    lda #16
+    sta Mmc5::MULT_HI
+
+    ; add the stack pointer high byte
+    lda Mmc5::MULT_LO
+    ora zbStackAddressHi
+    adc Reg::zwSP+1
+    sta zbStackAddressHi
+
+    ; handle carry and the last byte
+    lda Mmc5::MULT_HI
+    adc #0
     sta zbStackBank
 
     ; extract the bank number from the address
@@ -389,15 +393,15 @@ do_get_ip_byte:
     rol
     ora zbStackBank
     sta zbStackBank
-    sta WIN0_BANK
+    sta Mmc5::WIN0_BANK
 
     ; adjust the pointer to point to one of the MMC5 mapper windows.
     lda zbStackAddressHi
     and #%00011111
-    ora #>WINDOW0
+    ora #>Mmc5::WINDOW0
     sta zbStackAddressHi
 
-    ; flag the stack as no longer dirty
+    ; flag the MMU's stack address as no longer dirty
     lda #0
     sta zbStackDirty
     rts
@@ -414,13 +418,13 @@ do_get_ip_byte:
     sec
     lda zbStackAddressHi
     adc #0
-    cmp #>WINDOW1
+    cmp #>Mmc5::WINDOW1
     bcc set_addr_hi ; branch if the address is still inside the window
-    lda #>WINDOW0
+    lda #>Mmc5::WINDOW0
     inc zbStackBank
     sta zbStackAddressHi
     lda zbStackBank
-    sta WIN0_BANK
+    sta Mmc5::WIN0_BANK
     rts
 set_addr_hi:
     sta zbStackAddressHi
@@ -440,13 +444,13 @@ done:
     dec Reg::zwSP+1
     lda zbStackAddressHi
     sbc #0
-    cmp #>WINDOW0
+    cmp #>Mmc5::WINDOW0
     bcs set_addr_hi ; branch if the address is still inside the window
-    lda #>WINDOW1-1
+    lda #>Mmc5::WINDOW1-1
     dec zbStackBank
     sta zbStackAddressHi
     lda zbStackBank
-    sta WIN0_BANK
+    sta Mmc5::WIN0_BANK
     rts
 set_addr_hi:
     sta zbStackAddressHi
@@ -462,24 +466,45 @@ done:
 skip_load:
     lda rbaBankMap, y ; determines if we access RAM or ROM
     ora zbCodeBank
-    sta WIN2_BANK
+    sta Mmc5::WIN2_BANK
     rts
 .endproc
 
 
-; set the MMU's code address based on the value in CS + IP
+; set the MMU's code address based on the value in IP + (CS << 4)
 ; changes: A, Y
 .proc set_code_address
-    ; CS + IP
+    ; IP + (CS << 4)
     clc
-    lda Reg::zwIP
-    adc Reg::zaCS
+    ldy #16
+    ; shift code segment low byte
+    lda Reg::zwCS
+    sta Mmc5::MULT_LO
+    sty Mmc5::MULT_HI
+
+    ; add the code pointer low byte
+    lda Mmc5::MULT_LO
+    adc Reg::zwIP
     sta zbCodeAddressLo
-    lda Reg::zwIP+1
-    adc Reg::zaCS+1
+
+    ; temporarily storage the low nibble of the next byte
+    lda Mmc5::MULT_HI
     sta zbCodeAddressHi
-    lda Reg::zwIP+2
-    adc Reg::zaCS+2
+
+    ; shift code segment high byte
+    lda Reg::zwCS+1
+    sta Mmc5::MULT_LO
+    sty Mmc5::MULT_HI
+
+    ; add the code pointer high byte
+    lda Mmc5::MULT_LO
+    ora zbCodeAddressHi
+    adc Reg::zwIP+1
+    sta zbCodeAddressHi
+
+    ; handle carry and the last byte
+    lda Mmc5::MULT_HI
+    adc #0
     sta zbCodeBank
 
     ; extract the bank number from the address
@@ -504,7 +529,7 @@ skip_load:
     ; adjust the pointer to point to one of the MMC5 mapper windows.
     lda zbCodeAddressHi
     and #%00011111
-    ora #>WINDOW2
+    ora #>Mmc5::WINDOW2
     sta zbCodeAddressHi
 
     ; flag the code address as no longer dirty
@@ -523,9 +548,9 @@ skip_load:
     inc Reg::zwIP+1
     ldy zbCodeAddressHi
     iny
-    cpy #>WINDOW3
+    cpy #>Mmc5::WINDOW3
     bcc set_addr_hi ; branch if the address is still inside the window
-    ldy #>WINDOW2
+    ldy #>Mmc5::WINDOW2
     inc zbCodeBank
     sty zbCodeAddressHi
     jmp set_code_bank ; jsr rts -> jmp
@@ -565,7 +590,6 @@ rsAddr:
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
-
     lda #<rsBank
     ldx #>rsBank
     jsr Tmp::set_ptr0
@@ -592,7 +616,6 @@ rsAddr:
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr
-
 
     lda #<rsAddr
     ldx #>rsAddr

@@ -304,9 +304,6 @@ write_ram:
     inx
     lda Reg::zaD0+1
     sta Const::ZERO_PAGE, x
-    inx
-    lda Reg::zaD0+2
-    sta Const::ZERO_PAGE, x
 
     rts
 .endproc
@@ -400,44 +397,44 @@ write_ram:
 
 .proc write_cs
     lda Reg::zaD0
-    sta Reg::zaCS
+    sta Reg::zwCS
     lda Reg::zaD0+1
-    sta Reg::zaCS+1
+    sta Reg::zwCS+1
     lda Reg::zaD0+2
-    sta Reg::zaCS+2
+    sta Reg::zwCS+2
     rts
 .endproc
 
 
 .proc write_ds
     lda Reg::zaD0
-    sta Reg::zaDS
+    sta Reg::zwDS
     lda Reg::zaD0+1
-    sta Reg::zaDS+1
+    sta Reg::zwDS+1
     lda Reg::zaD0+2
-    sta Reg::zaDS+2
+    sta Reg::zwDS+2
     rts
 .endproc
 
 
 .proc write_es
     lda Reg::zaD0
-    sta Reg::zaES
+    sta Reg::zwES
     lda Reg::zaD0+1
-    sta Reg::zaES+1
+    sta Reg::zwES+1
     lda Reg::zaD0+2
-    sta Reg::zaES+2
+    sta Reg::zwES+2
     rts
 .endproc
 
 
 .proc write_ss
     lda Reg::zaD0
-    sta Reg::zaSS
+    sta Reg::zwSS
     lda Reg::zaD0+1
-    sta Reg::zaSS+1
+    sta Reg::zwSS+1
     lda Reg::zaD0+2
-    sta Reg::zaSS+2
+    sta Reg::zwSS+2
     rts
 .endproc
 

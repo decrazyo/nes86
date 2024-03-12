@@ -31,10 +31,10 @@
 
 .exportzp zwIP
 
-.exportzp zaES
-.exportzp zaCS
-.exportzp zaSS
-.exportzp zaDS
+.exportzp zwES
+.exportzp zwCS
+.exportzp zwSS
+.exportzp zwDS
 
 .exportzp zwFlags
 .exportzp zbFlagsLo
@@ -104,13 +104,13 @@ zwIP: .res 2
 ; 7654 3210  7654 3210  7654 3210
 ; ssss 0000  ssss ssss  0000 ssss
 ; extra segment register
-zaES: .res 3
+zwES: .res 3
 ; code segment register
-zaCS: .res 3
+zwCS: .res 3
 ; stack segment register
-zaSS: .res 3
+zwSS: .res 3
 ; data segment register
-zaDS: .res 3
+zwDS: .res 3
 
 ; status register
 zwFlags:
@@ -151,7 +151,7 @@ rzbaRegMapsEnd:
 rbaRegMapsBegin:
 ; map register numbers to their emulated 16-bit segment register addresses.
 rbaSegRegMap:
-.byte zaES, zaCS, zaSS, zaDS
+.byte zwES, zwCS, zwSS, zwDS
 
 ; these tables are used for instructions with implied register or with ModR/M mode %11
 
@@ -194,11 +194,10 @@ loop:
     bpl loop
 
     ; set the CS register to the first ROM-only address
-    lda #$00
-    sta zaCS
-    sta zaCS+1
-    lda #$02
-    sta zaCS+2
+    lda #<$2000
+    sta zwCS
+    lda #>$2000
+    sta zwCS+1
 
     rts
 .endproc
@@ -394,9 +393,9 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zaCS
+    lda #<zwCS
     jsr Tmp::set_zp_ptr0
-    ldy #3
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
@@ -421,14 +420,15 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zaDS
+    lda #<zwDS
     jsr Tmp::set_zp_ptr0
-    ldy #3
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
+    jsr Nmi::wait
 
     lda #<rsBP
     ldx #>rsBP
@@ -448,16 +448,13 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zaES
+    lda #<zwES
     jsr Tmp::set_zp_ptr0
-    ldy #3
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
     jsr Con::print_chr
-
-
-    jsr Nmi::wait
 
 
     lda #<rsSP
@@ -478,9 +475,9 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zaSS
+    lda #<zwSS
     jsr Tmp::set_zp_ptr0
-    ldy #3
+    ldy #2
     jsr Con::print_hex_arr_rev
 
     lda #Chr::NEW_LINE
@@ -488,6 +485,7 @@ rsBlank:
     lda #Chr::NEW_LINE
     jsr Con::print_chr
 
+    jsr Nmi::wait
 
     lda #<rsIP
     ldx #>rsIP
@@ -506,9 +504,6 @@ rsBlank:
     jsr Con::print_chr
     lda #Chr::NEW_LINE
     jsr Con::print_chr
-
-
-    jsr Nmi::wait
 
 
     lda #<rsFlags

@@ -7,9 +7,16 @@
     push ax
     pop bx
 
-    mov cx, 0x5678
-    mov [0x80], cx
-    pop dx
+    mov [0x69], ax
+    mov cx, [0x69]
+
+    hlt
+
+    call done ; offset
+    call 0x4433:0x2211 ; absolute address
+
+    nop
 
 
+done:
     hlt

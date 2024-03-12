@@ -26,10 +26,10 @@ _X86_REG_ = 1
 
     .importzp zwIP
 
-    .importzp zaES
-    .importzp zaCS
-    .importzp zaSS
-    .importzp zaDS
+    .importzp zwES
+    .importzp zwCS
+    .importzp zwSS
+    .importzp zwDS
 
     .importzp zwFlags
     .importzp zbFlagsLo

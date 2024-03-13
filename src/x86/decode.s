@@ -61,6 +61,7 @@ zbWord: .res 1
     D36 ; AX -> S0 ; DI -> S1
     D37 ; ip -> s0 ; imm16 -> s1
     D38 ; imm16 -> s0 ; imm16 -> s1
+    D39 ; imm16 -> s0
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -107,6 +108,7 @@ rbaDecodeFuncLo:
 .byte <(decode_s0_ax_s1_di-1)
 .byte <(decode_s0_ip_s1_imm16-1)
 .byte <(decode_s0_imm16_s1_imm16-1)
+.byte <(decode_s0_imm16-1)
 .byte <(decode_bad-1)
 rbaDecodeFuncHi:
 .byte >(decode_nop-1)
@@ -148,6 +150,7 @@ rbaDecodeFuncHi:
 .byte >(decode_s0_ax_s1_di-1)
 .byte >(decode_s0_ip_s1_imm16-1)
 .byte >(decode_s0_imm16_s1_imm16-1)
+.byte >(decode_s0_imm16-1)
 .byte >(decode_bad-1)
 rbaDecodeFuncEnd:
 
@@ -166,12 +169,12 @@ rbaInstrDecode:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06 ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
-.byte D00,D31,D32,D30,D33,D34,D35,D36,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte D00,D31,D32,D30,D33,D34,D35,D36,BAD,BAD,D38,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte D15,D16,D13,D14,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte D04,D04,D04,D04,D04,D04,D04,D04,D05,D05,D05,D05,D05,D05,D05,D05 ; B_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
+.byte BAD,BAD,D39,D00,BAD,BAD,BAD,BAD,BAD,BAD,D39,D00,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,D37,D38,D06,BAD,BAD,BAD,BAD ; E_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,D37,D37,D38,D06,BAD,BAD,BAD,BAD ; E_
 .byte BAD,BAD,BAD,BAD,BAD,D00,BAD,BAD,D00,D00,D00,D00,D00,D00,BAD,BAD ; F_
 
 .segment "CODE"
@@ -627,6 +630,15 @@ rbaInstrDecode:
     sta Reg::zwS1
     lda Reg::zaInstrOperands+3
     sta Reg::zwS1+1
+    rts
+.endproc
+
+
+.proc decode_s0_imm16
+    lda Reg::zaInstrOperands
+    sta Reg::zwS0
+    lda Reg::zaInstrOperands+1
+    sta Reg::zwS0+1
     rts
 .endproc
 

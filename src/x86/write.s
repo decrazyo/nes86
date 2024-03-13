@@ -46,6 +46,9 @@
     W30 ; S0 -> SI ; S1 -> AX
     W31 ; S0 -> DI ; S1 -> AX
     W32 ; S0 -> IP ; S1 -> CS
+    W33 ; IP ->stack ; D0 -> IP
+    W34 ; CS -> stack ; IP -> stack ; S0 -> IP ; S1 -> CS
+    W35 ; S1 -> CS ; D0 -> IP
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -85,7 +88,10 @@ rbaWriteFuncLo:
 .byte <(write_bp_ax-1)
 .byte <(write_si_ax-1)
 .byte <(write_di_ax-1)
-.byte <(write_ip_cs-1)
+.byte <(write_ip_s0_cs_s1-1)
+.byte <(write_stack_ip_ip_d0-1)
+.byte <(write_stack_cs_stack_ip_ip_s0_cs_s1-1)
+.byte <(write_cs_s1_ip_d0-1)
 .byte <(write_bad-1)
 rbaWriteFuncHi:
 .byte >(write_nop-1)
@@ -120,7 +126,10 @@ rbaWriteFuncHi:
 .byte >(write_bp_ax-1)
 .byte >(write_si_ax-1)
 .byte >(write_di_ax-1)
-.byte >(write_ip_cs-1)
+.byte >(write_ip_s0_cs_s1-1)
+.byte >(write_stack_ip_ip_d0-1)
+.byte >(write_stack_cs_stack_ip_ip_s0_cs_s1-1)
+.byte >(write_cs_s1_ip_d0-1)
 .byte >(write_bad-1)
 rbaWriteFuncEnd:
 
@@ -139,12 +148,12 @@ rbaInstrWrite:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05 ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W06,W07,W08,W09,W07,BAD,W10,BAD ; 8_
-.byte W00,W26,W27,W25,W28,W29,W30,W31,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte W00,W26,W27,W25,W28,W29,W30,W31,BAD,BAD,W34,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte W03,W04,W11,W12,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte W01,W01,W01,W01,W01,W01,W01,W01,W02,W02,W02,W02,W02,W02,W02,W02 ; B_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
+.byte BAD,BAD,W05,W05,BAD,BAD,BAD,BAD,BAD,BAD,W35,W35,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W05,W32,W05,BAD,BAD,BAD,BAD ; E_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W33,W05,W32,W05,BAD,BAD,BAD,BAD ; E_
 .byte BAD,BAD,BAD,BAD,BAD,W00,BAD,BAD,W00,W00,W00,W00,W00,W00,BAD,BAD ; F_
 
 .segment "CODE"
@@ -517,7 +526,7 @@ done:
 .endproc
 
 
-.proc write_ip_cs
+.proc write_ip_s0_cs_s1
     lda Reg::zwS0
     sta Reg::zwIP
     lda Reg::zwS0+1
@@ -527,6 +536,57 @@ done:
     sta Reg::zwCS
     lda Reg::zwS1+1
     sta Reg::zwCS+1
+
+    inc Mmu::zbCodeDirty
+    rts
+.endproc
+
+
+.proc write_stack_ip_ip_d0
+    lda Reg::zwIP
+    sta Tmp::zw0
+    lda Reg::zwIP+1
+    sta Tmp::zw0+1
+    jsr Mmu::push_word
+
+    lda Reg::zwD0
+    sta Reg::zwIP
+    lda Reg::zwD0+1
+    sta Reg::zwIP+1
+
+    inc Mmu::zbCodeDirty
+    rts
+.endproc
+
+
+.proc write_stack_cs_stack_ip_ip_s0_cs_s1
+    lda Reg::zwCS
+    sta Tmp::zw0
+    lda Reg::zwCS+1
+    sta Tmp::zw0+1
+    jsr Mmu::push_word
+
+    lda Reg::zwIP
+    sta Tmp::zw0
+    lda Reg::zwIP+1
+    sta Tmp::zw0+1
+    jsr Mmu::push_word
+
+    ; this should mark the code segment as dirty
+    jmp write_ip_s0_cs_s1
+.endproc
+
+
+.proc write_cs_s1_ip_d0
+    lda Reg::zwS1
+    sta Reg::zwCS
+    lda Reg::zwS1+1
+    sta Reg::zwCS+1
+
+    lda Reg::zwD0
+    sta Reg::zwIP
+    lda Reg::zwD0+1
+    sta Reg::zwIP+1
 
     inc Mmu::zbCodeDirty
     rts

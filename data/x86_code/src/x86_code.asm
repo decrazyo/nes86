@@ -3,23 +3,14 @@
 
     mov sp, 0x80
 
-    mov ax, 0x1234
+    mov ax, 0x1111
     push ax
-    pop bx
-
-    mov sp, 0x69
-
-    mov [0x69], ax
-    mov cx, [0x69]
-
-    ;jmp short done    ; 8-bit offset
-    ;jmp done        ; 16-bit offset
-    jmp 0x4433:0x2211 ; absolute address
-
-    call 0x1234        ; 16-bit offset
-    call 0x4433:0x2211 ; absolute address
-
-    nop
-
-done:
+    push ax
+    push ax
+    call func
+    mov cx, 0x3333
     hlt
+
+func:
+    mov bx, 0x2222
+    ret 3

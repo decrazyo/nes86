@@ -1,7 +1,10 @@
 
 .include "x86/execute.inc"
+.include "x86/mmu.inc"
 .include "x86/reg.inc"
 .include "x86.inc"
+
+.include "tmp.inc"
 
 .export execute
 
@@ -63,7 +66,11 @@
     E47 ; POP seg
     E48 ; JMP 8
     E49 ; JMP 16
-    E50 ; JMP seg 16
+    E50 ; CALL 16
+    E51 ; RET imm16
+    E52 ; RET
+    E53 ; RETF imm16
+    E54 ; RETF
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -123,7 +130,11 @@ rbaExecuteFuncLo:
 .byte <(execute_pop_seg-1)
 .byte <(execute_jmp8-1)
 .byte <(execute_jmp16-1)
-.byte <(execute_jmp_abs-1)
+.byte <(execute_call16-1)
+.byte <(execute_ret_imm16-1)
+.byte <(execute_ret-1)
+.byte <(execute_retf_imm16-1)
+.byte <(execute_retf-1)
 .byte <(execute_bad-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
@@ -176,7 +187,11 @@ rbaExecuteFuncHi:
 .byte >(execute_pop_seg-1)
 .byte >(execute_jmp8-1)
 .byte >(execute_jmp16-1)
-.byte >(execute_jmp_abs-1)
+.byte >(execute_call16-1)
+.byte >(execute_ret_imm16-1)
+.byte >(execute_ret-1)
+.byte >(execute_retf_imm16-1)
+.byte >(execute_retf-1)
 .byte >(execute_bad-1)
 rbaExecuteFuncEnd:
 
@@ -195,12 +210,12 @@ rbaInstrExecute:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte E09,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24 ; 7_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E07,E08,E07,E08,E35,BAD,E36,BAD ; 8_
-.byte E00,E00,E00,E00,E00,E00,E00,E00,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte E00,E00,E00,E00,E00,E00,E00,E00,BAD,BAD,E00,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte E07,E08,E07,E08,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte E07,E07,E07,E07,E07,E07,E07,E07,E08,E08,E08,E08,E08,E08,E08,E08 ; B_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; C_
+.byte BAD,BAD,E51,E52,BAD,BAD,BAD,BAD,BAD,BAD,E53,E54,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E49,E00,E48,BAD,BAD,BAD,BAD ; E_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E50,E49,E00,E48,BAD,BAD,BAD,BAD ; E_
 .byte BAD,BAD,BAD,BAD,BAD,E37,BAD,BAD,E38,E39,E40,E41,E42,E43,BAD,BAD ; F_
 
 .segment "CODE"
@@ -770,7 +785,63 @@ rel_jmp8_clear_do_jump:
 .endproc
 
 
-.proc execute_jmp_abs
+.proc execute_call16
+    jmp rel_jmp16
+.endproc
+
+
+.proc execute_ret_imm16
+    jsr execute_ret
+pop_args:
+    ; TODO: just calculate the new stack address and write it to S0.
+    ;       write can handle copying S0 to SP.
+    ;       no need to pop each individual value.
+    ldx Reg::zwS0
+    bne inner_loop
+
+outer_loop:
+    ldy Reg::zwS0+1
+    beq done
+    dey
+    sty Reg::zwS0+1
+    ; X should always be 0 here
+
+inner_loop:
+    jsr Mmu::pop_word
+    dex
+    bne inner_loop
+    beq outer_loop
+
+done:
+    rts
+.endproc
+
+
+.proc execute_ret
+    jsr Mmu::pop_word
+    lda Tmp::zw0
+    sta Reg::zwD0
+    lda Tmp::zw0+1
+    sta Reg::zwD0+1
+    rts
+.endproc
+
+
+.proc execute_retf_imm16
+    jsr execute_retf
+    jmp execute_ret_imm16::pop_args ; jsr rts -> jmp
+.endproc
+
+
+.proc execute_retf
+    jsr execute_ret
+
+    ; pop cs
+    jsr Mmu::pop_word
+    lda Tmp::zw0
+    sta Reg::zwS1
+    lda Tmp::zw0+1
+    sta Reg::zwS1+1
     rts
 .endproc
 

@@ -3,7 +3,10 @@
 _X86_MMU_ = 1
 
 .scope Mmu
+    ; set this to a non-zero value if SP or SS is written outside of MMU.
     .importzp zbStackDirty
+
+    ; set this to a non-zero value if IP or CS is written outside of MMU.
     .importzp zbCodeDirty
 
     .import mmu

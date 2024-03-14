@@ -142,7 +142,7 @@ rbaInstrWrite:
 .byte W06,W07,W08,W09,W03,W04,W13,W23,W06,W07,W08,W09,W03,W04,W13,BAD ; 0_
 .byte W06,W07,W08,W09,W03,W04,W13,W24,W06,W07,W08,W09,W03,W04,W13,W22 ; 1_
 .byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W03,W04,BAD,BAD ; 2_
-.byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W00,W00,BAD,BAD ; 3_
+.byte W06,W07,W08,W09,W03,W04,BAD,W04,W06,W07,W08,W09,W00,W00,BAD,W04 ; 3_
 .byte W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02 ; 4_
 .byte W13,W13,W13,W13,W13,W13,W13,W13,W04,W15,W16,W14,W17,W18,W19,W20 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
@@ -217,7 +217,7 @@ skip_embed:
     ; if we changed SP then we need to tell the MMU.
     cpy #Reg::Reg16::SP
     bne done ; branch if we didn't change the stack pointer
-    inc Mmu::zbStackDirty
+    sty Mmu::zbStackDirty
 done:
     rts
 .endproc
@@ -241,7 +241,8 @@ done:
     sta Reg::zwIP
     lda Reg::zwD0+1
     sta Reg::zwIP+1
-    inc Mmu::zbCodeDirty
+    lda #1
+    sta Mmu::zbCodeDirty
     rts
 .endproc
 
@@ -326,12 +327,12 @@ write_ram:
     ; if we changed CS or SS then we need to tell the MMU.
     cpy #Reg::Seg::CS
     bne check_stack ; branch if we didn't change the code segment
-    inc Mmu::zbCodeDirty
+    sty Mmu::zbCodeDirty
     bne done ; branch always
 check_stack:
     cpy #Reg::Seg::SS
     bne done ; branch if we didn't change the stack segment
-    inc Mmu::zbStackDirty
+    sty Mmu::zbStackDirty
 done:
     rts
 .endproc
@@ -392,7 +393,8 @@ done:
     sta Reg::zwSP
     lda Reg::zwD0+1
     sta Reg::zwSP+1
-    inc Mmu::zbStackDirty
+    lda #1
+    sta Mmu::zbStackDirty
     rts
 .endproc
 
@@ -429,7 +431,8 @@ done:
     sta Reg::zwCS
     lda Reg::zwD0+1
     sta Reg::zwCS+1
-    inc Mmu::zbCodeDirty
+    lda #1
+    sta Mmu::zbCodeDirty
     rts
 .endproc
 
@@ -457,7 +460,8 @@ done:
     sta Reg::zwSS
     lda Reg::zwD0+1
     sta Reg::zwSS+1
-    inc Mmu::zbStackDirty
+    lda #1
+    sta Mmu::zbStackDirty
     rts
 .endproc
 
@@ -494,7 +498,8 @@ done:
     sta Reg::zwSP
     lda Reg::zwS0+1
     sta Reg::zwSP+1
-    inc Mmu::zbStackDirty
+    lda #1
+    sta Mmu::zbStackDirty
     jmp write_s0_ax ; jsr rts -> jmp
 .endproc
 
@@ -537,7 +542,8 @@ done:
     lda Reg::zwS1+1
     sta Reg::zwCS+1
 
-    inc Mmu::zbCodeDirty
+    lda #1
+    sta Mmu::zbCodeDirty
     rts
 .endproc
 
@@ -554,7 +560,8 @@ done:
     lda Reg::zwD0+1
     sta Reg::zwIP+1
 
-    inc Mmu::zbCodeDirty
+    lda #1
+    sta Mmu::zbCodeDirty
     rts
 .endproc
 
@@ -588,7 +595,8 @@ done:
     lda Reg::zwD0+1
     sta Reg::zwIP+1
 
-    inc Mmu::zbCodeDirty
+    lda #1
+    sta Mmu::zbCodeDirty
     rts
 .endproc
 

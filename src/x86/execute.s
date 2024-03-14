@@ -72,6 +72,11 @@
     E53 ; RETF imm16
     E54 ; RETF
 
+    E55 ; AAA
+    E56 ; AAS
+    ; E57
+    ; E58
+
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
 .endenum
@@ -135,6 +140,8 @@ rbaExecuteFuncLo:
 .byte <(execute_ret-1)
 .byte <(execute_retf_imm16-1)
 .byte <(execute_retf-1)
+.byte <(execute_aaa-1)
+.byte <(execute_aas-1)
 .byte <(execute_bad-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
@@ -192,6 +199,8 @@ rbaExecuteFuncHi:
 .byte >(execute_ret-1)
 .byte >(execute_retf_imm16-1)
 .byte >(execute_retf-1)
+.byte >(execute_aaa-1)
+.byte >(execute_aas-1)
 .byte >(execute_bad-1)
 rbaExecuteFuncEnd:
 
@@ -204,7 +213,7 @@ rbaInstrExecute:
 .byte E03,E04,E03,E04,E03,E04,E45,E47,E27,E28,E27,E28,E27,E28,E45,BAD ; 0_
 .byte E31,E32,E31,E32,E31,E32,E45,E47,E33,E34,E33,E34,E33,E34,E45,E47 ; 1_
 .byte E25,E26,E25,E26,E25,E26,BAD,BAD,E05,E06,E05,E06,E05,E06,BAD,BAD ; 2_
-.byte E29,E30,E29,E30,E29,E30,BAD,BAD,E05,E06,E05,E06,E05,E06,BAD,BAD ; 3_
+.byte E29,E30,E29,E30,E29,E30,BAD,E55,E05,E06,E05,E06,E05,E06,BAD,E56 ; 3_
 .byte E01,E01,E01,E01,E01,E01,E01,E01,E02,E02,E02,E02,E02,E02,E02,E02 ; 4_
 .byte E44,E44,E44,E44,E44,E44,E44,E44,E46,E46,E46,E46,E46,E46,E46,E46 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
@@ -842,6 +851,113 @@ done:
     sta Reg::zwS1
     lda Tmp::zw0+1
     sta Reg::zwS1+1
+    rts
+.endproc
+
+
+.proc execute_aaa
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_AF
+    bne adjust_ax ; branch if auxiliary carry flag is set
+
+    lda Reg::zwS0
+    and #$0f
+    cmp #10
+    bcs adjust_ax ; branch if (AL & $0f) > 9
+
+    ; no adjustment needed
+    ; just clear carry and auxiliary carry flags
+    lda #<~(Reg::FLAG_AF | Reg::FLAG_CF)
+    and Reg::zbFlagsLo
+    sta Reg::zbFlagsLo
+
+    ; AL &= $0f
+    lda Reg::zwAX
+    and #$0f
+    sta Reg::zwD0
+    lda Reg::zwAX+1
+    sta Reg::zwD0+1
+    rts
+adjust_ax:
+    ; adjust the value of AX if BCD addition overflowed.
+
+    ; S0 already contains AL
+    lda Reg::zwAX+1
+    sta Reg::zwS0+1
+
+    AAA_ADJUST = $0106
+    lda #<AAA_ADJUST
+    sta Reg::zwS1
+    lda #>AAA_ADJUST
+    sta Reg::zwS1+1
+
+    clc
+    ldy #2
+    jsr add_with_carry
+
+    ; set carry and auxiliary carry flags
+    lda #<(Reg::FLAG_AF | Reg::FLAG_CF)
+    ora Reg::zbFlagsLo
+    sta Reg::zbFlagsLo
+
+    ; AL &= $0f
+    lda Reg::zwD0
+    and #$0f
+    sta Reg::zwD0
+
+    rts
+.endproc
+
+
+.proc execute_aas
+    lda Reg::zbFlagsLo
+    and #<Reg::FLAG_AF
+    bne adjust_ax ; branch if auxiliary carry flag is set
+
+    lda Reg::zwS0
+    and #$0f
+    cmp #10
+    bcs adjust_ax ; branch if (AL & $0f) > 9
+
+    ; AL &= $0f
+    sta Reg::zwD0
+    ; AH will be unchanged
+    lda Reg::zwAX+1
+    sta Reg::zwD0+1
+
+    ; clear carry and auxiliary carry flags
+    lda #<~(Reg::FLAG_AF | Reg::FLAG_CF)
+    and Reg::zbFlagsLo
+    sta Reg::zbFlagsLo
+    rts
+adjust_ax:
+    ; adjust the value of AX if BCD subtraction overflowed.
+    ; S0 already contains AL
+    lda Reg::zwAX+1
+    sta Reg::zwS0+1
+
+    AAS_ADJUST_AX = $0006
+    lda #<AAS_ADJUST_AX
+    sta Reg::zwS1
+    lda #>AAS_ADJUST_AX
+    sta Reg::zwS1+1
+
+    sec
+    ldy #2
+    jsr sub_with_borrow
+
+    dec Reg::zwD0+1
+
+    ; AL &= $0f
+    lda Reg::zwD0
+    and #$0f
+    sta Reg::zwD0
+
+    ; set carry and auxiliary carry flags
+    lda #<(Reg::FLAG_AF | Reg::FLAG_CF)
+    ora Reg::zbFlagsLo
+    sta Reg::zbFlagsLo
+
     rts
 .endproc
 

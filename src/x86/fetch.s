@@ -12,34 +12,34 @@
 
 ; instruction lengths
 .enum
-    ; opcode directly determines the instruction length
-    F00 ; 1 byte instruction
-    F01 ; 2 byte instruction
-    F02 ; 3 byte instruction
-    F03 ; 4 byte instruction
-    F04 ; 5 byte instruction
-    F05 ; instruction with a ModR/M byte
     BAD ; used for unimplemented or non-existent instructions
+    ; opcode directly determines the instruction length
+    F01 ; 1 byte instruction
+    F02 ; 2 byte instruction
+    F03 ; 3 byte instruction
+    F04 ; 4 byte instruction
+    F05 ; 5 byte instruction
+    F06 ; instruction with a ModR/M byte
     FUNC_COUNT ; used to check function table size at compile-time
 .endenum
 
 ; map instruction encodings to their decoding functions.
 rbaFetchFuncLo:
-.byte <(fetch_len1-1)
-.byte <(fetch_len2-1)
-.byte <(fetch_len3-1)
-.byte <(fetch_len4-1)
-.byte <(fetch_len5-1)
-.byte <(fetch_modrm-1)
 .byte <(fetch_bad-1)
+.byte <(fetch_len-1)
+.byte <(fetch_len-1)
+.byte <(fetch_len-1)
+.byte <(fetch_len-1)
+.byte <(fetch_len-1)
+.byte <(fetch_modrm-1)
 rbaFetchFuncHi:
-.byte >(fetch_len1-1)
-.byte >(fetch_len2-1)
-.byte >(fetch_len3-1)
-.byte >(fetch_len4-1)
-.byte >(fetch_len5-1)
-.byte >(fetch_modrm-1)
 .byte >(fetch_bad-1)
+.byte >(fetch_len-1)
+.byte >(fetch_len-1)
+.byte >(fetch_len-1)
+.byte >(fetch_len-1)
+.byte >(fetch_len-1)
+.byte >(fetch_modrm-1)
 rbaFetchFuncEnd:
 
 .assert (rbaFetchFuncHi - rbaFetchFuncLo) = (rbaFetchFuncEnd - rbaFetchFuncHi), error, "incomplete fetch function"
@@ -48,22 +48,22 @@ rbaFetchFuncEnd:
 ; map opcodes to instruction length
 rbaInstrLength:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte F05,F05,F05,F05,F01,F02,F00,F00,F05,F05,F05,F05,F01,F02,F00,BAD ; 1_
-.byte F05,F05,F05,F05,F01,F02,F00,F00,F05,F05,F05,F05,F01,F02,F00,F00 ; 0_
-.byte F05,F05,F05,F05,F01,F02,BAD,BAD,F05,F05,F05,F05,F01,F02,BAD,BAD ; 2_
-.byte F05,F05,F05,F05,F01,F02,BAD,BAD,F05,F05,F05,F05,F01,F02,BAD,BAD ; 3_
-.byte F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00 ; 4_
-.byte F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00,F00 ; 5_
+.byte F06,F06,F06,F06,F02,F03,F01,F01,F06,F06,F06,F06,F02,F03,F01,BAD ; 0_
+.byte F06,F06,F06,F06,F02,F03,F01,F01,F06,F06,F06,F06,F02,F03,F01,F01 ; 1_
+.byte F06,F06,F06,F06,F02,F03,BAD,F01,F06,F06,F06,F06,F02,F03,BAD,F01 ; 2_
+.byte F06,F06,F06,F06,F02,F03,BAD,F01,F06,F06,F06,F06,F02,F03,BAD,F01 ; 3_
+.byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 4_
+.byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
-.byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,F05,F05,F05,F05,F05,BAD,F05,BAD ; 8_
-.byte F00,F00,F00,F00,F00,F00,F00,F00,BAD,BAD,F04,BAD,BAD,BAD,BAD,BAD ; 9_
-.byte F02,F02,F02,F02,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
-.byte F01,F01,F01,F01,F01,F01,F01,F01,F02,F02,F02,F02,F02,F02,F02,F02 ; B_
-.byte BAD,BAD,F02,F00,BAD,BAD,BAD,BAD,BAD,BAD,F02,F00,BAD,BAD,BAD,BAD ; C_
+.byte F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02 ; 7_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,F06,F06,F06,F06,F06,BAD,F06,BAD ; 8_
+.byte F01,F01,F01,F01,F01,F01,F01,F01,BAD,BAD,F05,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte F03,F03,F03,F03,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
+.byte F02,F02,F02,F02,F02,F02,F02,F02,F03,F03,F03,F03,F03,F03,F03,F03 ; B_
+.byte BAD,BAD,F03,F01,BAD,BAD,BAD,BAD,BAD,BAD,F03,F01,BAD,BAD,BAD,BAD ; C_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,F02,F02,F04,F01,BAD,BAD,BAD,BAD ; E_
-.byte BAD,BAD,BAD,BAD,BAD,F00,BAD,BAD,F00,F00,F00,F00,F00,F00,BAD,BAD ; F_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,F03,F03,F05,F02,BAD,BAD,BAD,BAD ; E_
+.byte BAD,BAD,BAD,BAD,BAD,F01,BAD,BAD,F01,F01,F01,F01,F01,F01,BAD,BAD ; F_
 
 .segment "CODE"
 
@@ -124,47 +124,23 @@ done:
 ; fetch handlers.
 ; ==============================================================================
 
-; handle a simple 1 byte instruction
+; called when an unsupported instruction byte is fetch.
 ; < A = instruction byte
-.proc fetch_len1
+.proc fetch_bad
     ldx Reg::zbInstrLen
-    ldy #1
-    sty Reg::zbInstrLen
-    jmp copy_bytes::store_first
+    sta Reg::zbInstrOpcode, x
+    inx
+    stx Reg::zbInstrLen
+    lda #X86::Err::FETCH_FUNC
+    jmp X86::panic
 .endproc
 
 
-; handle a simple 2 byte instruction
+; handle fixed length instruction
 ; < A = instruction byte
-.proc fetch_len2
+; < Y = number of bytes to read
+.proc fetch_len
     ldx Reg::zbInstrLen
-    ldy #2
-    sty Reg::zbInstrLen
-    jmp copy_bytes::store_first
-.endproc
-
-
-; handle a simple 3 byte instruction
-; < A = instruction byte
-.proc fetch_len3
-    ldx Reg::zbInstrLen
-    ldy #3
-    sty Reg::zbInstrLen
-    jmp copy_bytes::store_first
-.endproc
-
-
-.proc fetch_len4
-    ldx Reg::zbInstrLen
-    ldy #4
-    sty Reg::zbInstrLen
-    jmp copy_bytes::store_first
-.endproc
-
-
-.proc fetch_len5
-    ldx Reg::zbInstrLen
-    ldy #5
     sty Reg::zbInstrLen
     jmp copy_bytes::store_first
 .endproc
@@ -220,16 +196,3 @@ register_index:
     ; no more bytes need to be fetched
     rts
 .endproc
-
-
-; called when an unsupported instruction byte is fetch.
-; < A = instruction byte
-.proc fetch_bad
-    ldx Reg::zbInstrLen
-    sta Reg::zbInstrOpcode, x
-    inx
-    stx Reg::zbInstrLen
-    lda #X86::Err::FETCH_FUNC
-    jmp X86::panic
-.endproc
-

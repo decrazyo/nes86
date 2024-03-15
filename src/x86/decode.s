@@ -220,7 +220,7 @@ rbaInstrDecode:
 
     ; lookup the address of the register
     lda Reg::zbInstrOpcode
-    and #Reg::OPCODE_REG_MASK
+    and #Const::OPCODE_REG_MASK
     tay
     ldx Reg::rzbaReg16Map, y
 
@@ -688,7 +688,7 @@ rbaModRMFuncEnd:
 .proc handle_modrm_rm
     ; use the Mod portion of a ModR/M byte as an index to a function pointer.
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_MOD_MASK
+    and #Const::MODRM_MOD_MASK
     asl ; discard C as it's in an unknown state
     rol
     rol
@@ -698,7 +698,7 @@ rbaModRMFuncEnd:
     lda rbaModRMFuncLo, x
     pha
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_RM_MASK
+    and #Const::MODRM_RM_MASK
     rts
 .endproc
 
@@ -710,7 +710,7 @@ rbaModRMFuncEnd:
 ; > Tmp::zw0 16-bit data
 .proc handle_modrm_reg
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_REG_MASK
+    and #Const::MODRM_REG_MASK
     lsr
     lsr
     lsr
@@ -723,7 +723,7 @@ rbaModRMFuncEnd:
 .proc handle_modrm_seg
     ; lookup the address of the segment register
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_SEG_MASK
+    and #Const::MODRM_SEG_MASK
     lsr
     lsr
     lsr

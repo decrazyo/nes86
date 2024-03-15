@@ -5,6 +5,7 @@
 .include "x86.inc"
 
 .include "tmp.inc"
+.include "const.inc"
 
 .export fetch
 
@@ -56,7 +57,7 @@ rbaInstrLength:
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,F06,F06,F06,F06,F06,BAD,F06,BAD ; 8_
+.byte F06,F06,F06,F06,BAD,BAD,BAD,BAD,F06,F06,F06,F06,F06,BAD,F06,BAD ; 8_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,BAD,BAD,F05,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte F03,F03,F03,F03,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte F02,F02,F02,F02,F02,F02,F02,F02,F03,F03,F03,F03,F03,F03,F03,F03 ; B_
@@ -158,18 +159,18 @@ done:
     ; get the ModR/M byte
     jsr Mmu::get_ip_byte
     tay ; save A for later
-    and #Reg::MODRM_MOD_MASK
+    and #Const::MODRM_MOD_MASK
     bne check_displacement
     ; mod = 00
     ; check if we are dealing with a direct address
     tya
-    and #Reg::MODRM_RM_MASK
+    and #Const::MODRM_RM_MASK
     cmp #%00000110
     bne register_index ; branch if R/M is a register index
     beq operand16 ; branch if R/M is followed by a direct address
 
 check_displacement:
-    eor #Reg::MODRM_MOD_MASK
+    eor #Const::MODRM_MOD_MASK
     beq register_index ; branch if R/M is a register index
     ; mod = 10 or 01 but the value in A has been inverted
     ; A = 01 if 16-bit displacement

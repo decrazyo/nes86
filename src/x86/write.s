@@ -188,7 +188,7 @@ func_ok:
 
 .proc write_embed_reg8
     lda Reg::zbInstrOpcode
-    and #Reg::OPCODE_REG_MASK
+    and #Const::OPCODE_REG_MASK
 
 skip_embed:
     tay
@@ -202,7 +202,7 @@ skip_embed:
 
 .proc write_embed_reg16
     lda Reg::zbInstrOpcode
-    and #Reg::OPCODE_REG_MASK
+    and #Const::OPCODE_REG_MASK
 
 skip_embed:
     tay
@@ -250,14 +250,14 @@ done:
 .proc write_modrm_rm8
     ; check if we're writing to a register or RAM
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_MOD_MASK
-    cmp #Reg::MODRM_MOD_MASK
+    and #Const::MODRM_MOD_MASK
+    cmp #Const::MODRM_MOD_MASK
 
     bne write_ram ; branch if we need to write back to RAM.
 
     ; write the value back to a register
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_RM_MASK
+    and #Const::MODRM_RM_MASK
     jmp write_embed_reg8::skip_embed ; jsr rts -> jmp
 
 write_ram:
@@ -269,14 +269,14 @@ write_ram:
 .proc write_modrm_rm16
     ; check if we're writing to a register or RAM
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_MOD_MASK
-    cmp #Reg::MODRM_MOD_MASK
+    and #Const::MODRM_MOD_MASK
+    cmp #Const::MODRM_MOD_MASK
 
     bne write_ram ; branch if we need to write back to RAM.
 
     ; write the value back to a register
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_RM_MASK
+    and #Const::MODRM_RM_MASK
     jmp write_embed_reg16::skip_embed ; jsr rts -> jmp
 
 write_ram:
@@ -290,7 +290,7 @@ write_ram:
 
 .proc write_modrm_reg8
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_REG_MASK
+    and #Const::MODRM_REG_MASK
     lsr
     lsr
     lsr
@@ -300,7 +300,7 @@ write_ram:
 
 .proc write_modrm_reg16
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_REG_MASK
+    and #Const::MODRM_REG_MASK
     lsr
     lsr
     lsr
@@ -311,7 +311,7 @@ write_ram:
 .proc write_modrm_seg16
     ; lookup the address of the segment register
     lda Reg::zaInstrOperands
-    and #Reg::MODRM_SEG_MASK
+    and #Const::MODRM_SEG_MASK
     lsr
     lsr
     lsr

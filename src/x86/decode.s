@@ -88,6 +88,7 @@ zbWord: .res 1
     D38 ; imm16 -> s0 ; imm16 -> s1
     D39 ; imm16 -> s0
     D40 ; AL -> S0
+    D41 ; flags -> S0
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -136,6 +137,7 @@ rbaDecodeFuncLo:
 .byte <(decode_s0_imm16_s1_imm16-1)
 .byte <(decode_s0_imm16-1)
 .byte <(decode_s0_al-1)
+.byte <(decode_s0_flags-1)
 .byte <(decode_bad-1)
 rbaDecodeFuncHi:
 .byte >(decode_nop-1)
@@ -179,6 +181,7 @@ rbaDecodeFuncHi:
 .byte >(decode_s0_imm16_s1_imm16-1)
 .byte >(decode_s0_imm16-1)
 .byte >(decode_s0_al-1)
+.byte >(decode_s0_flags-1)
 .byte >(decode_bad-1)
 rbaDecodeFuncEnd:
 
@@ -197,7 +200,7 @@ rbaInstrDecode:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06 ; 7_
 .byte BAD,BAD,BAD,BAD,D09,D10,D09,D10,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
-.byte D00,D31,D32,D30,D33,D34,D35,D36,D40,D17,D38,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte D00,D31,D32,D30,D33,D34,D35,D36,D40,D17,D38,BAD,D41,BAD,BAD,BAD ; 9_
 .byte D15,D16,D13,D14,BAD,BAD,BAD,BAD,D02,D03,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte D04,D04,D04,D04,D04,D04,D04,D04,D05,D05,D05,D05,D05,D05,D05,D05 ; B_
 .byte BAD,BAD,D39,D00,BAD,BAD,BAD,BAD,BAD,BAD,D39,D00,BAD,BAD,BAD,BAD ; C_
@@ -682,6 +685,15 @@ segment_prefix:
 .proc decode_s0_al
     lda Reg::zbAL
     sta Reg::zwS0
+    rts
+.endproc
+
+
+.proc decode_s0_flags
+    lda Reg::zwFlags
+    sta Reg::zwD0
+    lda Reg::zwFlags+1
+    sta Reg::zwD0+1
     rts
 .endproc
 

@@ -1,7 +1,9 @@
 
 [BITS 16]
 
-    mov ax, 0xffff
-    cwd
+    mov sp, 0x80
+    mov ax, 0xff
+    inc ax
+    pushf
 
     hlt

@@ -4,6 +4,6 @@
     mov sp, 0x80
     mov ax, 0xff
     inc ax
-    pushf
+    popf
 
     hlt

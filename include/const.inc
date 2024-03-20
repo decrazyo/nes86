@@ -31,6 +31,9 @@ _CONST_ = 1
 
     ZERO_PAGE = $00
 
+    ; bitmask for segment index in instruction prefix
+    PREFIX_SEG_MASK = %00011000
+
     ; bitmask for opcodes with an embedded register index
     OPCODE_REG_MASK = %00000111
 

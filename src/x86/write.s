@@ -195,18 +195,14 @@ rbaInstrWrite:
 
 .segment "CODE"
 
+; ==============================================================================
+; public interface
+; ==============================================================================
+
 ; write data back to memory or registers after execution.
 .proc write
     ldx Reg::zbInstrOpcode
     ldy rbaInstrWrite, x
-
-    ; check for an unsupported encoding.
-    cpy #(rbaWriteFuncHi - rbaWriteFuncLo)
-    bcc func_ok
-    lda #X86::Err::WRITE_FUNC
-    jsr X86::panic
-func_ok:
-
     lda rbaWriteFuncHi, y
     pha
     lda rbaWriteFuncLo, y

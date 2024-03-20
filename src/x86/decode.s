@@ -432,8 +432,10 @@ rbaInstrDecode:
     lda Reg::zbAL
     sta Reg::zwS1
 
-    ; TODO: check for a segment override prefix
+    jsr prefix_seg_index
+    bcc segment_prefix
     ldy #Reg::Seg::DS
+segment_prefix:
     lda Reg::zaInstrOperands
     sta Tmp::zw0
     lda Reg::zaInstrOperands+1
@@ -444,8 +446,10 @@ rbaInstrDecode:
 
 
 .proc decode_s1_ptr8
-    ; TODO: check for a segment override prefix
+    jsr prefix_seg_index
+    bcc segment_prefix
     ldy #Reg::Seg::DS
+segment_prefix:
     lda Reg::zaInstrOperands
     sta Tmp::zw0
     lda Reg::zaInstrOperands+1
@@ -460,8 +464,10 @@ rbaInstrDecode:
 .proc decode_s1_ptr16
     inc zbWord
 
-    ; TODO: check for a segment override prefix
+    jsr prefix_seg_index
+    bcc segment_prefix
     ldy #Reg::Seg::DS
+segment_prefix:
     lda Reg::zaInstrOperands
     sta Tmp::zw0
     lda Reg::zaInstrOperands+1
@@ -890,9 +896,10 @@ done:
 
 
 .proc modrm_get_bytes
-    ; TODO: check for a segment override prefix?
-
+    jsr prefix_seg_index
+    bcc segment_prefix
     ldy #Reg::Seg::DS
+segment_prefix:
     jsr Mmu::set_address
     jsr Mmu::get_byte
     sta Tmp::zw0
@@ -915,5 +922,34 @@ done:
     sta Reg::zwS0
     lda Reg::zwAX+1
     sta Reg::zwS0+1
+    rts
+.endproc
+
+
+; extract a segment register index from an instruction prefix
+; > Y = segment register index
+; > C = 0 success. Y contains a segment register index
+;   C = 1 failure.
+; changes: A, Y
+.proc prefix_seg_index
+    lda Reg::zbInstrPrefix
+    beq error ; branch if there is no prefix
+
+    ; this kind of checks if we have a segment prefix.
+    ; hopefully the fetch stage will ensure that only valid prefix values are set.
+    ; otherwise we could have some unintended behavior.
+    cmp #$3f
+    bcs done ; branch if the prefix isn't a segment prefix
+
+    and #Const::PREFIX_SEG_MASK
+    lsr
+    lsr
+    lsr
+    tay
+
+    SKIP_BYTE
+error:
+    sec
+done:
     rts
 .endproc

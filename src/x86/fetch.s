@@ -36,6 +36,7 @@
     F04 ; 4 byte instruction
     F05 ; 5 byte instruction
     F06 ; instruction with a ModR/M byte
+    F07 ; instruction segment prefix
     FUNC_COUNT ; used to check function table size at compile-time
 .endenum
 
@@ -48,6 +49,7 @@ rbaFetchFuncLo:
 .byte <(fetch_len-1)
 .byte <(fetch_len-1)
 .byte <(fetch_modrm-1)
+.byte <(fetch_seg_pre-1)
 rbaFetchFuncHi:
 .byte >(fetch_bad-1)
 .byte >(fetch_len-1)
@@ -56,6 +58,7 @@ rbaFetchFuncHi:
 .byte >(fetch_len-1)
 .byte >(fetch_len-1)
 .byte >(fetch_modrm-1)
+.byte >(fetch_seg_pre-1)
 rbaFetchFuncEnd:
 
 .assert (rbaFetchFuncHi - rbaFetchFuncLo) = (rbaFetchFuncEnd - rbaFetchFuncHi), error, "incomplete fetch function"
@@ -66,8 +69,8 @@ rbaInstrLength:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
 .byte F06,F06,F06,F06,F02,F03,F01,F01,F06,F06,F06,F06,F02,F03,F01,BAD ; 0_
 .byte F06,F06,F06,F06,F02,F03,F01,F01,F06,F06,F06,F06,F02,F03,F01,F01 ; 1_
-.byte F06,F06,F06,F06,F02,F03,BAD,F01,F06,F06,F06,F06,F02,F03,BAD,F01 ; 2_
-.byte F06,F06,F06,F06,F02,F03,BAD,F01,F06,F06,F06,F06,F02,F03,BAD,F01 ; 3_
+.byte F06,F06,F06,F06,F02,F03,F07,F01,F06,F06,F06,F06,F02,F03,F07,F01 ; 2_
+.byte F06,F06,F06,F06,F02,F03,F07,F01,F06,F06,F06,F06,F02,F03,F07,F01 ; 3_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 4_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
@@ -94,6 +97,7 @@ rbaInstrLength:
     ; reset the instruction length
     lda #0
     sta Reg::zbInstrLen
+    sta Reg::zbInstrPrefix
 
 next:
     ; get a byte from memory
@@ -211,4 +215,12 @@ register_index:
     inc Reg::zbInstrLen
     ; no more bytes need to be fetched
     rts
+.endproc
+
+
+; handle instruction segment prefix
+; < A = segment prefix byte
+.proc fetch_seg_pre
+    sta Reg::zbInstrPrefix
+    jmp fetch::next
 .endproc

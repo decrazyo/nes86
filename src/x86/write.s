@@ -1,4 +1,35 @@
 
+; This module is responsible for writing values to registers and the x86 address space.
+; If an instruction's opcode indicates that it simply moves a value to or from a fixed
+; location, i.e. a specific register or the stack, then this module may read that value.
+; This module may decode instructions to determine where to write data.
+; If this module must write to the x86 address space then it expects the MMU
+; to have already been configured for that write by the "decode" stage.
+; If this module writes to "CS" or "IP" then it must flag the MMU's code address as dirty.
+; If this module writes to "SS" or "SP" then it must flag the MMU's stack address as dirty.
+;
+; uses:
+;   Mmu::set_byte
+;   Mmu::inc_address
+;   Mmu::push_word
+;   Mmu::pop_word
+; changes:
+;   Mmu::zbStackDirty
+;   Mmu::zbCodeDirty
+;   Reg::zwAX
+;   Reg::zwBX
+;   Reg::zwCX
+;   Reg::zwDX
+;   Reg::zwSI
+;   Reg::zwDI
+;   Reg::zwBP
+;   Reg::zwSP
+;   Reg::zwIP
+;   Reg::zwES
+;   Reg::zwCS
+;   Reg::zwSS
+;   Reg::zwDS
+
 .include "x86/write.inc"
 .include "x86/reg.inc"
 .include "x86/mmu.inc"
@@ -49,6 +80,8 @@
     W33 ; IP ->stack ; D0 -> IP
     W34 ; CS -> stack ; IP -> stack ; S0 -> IP ; S1 -> CS
     W35 ; S1 -> CS ; D0 -> IP
+    W36 ; S0 -> ModR/M rm8 ; S1 -> ModR/M reg8
+    W37 ; S0 -> ModR/M rm16 ; S1 -> ModR/M reg16
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -57,79 +90,83 @@
 ; map instruction encodings to their write functions.
 rbaWriteFuncLo:
 .byte <(write_nop-1)
-.byte <(write_embed_reg8-1)
-.byte <(write_embed_reg16-1)
-.byte <(write_al-1)
-.byte <(write_ax-1)
-.byte <(write_ip-1)
-.byte <(write_modrm_rm8-1)
-.byte <(write_modrm_rm16-1)
-.byte <(write_modrm_reg8-1)
-.byte <(write_modrm_reg16-1)
-.byte <(write_modrm_seg16-1)
-.byte <(write_mmu8-1)
-.byte <(write_mmu16-1)
-.byte <(write_stack-1)
-.byte <(write_bx-1)
-.byte <(write_cx-1)
-.byte <(write_dx-1)
-.byte <(write_sp-1)
-.byte <(write_bp-1)
-.byte <(write_si-1)
-.byte <(write_di-1)
-.byte <(write_cs-1)
-.byte <(write_ds-1)
-.byte <(write_es-1)
-.byte <(write_ss-1)
-.byte <(write_bx_ax-1)
-.byte <(write_cx_ax-1)
-.byte <(write_dx_ax-1)
-.byte <(write_sp_ax-1)
-.byte <(write_bp_ax-1)
-.byte <(write_si_ax-1)
-.byte <(write_di_ax-1)
+.byte <(write_embed_reg8_d0-1)
+.byte <(write_embed_reg16_d0-1)
+.byte <(write_al_d0-1)
+.byte <(write_ax_d0-1)
+.byte <(write_ip_d0-1)
+.byte <(write_modrm_rm8_d0-1)
+.byte <(write_modrm_rm16_d0-1)
+.byte <(write_modrm_reg8_d0-1)
+.byte <(write_modrm_reg16_d0-1)
+.byte <(write_modrm_seg16_d0-1)
+.byte <(write_mmu8_d0-1)
+.byte <(write_mmu16_d0-1)
+.byte <(write_stack_d0-1)
+.byte <(write_bx_d0-1)
+.byte <(write_cx_s0-1)
+.byte <(write_dx_s0-1)
+.byte <(write_sp_s0-1)
+.byte <(write_bp_s0-1)
+.byte <(write_si_s0-1)
+.byte <(write_di_s0-1)
+.byte <(write_cs_s0-1)
+.byte <(write_ds_s0-1)
+.byte <(write_es_s0-1)
+.byte <(write_ss_s0-1)
+.byte <(write_bx_s0_ax_s1-1)
+.byte <(write_cx_s0_ax_s1-1)
+.byte <(write_dx_s0_ax_s1-1)
+.byte <(write_sp_s0_ax_s1-1)
+.byte <(write_bp_s0_ax_s1-1)
+.byte <(write_si_s0_ax_s1-1)
+.byte <(write_di_s0_ax_s1-1)
 .byte <(write_ip_s0_cs_s1-1)
 .byte <(write_stack_ip_ip_d0-1)
 .byte <(write_stack_cs_stack_ip_ip_s0_cs_s1-1)
 .byte <(write_cs_s1_ip_d0-1)
+.byte <(write_modrm_rm8_s0_modrm_reg8_s1-1)
+.byte <(write_modrm_rm16_s0_modrm_reg16_s1-1)
 .byte <(write_bad-1)
 rbaWriteFuncHi:
 .byte >(write_nop-1)
-.byte >(write_embed_reg8-1)
-.byte >(write_embed_reg16-1)
-.byte >(write_al-1)
-.byte >(write_ax-1)
-.byte >(write_ip-1)
-.byte >(write_modrm_rm8-1)
-.byte >(write_modrm_rm16-1)
-.byte >(write_modrm_reg8-1)
-.byte >(write_modrm_reg16-1)
-.byte >(write_modrm_seg16-1)
-.byte >(write_mmu8-1)
-.byte >(write_mmu16-1)
-.byte >(write_stack-1)
-.byte >(write_bx-1)
-.byte >(write_cx-1)
-.byte >(write_dx-1)
-.byte >(write_sp-1)
-.byte >(write_bp-1)
-.byte >(write_si-1)
-.byte >(write_di-1)
-.byte >(write_cs-1)
-.byte >(write_ds-1)
-.byte >(write_es-1)
-.byte >(write_ss-1)
-.byte >(write_bx_ax-1)
-.byte >(write_cx_ax-1)
-.byte >(write_dx_ax-1)
-.byte >(write_sp_ax-1)
-.byte >(write_bp_ax-1)
-.byte >(write_si_ax-1)
-.byte >(write_di_ax-1)
+.byte >(write_embed_reg8_d0-1)
+.byte >(write_embed_reg16_d0-1)
+.byte >(write_al_d0-1)
+.byte >(write_ax_d0-1)
+.byte >(write_ip_d0-1)
+.byte >(write_modrm_rm8_d0-1)
+.byte >(write_modrm_rm16_d0-1)
+.byte >(write_modrm_reg8_d0-1)
+.byte >(write_modrm_reg16_d0-1)
+.byte >(write_modrm_seg16_d0-1)
+.byte >(write_mmu8_d0-1)
+.byte >(write_mmu16_d0-1)
+.byte >(write_stack_d0-1)
+.byte >(write_bx_d0-1)
+.byte >(write_cx_s0-1)
+.byte >(write_dx_s0-1)
+.byte >(write_sp_s0-1)
+.byte >(write_bp_s0-1)
+.byte >(write_si_s0-1)
+.byte >(write_di_s0-1)
+.byte >(write_cs_s0-1)
+.byte >(write_ds_s0-1)
+.byte >(write_es_s0-1)
+.byte >(write_ss_s0-1)
+.byte >(write_bx_s0_ax_s1-1)
+.byte >(write_cx_s0_ax_s1-1)
+.byte >(write_dx_s0_ax_s1-1)
+.byte >(write_sp_s0_ax_s1-1)
+.byte >(write_bp_s0_ax_s1-1)
+.byte >(write_si_s0_ax_s1-1)
+.byte >(write_di_s0_ax_s1-1)
 .byte >(write_ip_s0_cs_s1-1)
 .byte >(write_stack_ip_ip_d0-1)
 .byte >(write_stack_cs_stack_ip_ip_s0_cs_s1-1)
 .byte >(write_cs_s1_ip_d0-1)
+.byte >(write_modrm_rm8_s0_modrm_reg8_s1-1)
+.byte >(write_modrm_rm16_s0_modrm_reg16_s1-1)
 .byte >(write_bad-1)
 rbaWriteFuncEnd:
 
@@ -142,12 +179,12 @@ rbaInstrWrite:
 .byte W06,W07,W08,W09,W03,W04,W13,W23,W06,W07,W08,W09,W03,W04,W13,BAD ; 0_
 .byte W06,W07,W08,W09,W03,W04,W13,W24,W06,W07,W08,W09,W03,W04,W13,W22 ; 1_
 .byte W06,W07,W08,W09,W03,W04,BAD,BAD,W06,W07,W08,W09,W03,W04,BAD,BAD ; 2_
-.byte W06,W07,W08,W09,W03,W04,BAD,W04,W06,W07,W08,W09,W00,W00,BAD,W04 ; 3_
+.byte W06,W07,W08,W09,W03,W04,BAD,W04,W00,W00,W00,W00,W00,W00,BAD,W04 ; 3_
 .byte W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02,W02 ; 4_
 .byte W13,W13,W13,W13,W13,W13,W13,W13,W04,W15,W16,W14,W17,W18,W19,W20 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,W06,W07,W08,W09,W07,BAD,W10,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,W36,W37,W06,W07,W08,W09,W07,BAD,W10,BAD ; 8_
 .byte W00,W26,W27,W25,W28,W29,W30,W31,BAD,BAD,W34,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte W03,W04,W11,W12,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte W01,W01,W01,W01,W01,W01,W01,W01,W02,W02,W02,W02,W02,W02,W02,W02 ; B_
@@ -186,7 +223,7 @@ func_ok:
 .endproc
 
 
-.proc write_embed_reg8
+.proc write_embed_reg8_d0
     lda Reg::zbInstrOpcode
     and #Const::OPCODE_REG_MASK
 
@@ -200,7 +237,7 @@ skip_embed:
 .endproc
 
 
-.proc write_embed_reg16
+.proc write_embed_reg16_d0
     lda Reg::zbInstrOpcode
     and #Const::OPCODE_REG_MASK
 
@@ -223,20 +260,20 @@ done:
 .endproc
 
 
-.proc write_ax
+.proc write_ax_d0
     lda Reg::zwD0+1
     sta Reg::zwAX+1
     ; fall through to copy the low byte
 .endproc
 
-.proc write_al
+.proc write_al_d0
     lda Reg::zwD0
     sta Reg::zbAL
     rts
 .endproc
 
 
-.proc write_ip
+.proc write_ip_d0
     lda Reg::zwD0
     sta Reg::zwIP
     lda Reg::zwD0+1
@@ -247,7 +284,7 @@ done:
 .endproc
 
 
-.proc write_modrm_rm8
+.proc write_modrm_rm8_d0
     ; check if we're writing to a register or RAM
     lda Reg::zaInstrOperands
     and #Const::MODRM_MOD_MASK
@@ -258,7 +295,7 @@ done:
     ; write the value back to a register
     lda Reg::zaInstrOperands
     and #Const::MODRM_RM_MASK
-    jmp write_embed_reg8::skip_embed ; jsr rts -> jmp
+    jmp write_embed_reg8_d0::skip_embed ; jsr rts -> jmp
 
 write_ram:
     lda Reg::zwD0
@@ -266,7 +303,7 @@ write_ram:
 .endproc
 
 
-.proc write_modrm_rm16
+.proc write_modrm_rm16_d0
     ; check if we're writing to a register or RAM
     lda Reg::zaInstrOperands
     and #Const::MODRM_MOD_MASK
@@ -277,7 +314,7 @@ write_ram:
     ; write the value back to a register
     lda Reg::zaInstrOperands
     and #Const::MODRM_RM_MASK
-    jmp write_embed_reg16::skip_embed ; jsr rts -> jmp
+    jmp write_embed_reg16_d0::skip_embed ; jsr rts -> jmp
 
 write_ram:
     lda Reg::zwD0
@@ -288,27 +325,27 @@ write_ram:
 .endproc
 
 
-.proc write_modrm_reg8
+.proc write_modrm_reg8_d0
     lda Reg::zaInstrOperands
     and #Const::MODRM_REG_MASK
     lsr
     lsr
     lsr
-    jmp write_embed_reg8::skip_embed ; jsr rts -> jmp
+    jmp write_embed_reg8_d0::skip_embed ; jsr rts -> jmp
 .endproc
 
 
-.proc write_modrm_reg16
+.proc write_modrm_reg16_d0
     lda Reg::zaInstrOperands
     and #Const::MODRM_REG_MASK
     lsr
     lsr
     lsr
-    jmp write_embed_reg16::skip_embed ; jsr rts -> jmp
+    jmp write_embed_reg16_d0::skip_embed ; jsr rts -> jmp
 .endproc
 
 
-.proc write_modrm_seg16
+.proc write_modrm_seg16_d0
     ; lookup the address of the segment register
     lda Reg::zaInstrOperands
     and #Const::MODRM_SEG_MASK
@@ -338,21 +375,21 @@ done:
 .endproc
 
 
-.proc write_mmu8
+.proc write_mmu8_d0
     lda Reg::zwD0
     jmp Mmu::set_byte ; jsr rts -> jmp
 .endproc
 
 
-.proc write_mmu16
-    jsr write_mmu8
+.proc write_mmu16_d0
+    jsr write_mmu8_d0
     jsr Mmu::inc_address
     lda Reg::zwD0+1
     jmp Mmu::set_byte ; jsr rts -> jmp
 .endproc
 
 
-.proc write_stack
+.proc write_stack_d0
     lda Reg::zwD0
     sta Tmp::zw0
     lda Reg::zwD0+1
@@ -361,7 +398,7 @@ done:
 .endproc
 
 
-.proc write_bx
+.proc write_bx_d0
     lda Reg::zwD0
     sta Reg::zwBX
     lda Reg::zwD0+1
@@ -370,7 +407,7 @@ done:
 .endproc
 
 
-.proc write_cx
+.proc write_cx_s0
     lda Reg::zwD0
     sta Reg::zwCX
     lda Reg::zwD0+1
@@ -379,7 +416,7 @@ done:
 .endproc
 
 
-.proc write_dx
+.proc write_dx_s0
     lda Reg::zwD0
     sta Reg::zwDX
     lda Reg::zwD0+1
@@ -388,7 +425,7 @@ done:
 .endproc
 
 
-.proc write_sp
+.proc write_sp_s0
     lda Reg::zwD0
     sta Reg::zwSP
     lda Reg::zwD0+1
@@ -399,7 +436,7 @@ done:
 .endproc
 
 
-.proc write_bp
+.proc write_bp_s0
     lda Reg::zwD0
     sta Reg::zwBP
     lda Reg::zwD0+1
@@ -408,7 +445,7 @@ done:
 .endproc
 
 
-.proc write_si
+.proc write_si_s0
     lda Reg::zwD0
     sta Reg::zwSI
     lda Reg::zwD0+1
@@ -417,7 +454,7 @@ done:
 .endproc
 
 
-.proc write_di
+.proc write_di_s0
     lda Reg::zwD0
     sta Reg::zwDI
     lda Reg::zwD0+1
@@ -426,7 +463,7 @@ done:
 .endproc
 
 
-.proc write_cs
+.proc write_cs_s0
     lda Reg::zwD0
     sta Reg::zwCS
     lda Reg::zwD0+1
@@ -437,7 +474,7 @@ done:
 .endproc
 
 
-.proc write_ds
+.proc write_ds_s0
     lda Reg::zwD0
     sta Reg::zwDS
     lda Reg::zwD0+1
@@ -446,7 +483,7 @@ done:
 .endproc
 
 
-.proc write_es
+.proc write_es_s0
     lda Reg::zwD0
     sta Reg::zwES
     lda Reg::zwD0+1
@@ -455,7 +492,7 @@ done:
 .endproc
 
 
-.proc write_ss
+.proc write_ss_s0
     lda Reg::zwD0
     sta Reg::zwSS
     lda Reg::zwD0+1
@@ -466,68 +503,68 @@ done:
 .endproc
 
 
-.proc write_bx_ax
+.proc write_bx_s0_ax_s1
     lda Reg::zwS0
     sta Reg::zwBX
     lda Reg::zwS0+1
     sta Reg::zwBX+1
-    jmp write_s0_ax ; jsr rts -> jmp
+    jmp write_ax_s1 ; jsr rts -> jmp
 .endproc
 
 
-.proc write_cx_ax
+.proc write_cx_s0_ax_s1
     lda Reg::zwS0
     sta Reg::zwCX
     lda Reg::zwS0+1
     sta Reg::zwCX+1
-    jmp write_s0_ax ; jsr rts -> jmp
+    jmp write_ax_s1 ; jsr rts -> jmp
 .endproc
 
 
-.proc write_dx_ax
+.proc write_dx_s0_ax_s1
     lda Reg::zwS0
     sta Reg::zwDX
     lda Reg::zwS0+1
     sta Reg::zwDX+1
-    jmp write_s0_ax ; jsr rts -> jmp
+    jmp write_ax_s1 ; jsr rts -> jmp
 .endproc
 
 
-.proc write_sp_ax
+.proc write_sp_s0_ax_s1
     lda Reg::zwS0
     sta Reg::zwSP
     lda Reg::zwS0+1
     sta Reg::zwSP+1
     lda #1
     sta Mmu::zbStackDirty
-    jmp write_s0_ax ; jsr rts -> jmp
+    jmp write_ax_s1 ; jsr rts -> jmp
 .endproc
 
 
-.proc write_bp_ax
+.proc write_bp_s0_ax_s1
     lda Reg::zwS0
     sta Reg::zwBP
     lda Reg::zwS0+1
     sta Reg::zwBP+1
-    jmp write_s0_ax ; jsr rts -> jmp
+    jmp write_ax_s1 ; jsr rts -> jmp
 .endproc
 
 
-.proc write_si_ax
+.proc write_si_s0_ax_s1
     lda Reg::zwS0
     sta Reg::zwSI
     lda Reg::zwS0+1
     sta Reg::zwSI+1
-    jmp write_s0_ax ; jsr rts -> jmp
+    jmp write_ax_s1 ; jsr rts -> jmp
 .endproc
 
 
-.proc write_di_ax
+.proc write_di_s0_ax_s1
     lda Reg::zwS0
     sta Reg::zwDI
     lda Reg::zwS0+1
     sta Reg::zwDI+1
-    jmp write_s0_ax ; jsr rts -> jmp
+    jmp write_ax_s1 ; jsr rts -> jmp
 .endproc
 
 
@@ -601,6 +638,91 @@ done:
 .endproc
 
 
+.proc write_modrm_rm8_s0_modrm_reg8_s1
+    ; check if we're writing to a register or RAM
+    lda Reg::zaInstrOperands
+    and #Const::MODRM_MOD_MASK
+    cmp #Const::MODRM_MOD_MASK
+
+    bne write_ram ; branch if we need to write back to RAM.
+
+    ; write the value back to a register
+    lda Reg::zaInstrOperands
+    and #Const::MODRM_RM_MASK
+
+    tay
+    ldx Reg::rzbaReg8Map, y
+
+    lda Reg::zwS0
+    sta Const::ZERO_PAGE, x
+    jmp handle_reg
+
+write_ram:
+    lda Reg::zwS0
+    jsr Mmu::set_byte
+
+handle_reg:
+    lda Reg::zaInstrOperands
+    and #Const::MODRM_REG_MASK
+    lsr
+    lsr
+    lsr
+
+    tay
+    ldx Reg::rzbaReg8Map, y
+
+    lda Reg::zwS1
+    sta Const::ZERO_PAGE, x
+    rts
+.endproc
+
+
+.proc write_modrm_rm16_s0_modrm_reg16_s1
+    ; check if we're writing to a register or RAM
+    lda Reg::zaInstrOperands
+    and #Const::MODRM_MOD_MASK
+    cmp #Const::MODRM_MOD_MASK
+
+    bne write_ram ; branch if we need to write back to RAM.
+
+    ; write the value back to a register
+    lda Reg::zaInstrOperands
+    and #Const::MODRM_RM_MASK
+
+    tay
+    ldx Reg::rzbaReg8Map, y
+
+    lda Reg::zwS0
+    sta Const::ZERO_PAGE, x
+    lda Reg::zwS0+1
+    sta Const::ZERO_PAGE+1, x
+    jmp handle_reg
+
+write_ram:
+    lda Reg::zwS0
+    jsr Mmu::set_byte
+    jsr Mmu::inc_address
+    lda Reg::zwS0+1
+    jsr Mmu::set_byte
+
+handle_reg:
+    lda Reg::zaInstrOperands
+    and #Const::MODRM_REG_MASK
+    lsr
+    lsr
+    lsr
+
+    tay
+    ldx Reg::rzbaReg8Map, y
+
+    lda Reg::zwS1
+    sta Const::ZERO_PAGE, x
+    lda Reg::zwS1+1
+    sta Const::ZERO_PAGE+1, x
+    rts
+.endproc
+
+
 .proc write_bad
     lda #X86::Err::WRITE_FUNC
     jmp X86::panic
@@ -608,7 +730,7 @@ done:
 
 ; ==============================================================================
 
-.proc write_s0_ax
+.proc write_ax_s1
     lda Reg::zwS1
     sta Reg::zwAX
     lda Reg::zwS1+1

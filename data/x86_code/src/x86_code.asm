@@ -1,11 +1,11 @@
 
 [BITS 16]
 
-    mov sp, 0x80
 
-    mov al, 0x0f
-    mov bl, 0x10
+mov ax, 0x1234
+mov [0], ax
+mov ax, 0x9876
+mov bx, 0
+xchg ax, [0]
 
-    or bx, 1
-
-    hlt
+hlt

@@ -1,4 +1,17 @@
 
+; This module is responsible for performing arithmetic and logic operations
+; on temporary registers.
+; This module must not access the x86 address space nor registers other then
+; temporary registers and the flags register.
+; This module may simply move values between temporary registers to facilitate
+; code reuse in the "decode" and "write" stages.
+;
+; changes:
+;   Reg::zbFlags
+;   Reg::zbS0
+;   Reg::zbS1
+;   Reg::zbD0
+
 .include "x86/execute.inc"
 .include "x86/mmu.inc"
 .include "x86/reg.inc"
@@ -218,7 +231,7 @@ rbaInstrExecute:
 .byte E44,E44,E44,E44,E44,E44,E44,E44,E46,E46,E46,E46,E46,E46,E46,E46 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte E09,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,E07,E08,E07,E08,E35,BAD,E36,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,E00,E00,E07,E08,E07,E08,E35,BAD,E36,BAD ; 8_
 .byte E00,E00,E00,E00,E00,E00,E00,E00,BAD,BAD,E00,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte E07,E08,E07,E08,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte E07,E07,E07,E07,E07,E07,E07,E07,E08,E08,E08,E08,E08,E08,E08,E08 ; B_

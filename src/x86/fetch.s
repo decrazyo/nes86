@@ -1,4 +1,19 @@
 
+; This module is responsible for reading x86 instructions from RAM or ROM
+; into an instruction buffer.
+; This module must only read the x86 address space though the MMU's dedicated
+; instruction fetching interface.
+; This module must not write to the x86 address space at all.
+; This module must only write to the x86 instruction buffer.
+;
+; uses:
+;   Mmu::get_ip_byte
+; changes:
+;   Reg::zbInstrLen
+;   Reg::zbInstrPrefix
+;   Reg::zbInstrOpcode
+;   Reg::zaInstrOperands
+
 .include "x86/fetch.inc"
 .include "x86/reg.inc"
 .include "x86/mmu.inc"
@@ -57,7 +72,7 @@ rbaInstrLength:
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02,F02 ; 7_
-.byte F06,F06,F06,F06,BAD,BAD,BAD,BAD,F06,F06,F06,F06,F06,BAD,F06,BAD ; 8_
+.byte F06,F06,F06,F06,BAD,BAD,F06,F06,F06,F06,F06,F06,F06,BAD,F06,BAD ; 8_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,BAD,BAD,F05,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte F03,F03,F03,F03,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte F02,F02,F02,F02,F02,F02,F02,F02,F03,F03,F03,F03,F03,F03,F03,F03 ; B_

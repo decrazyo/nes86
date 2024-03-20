@@ -1,4 +1,29 @@
 
+; This module is responsible for copying values needed by x86 instructions
+; into temporary registers.
+; This module must only read the x86 address space though the
+; MMU's general-purpose memory interface and dedicated stack interface.
+; This module must not write to the x86 address space at all.
+; This module may only move data and must not transform it in any other way.
+; If an instruction's opcode indicates that it simply moves a value to or from a fixed
+; location, i.e. a specific register or the stack, then reading that
+; value may be deferred until the "write" stage.
+; e.g. decoding "CALL 0x1234:0x5678" may defer reading "CS" to the "write" stage
+; since the opcode of the instruction (0x9A) always requires "CS" to be
+; pushed onto the stack and "CS" is not needed by the "execute" stage.
+; If an instruction will write to the x86 address space during the "write" stage
+; then this module must configure the MMU appropriately for that write.
+;
+; uses:
+;   Mmu::set_address
+;   Mmu::get_byte
+;   Mmu::peek_next_byte
+;   Mmu::pop_word
+; changes:
+;   Reg::zbS0
+;   Reg::zbS1
+;   Reg::zbD0
+
 .include "x86/decode.inc"
 .include "x86/reg.inc"
 .include "x86/mmu.inc"
@@ -171,7 +196,7 @@ rbaInstrDecode:
 .byte D17,D19,D20,D18,D21,D22,D23,D24,D29,D29,D29,D29,D29,D29,D29,D29 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06 ; 7_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,BAD,BAD,D09,D10,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
 .byte D00,D31,D32,D30,D33,D34,D35,D36,BAD,BAD,D38,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte D15,D16,D13,D14,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte D04,D04,D04,D04,D04,D04,D04,D04,D05,D05,D05,D05,D05,D05,D05,D05 ; B_

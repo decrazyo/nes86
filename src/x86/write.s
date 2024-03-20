@@ -82,6 +82,7 @@
     W35 ; S1 -> CS ; D0 -> IP
     W36 ; S0 -> ModR/M rm8 ; S1 -> ModR/M reg8
     W37 ; S0 -> ModR/M rm16 ; S1 -> ModR/M reg16
+    W38 ; S0 -> AX
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -127,6 +128,7 @@ rbaWriteFuncLo:
 .byte <(write_cs_s1_ip_d0-1)
 .byte <(write_modrm_rm8_s0_modrm_reg8_s1-1)
 .byte <(write_modrm_rm16_s0_modrm_reg16_s1-1)
+.byte <(write_ax_s0-1)
 .byte <(write_bad-1)
 rbaWriteFuncHi:
 .byte >(write_nop-1)
@@ -167,6 +169,7 @@ rbaWriteFuncHi:
 .byte >(write_cs_s1_ip_d0-1)
 .byte >(write_modrm_rm8_s0_modrm_reg8_s1-1)
 .byte >(write_modrm_rm16_s0_modrm_reg16_s1-1)
+.byte >(write_ax_s0-1)
 .byte >(write_bad-1)
 rbaWriteFuncEnd:
 
@@ -185,7 +188,7 @@ rbaInstrWrite:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05,W05 ; 7_
 .byte BAD,BAD,BAD,BAD,W00,W00,W36,W37,W06,W07,W08,W09,W07,BAD,W10,BAD ; 8_
-.byte W00,W26,W27,W25,W28,W29,W30,W31,BAD,BAD,W34,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte W00,W26,W27,W25,W28,W29,W30,W31,W38,BAD,W34,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte W03,W04,W11,W12,BAD,BAD,BAD,BAD,W00,W00,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte W01,W01,W01,W01,W01,W01,W01,W01,W02,W02,W02,W02,W02,W02,W02,W02 ; B_
 .byte BAD,BAD,W05,W05,BAD,BAD,BAD,BAD,BAD,BAD,W35,W35,BAD,BAD,BAD,BAD ; C_
@@ -715,6 +718,15 @@ handle_reg:
     sta Const::ZERO_PAGE, x
     lda Reg::zwS1+1
     sta Const::ZERO_PAGE+1, x
+    rts
+.endproc
+
+
+.proc write_ax_s0
+    lda Reg::zwS0
+    sta Reg::zwAX
+    lda Reg::zwS0+1
+    sta Reg::zwAX+1
     rts
 .endproc
 

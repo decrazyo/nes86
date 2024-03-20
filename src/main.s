@@ -18,7 +18,7 @@
     jsr X86::debug_x86
 
 main_loop:
-    jsr wait_input
+    ;jsr wait_input
 
     jsr X86::step
 

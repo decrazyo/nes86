@@ -88,6 +88,7 @@
     E55 ; AAA
     E56 ; AAS
     E57 ; CBW
+    E58 ; CWD
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -155,6 +156,7 @@ rbaExecuteFuncLo:
 .byte <(execute_aaa-1)
 .byte <(execute_aas-1)
 .byte <(execute_cbw-1)
+.byte <(execute_cwd-1)
 .byte <(execute_bad-1)
 rbaExecuteFuncHi:
 .byte >(execute_nop-1)
@@ -215,6 +217,7 @@ rbaExecuteFuncHi:
 .byte >(execute_aaa-1)
 .byte >(execute_aas-1)
 .byte >(execute_cbw-1)
+.byte >(execute_cwd-1)
 .byte >(execute_bad-1)
 rbaExecuteFuncEnd:
 
@@ -233,7 +236,7 @@ rbaInstrExecute:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte E09,E10,E11,E12,E13,E14,E15,E16,E17,E18,E19,E20,E21,E22,E23,E24 ; 7_
 .byte BAD,BAD,BAD,BAD,E25,E26,E00,E00,E07,E08,E07,E08,E35,BAD,E36,BAD ; 8_
-.byte E00,E00,E00,E00,E00,E00,E00,E00,E57,BAD,E00,BAD,BAD,BAD,BAD,BAD ; 9_
+.byte E00,E00,E00,E00,E00,E00,E00,E00,E57,E58,E00,BAD,BAD,BAD,BAD,BAD ; 9_
 .byte E07,E08,E07,E08,BAD,BAD,BAD,BAD,E25,E26,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte E07,E07,E07,E07,E07,E07,E07,E07,E08,E08,E08,E08,E08,E08,E08,E08 ; B_
 .byte BAD,BAD,E51,E52,BAD,BAD,BAD,BAD,BAD,BAD,E53,E54,BAD,BAD,BAD,BAD ; C_
@@ -983,6 +986,21 @@ adjust_ax:
 minus:
     lda #$ff
     sta Reg::zwS0+1
+    rts
+.endproc
+
+
+.proc execute_cwd
+    lda Reg::zwS1+1
+    bmi minus
+    lda #$00
+    SKIP_WORD
+minus:
+    lda #$ff
+
+    sta Reg::zwS0
+    sta Reg::zwS0+1
+
     rts
 .endproc
 

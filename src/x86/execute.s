@@ -276,12 +276,12 @@ rbaInstrExecute:
 
 
 .proc execute_inc_16
-    ; write 1 to zwS1 so we can use a generic add function.
+    ; write 1 to zwS1X so we can use a generic add function.
     ; this also makes setting processor flags easier.
     ldx #1
-    stx Reg::zwS1
+    stx Reg::zwS1X
     dex
-    stx Reg::zwS1+1
+    stx Reg::zwS1X+1
 
     clc
     ldy #2
@@ -298,12 +298,12 @@ rbaInstrExecute:
 
 
 .proc execute_dec_16
-    ; write 1 to zwS1 so we can use a generic subtract function.
+    ; write 1 to zwS1X so we can use a generic subtract function.
     ; this also makes setting processor flags easier.
     ldx #1
-    stx Reg::zwS1
+    stx Reg::zwS1X
     dex
-    stx Reg::zwS1+1
+    stx Reg::zwS1X+1
 
     sec
     ldy #2
@@ -458,16 +458,16 @@ rbaInstrExecute:
 
 
 .proc execute_mov_8
-    lda Reg::zwS1
-    sta Reg::zwD0
+    lda Reg::zwS1X
+    sta Reg::zwD0X
     rts
 .endproc
 
 
 .proc execute_mov_16
     jsr execute_mov_8
-    lda Reg::zwS1+1
-    sta Reg::zwD0+1
+    lda Reg::zwS1X+1
+    sta Reg::zwD0X+1
     rts
 .endproc
 
@@ -476,6 +476,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsHi
     and #>Reg::FLAG_OF
     jmp rel_jmp8_set
+    ; [tail_jump]
 .endproc
 
 
@@ -483,6 +484,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsHi
     and #>Reg::FLAG_OF
     jmp rel_jmp8_clear
+    ; [tail_jump]
 .endproc
 
 
@@ -490,6 +492,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<Reg::FLAG_CF
     jmp rel_jmp8_set
+    ; [tail_jump]
 .endproc
 
 
@@ -497,6 +500,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<Reg::FLAG_CF
     jmp rel_jmp8_clear
+    ; [tail_jump]
 .endproc
 
 
@@ -504,6 +508,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<Reg::FLAG_ZF
     jmp rel_jmp8_set
+    ; [tail_jump]
 .endproc
 
 
@@ -511,6 +516,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<Reg::FLAG_ZF
     jmp rel_jmp8_clear
+    ; [tail_jump]
 .endproc
 
 
@@ -518,6 +524,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<(Reg::FLAG_CF | Reg::FLAG_ZF)
     jmp rel_jmp8_set
+    ; [tail_jump]
 .endproc
 
 
@@ -525,6 +532,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<(Reg::FLAG_CF | Reg::FLAG_ZF)
     jmp rel_jmp8_clear
+    ; [tail_jump]
 .endproc
 
 
@@ -532,6 +540,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<Reg::FLAG_SF
     jmp rel_jmp8_set
+    ; [tail_jump]
 .endproc
 
 
@@ -539,6 +548,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<Reg::FLAG_SF
     jmp rel_jmp8_clear
+    ; [tail_jump]
 .endproc
 
 
@@ -546,6 +556,7 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<Reg::FLAG_PF
     jmp rel_jmp8_set
+    ; [tail_jump]
 .endproc
 
 
@@ -553,18 +564,21 @@ rbaInstrExecute:
     lda Reg::zbFlagsLo
     and #<Reg::FLAG_PF
     jmp rel_jmp8_clear
+    ; [tail_jump]
 .endproc
 
 
 .proc execute_jl
     jsr cmp_cf_of
     jmp rel_jmp8_set
+    ; [tail_jump]
 .endproc
 
 
 .proc execute_jge
     jsr cmp_cf_of
     jmp rel_jmp8_clear
+    ; [tail_jump]
 .endproc
 
 
@@ -577,9 +591,11 @@ execute_jle:
 ; so i'm just using normal labels with stupidly long names :s
 rel_jmp8_set:
     bne rel_jmp8_set_do_jump
-    jmp copy_s0_to_d0 ; jsr rts -> jmp
+    jmp copy_s0_to_d0
+    ; [tail_jump]
 rel_jmp8_set_do_jump:
-    jmp rel_jmp8 ; jsr rts -> jmp
+    jmp rel_jmp8
+    ; [tail_jump]
 
 
 execute_jg:
@@ -590,9 +606,11 @@ execute_jg:
 rel_jmp8_clear:
     beq rel_jmp8_clear_do_jump
 rel_jmp8_clear_no_jump:
-    jmp copy_s0_to_d0 ; jsr rts -> jmp
+    jmp copy_s0_to_d0
+    ; [tail_jump]
 rel_jmp8_clear_do_jump:
-    jmp rel_jmp8 ; jsr rts -> jmp
+    jmp rel_jmp8
+    ; [tail_jump]
 
 
 .proc execute_and_8
@@ -704,25 +722,25 @@ rel_jmp8_clear_do_jump:
 
 
 ; move a segment register into a register or memory
-; zwS1 will be shifted right by 4 bits
+; zwS1X will be shifted right by 4 bits
 .proc execute_mov_rm_seg
     ; assemble the first byte
-    lda Reg::zwS1
-    sta Reg::zwD0
-    lda Reg::zwS1+1
-    sta Reg::zwD0+1
+    lda Reg::zwS1X
+    sta Reg::zwD0X
+    lda Reg::zwS1X+1
+    sta Reg::zwD0X+1
     rts
 .endproc
 
 
 ; move a register or memory into a segment register
-; zwS1 will be shifted left by 4 bits
+; zwS1X will be shifted left by 4 bits
 .proc execute_mov_seg_rm
     ; shift the first byte
-    lda Reg::zwS1
-    sta Reg::zwD0
-    lda Reg::zwS1+1
-    sta Reg::zwD0+1
+    lda Reg::zwS1X
+    sta Reg::zwD0X
+    lda Reg::zwS1X+1
+    sta Reg::zwD0X+1
     rts
 .endproc
 
@@ -786,33 +804,40 @@ rel_jmp8_clear_do_jump:
 ; TODO: remove these
 .proc execute_push_reg
     jmp execute_mov_16
+    ; [tail_jump]
 .endproc
 
 .proc execute_push_seg
     jmp execute_mov_rm_seg
+    ; [tail_jump]
 .endproc
 
 .proc execute_pop_reg
     jmp execute_mov_16
+    ; [tail_jump]
 .endproc
 
 .proc execute_pop_seg
     jmp execute_mov_seg_rm
+    ; [tail_jump]
 .endproc
 
 
 .proc execute_jmp8
     jmp rel_jmp8
+    ; [tail_jump]
 .endproc
 
 
 .proc execute_jmp16
     jmp rel_jmp16
+    ; [tail_jump]
 .endproc
 
 
 .proc execute_call16
     jmp rel_jmp16
+    ; [tail_jump]
 .endproc
 
 
@@ -822,14 +847,14 @@ pop_args:
     ; TODO: just calculate the new stack address and write it to S0.
     ;       write can handle copying S0 to SP.
     ;       no need to pop each individual value.
-    ldx Reg::zwS0
+    ldx Reg::zwS0X
     bne inner_loop
 
 outer_loop:
-    ldy Reg::zwS0+1
+    ldy Reg::zwS0X+1
     beq done
     dey
-    sty Reg::zwS0+1
+    sty Reg::zwS0X+1
     ; X should always be 0 here
 
 inner_loop:
@@ -846,16 +871,17 @@ done:
 .proc execute_ret
     jsr Mmu::pop_word
     lda Tmp::zw0
-    sta Reg::zwD0
+    sta Reg::zwD0X
     lda Tmp::zw0+1
-    sta Reg::zwD0+1
+    sta Reg::zwD0X+1
     rts
 .endproc
 
 
 .proc execute_retf_imm16
     jsr execute_retf
-    jmp execute_ret_imm16::pop_args ; jsr rts -> jmp
+    jmp execute_ret_imm16::pop_args
+    ; [tail_jump]
 .endproc
 
 
@@ -865,9 +891,9 @@ done:
     ; pop cs
     jsr Mmu::pop_word
     lda Tmp::zw0
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Tmp::zw0+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
@@ -877,7 +903,7 @@ done:
     and #<Reg::FLAG_AF
     bne adjust_ax ; branch if auxiliary carry flag is set
 
-    lda Reg::zwS0
+    lda Reg::zwS0X
     and #$0f
     cmp #10
     bcs adjust_ax ; branch if (AL & $0f) > 9
@@ -891,22 +917,22 @@ done:
     ; AL &= $0f
     lda Reg::zwAX
     and #$0f
-    sta Reg::zwD0
+    sta Reg::zwD0X
     lda Reg::zwAX+1
-    sta Reg::zwD0+1
+    sta Reg::zwD0X+1
     rts
 adjust_ax:
     ; adjust the value of AX if BCD addition overflowed.
 
     ; S0 already contains AL
     lda Reg::zwAX+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     AAA_ADJUST = $0106
     lda #<AAA_ADJUST
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda #>AAA_ADJUST
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
     clc
     ldy #2
@@ -918,9 +944,9 @@ adjust_ax:
     sta Reg::zbFlagsLo
 
     ; AL &= $0f
-    lda Reg::zwD0
+    lda Reg::zwD0X
     and #$0f
-    sta Reg::zwD0
+    sta Reg::zwD0X
 
     rts
 .endproc
@@ -931,16 +957,16 @@ adjust_ax:
     and #<Reg::FLAG_AF
     bne adjust_ax ; branch if auxiliary carry flag is set
 
-    lda Reg::zwS0
+    lda Reg::zwS0X
     and #$0f
     cmp #10
     bcs adjust_ax ; branch if (AL & $0f) > 9
 
     ; AL &= $0f
-    sta Reg::zwD0
+    sta Reg::zwD0X
     ; AH will be unchanged
     lda Reg::zwAX+1
-    sta Reg::zwD0+1
+    sta Reg::zwD0X+1
 
     ; clear carry and auxiliary carry flags
     lda #<~(Reg::FLAG_AF | Reg::FLAG_CF)
@@ -951,24 +977,24 @@ adjust_ax:
     ; adjust the value of AX if BCD subtraction overflowed.
     ; S0 already contains AL
     lda Reg::zwAX+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     AAS_ADJUST_AX = $0006
     lda #<AAS_ADJUST_AX
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda #>AAS_ADJUST_AX
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
     sec
     ldy #2
     jsr sub_with_borrow
 
-    dec Reg::zwD0+1
+    dec Reg::zwD0X+1
 
     ; AL &= $0f
-    lda Reg::zwD0
+    lda Reg::zwD0X
     and #$0f
-    sta Reg::zwD0
+    sta Reg::zwD0X
 
     ; set carry and auxiliary carry flags
     lda #<(Reg::FLAG_AF | Reg::FLAG_CF)
@@ -979,27 +1005,27 @@ adjust_ax:
 .endproc
 
 .proc execute_cbw
-    lda Reg::zwS0
+    lda Reg::zwS0X
     bmi minus
     lda #$00
     SKIP_WORD
 minus:
     lda #$ff
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
     rts
 .endproc
 
 
 .proc execute_cwd
-    lda Reg::zwS1+1
+    lda Reg::zwS1X+1
     bmi minus
     lda #$00
     SKIP_WORD
 minus:
     lda #$ff
 
-    sta Reg::zwS0
-    sta Reg::zwS0+1
+    sta Reg::zwS0X
+    sta Reg::zwS0X+1
 
     rts
 .endproc
@@ -1008,6 +1034,7 @@ minus:
 .proc execute_bad
     lda #X86::Err::EXECUTE_FUNC
     jmp X86::panic
+    ; [tail_jump]
 .endproc
 
 ; ==============================================================================
@@ -1019,9 +1046,9 @@ minus:
 .proc add_with_carry
     ldx #0
 loop:
-    lda Reg::zwS0, x
-    adc Reg::zwS1, x
-    sta Reg::zwD0, x
+    lda Reg::zwS0X, x
+    adc Reg::zwS1X, x
+    sta Reg::zwD0X, x
     inx
     dey
     bne loop
@@ -1034,9 +1061,9 @@ loop:
 .proc sub_with_borrow
     ldx #0
 loop:
-    lda Reg::zwS0, x
-    sbc Reg::zwS1, x
-    sta Reg::zwD0, x
+    lda Reg::zwS0X, x
+    sbc Reg::zwS1X, x
+    sta Reg::zwD0X, x
     inx
     dey
     bne loop
@@ -1068,47 +1095,49 @@ loop:
     ldy #2
 
     ; check if we are jumping forward or backward
-    lda Reg::zwS1+1
+    lda Reg::zwS1X+1
     bpl add_offset ; branch if jumping forward
 
     ; convert the negative number into a positive number that can be subtracted
     eor #$ff
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
-    lda Reg::zwS1
+    lda Reg::zwS1X
 sub_offset:
     eor #$ff
-    sta Reg::zwS1
+    sta Reg::zwS1X
 
     jmp sub_with_borrow
 
 add_offset:
     jmp add_with_carry
+    ; [tail_jump]
 .endproc
 
 
 
 .proc rel_jmp8
     ; we're doing 16-bit math with an 8-bit number.
-    ; zero out Reg::zwS1+1 so 16-bit math is reliable.
+    ; zero out Reg::zwS1X+1 so 16-bit math is reliable.
     clc
     ldy #2
 
     lda #0
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
-    lda Reg::zwS1
+    lda Reg::zwS1X
     bpl rel_jmp16::add_offset
     bmi rel_jmp16::sub_offset
+    ; [tail_branch]
 .endproc
 
 
 
 .proc copy_s0_to_d0
-    lda Reg::zwS0
-    sta Reg::zwD0
-    lda Reg::zwS0+1
-    sta Reg::zwD0+1
+    lda Reg::zwS0X
+    sta Reg::zwD0X
+    lda Reg::zwS0X+1
+    sta Reg::zwD0X+1
     rts
 .endproc
 
@@ -1117,9 +1146,9 @@ add_offset:
 .proc and_y_bytes
     ldx #0
 loop:
-    lda Reg::zwS0, x
-    and Reg::zwS1, x
-    sta Reg::zwD0, x
+    lda Reg::zwS0X, x
+    and Reg::zwS1X, x
+    sta Reg::zwD0X, x
     inx
     dey
     bne loop
@@ -1131,9 +1160,9 @@ loop:
 .proc or_y_bytes
     ldx #0
 loop:
-    lda Reg::zwS0, x
-    ora Reg::zwS1, x
-    sta Reg::zwD0, x
+    lda Reg::zwS0X, x
+    ora Reg::zwS1X, x
+    sta Reg::zwD0X, x
     inx
     dey
     bne loop
@@ -1145,9 +1174,9 @@ loop:
 .proc xor_y_bytes
     ldx #0
 loop:
-    lda Reg::zwS0, x
-    eor Reg::zwS1, x
-    sta Reg::zwD0, x
+    lda Reg::zwS0X, x
+    eor Reg::zwS1X, x
+    sta Reg::zwD0X, x
     inx
     dey
     bne loop
@@ -1161,46 +1190,53 @@ loop:
 
 ; set the carry flag based the result of an 8-bit addition.
 .proc set_carry_flag_add_8
-    lda Reg::zwD0
+    lda Reg::zwD0X
     beq set_carry_flag
     bne clear_carry_flag
+    ; [tail_branch]
 .endproc
 
 
 ; set the carry flag based the result of an 16-bit addition.
 .proc set_carry_flag_add_16
-    lda Reg::zwD0
-    ora Reg::zwD0+1
+    lda Reg::zwD0X
+    ora Reg::zwD0X+1
     beq set_carry_flag
     bne clear_carry_flag
+    ; [tail_branch]
 .endproc
 
 
 ; set the carry flag based the result of an 8-bit addition.
 .proc set_carry_flag_sub_8
-    lda Reg::zwD0
+    lda Reg::zwD0X
     eor #$ff
     beq set_carry_flag
     bne clear_carry_flag
+    ; [tail_branch]
 .endproc
 
 
 ; set the carry flag based the result of an 16-bit addition.
 .proc set_carry_flag_sub_16
-    lda Reg::zwD0
-    ora Reg::zwD0+1
+    lda Reg::zwD0X
+    ora Reg::zwD0X+1
     eor #$ff
     beq set_carry_flag
     bne clear_carry_flag
+    ; [tail_branch]
 .endproc
 
 
 clear_carry_flag:
     lda #<Reg::FLAG_CF
-    jmp Reg::clear_flag_lo ; jsr rts -> jmp
+    jmp Reg::clear_flag_lo
+    ; [tail_jump]
+
 set_carry_flag:
     lda #<Reg::FLAG_CF
-    jmp Reg::set_flag_lo ; jsr rts -> jmp
+    jmp Reg::set_flag_lo
+    ; [tail_jump]
 
 
 ; set the parity flag based the result of an execution.
@@ -1208,7 +1244,7 @@ set_carry_flag:
 .proc set_parity_flag
     ; count the number of set bits
     ldx #0
-    lda Reg::zwD0
+    lda Reg::zwD0X
 loop:
     cmp #0
     beq done
@@ -1224,140 +1260,159 @@ done:
     ; set or clear the parity flag accordingly
     bcc set_flag ; branch if even number of bits
     lda #<Reg::FLAG_PF
-    jmp Reg::clear_flag_lo ; jsr rts -> jmp
+    jmp Reg::clear_flag_lo
 set_flag:
     lda #<Reg::FLAG_PF
-    jmp Reg::set_flag_lo ; jsr rts -> jmp
+    jmp Reg::set_flag_lo
+    ; [tail_jump]
 .endproc
 
 
 ; set the auxiliary carry flag if addition caused a carry in the low nibble.
 .proc set_auxiliary_flag_add
-    lda Reg::zwD0
+    lda Reg::zwD0X
     and #$0f
     beq set_auxiliary_flag
     bne clear_auxiliary_flag
+    ; [tail_branch]
 .endproc
 
 
 ; set the auxiliary carry flag if subtraction caused a carry in the low nibble.
 .proc set_auxiliary_flag_sub
-    lda Reg::zwD0
+    lda Reg::zwD0X
     and #$0f
     eor #$0f
     beq set_auxiliary_flag
     bne clear_auxiliary_flag
+    ; [tail_branch]
 .endproc
 
 
 clear_auxiliary_flag:
     lda #<Reg::FLAG_AF
-    jmp Reg::clear_flag_lo ; jsr rts -> jmp
+    jmp Reg::clear_flag_lo
+    ; [tail_jump]
 set_auxiliary_flag:
     lda #<Reg::FLAG_AF
-    jmp Reg::set_flag_lo ; jsr rts -> jmp
+    jmp Reg::set_flag_lo
+    ; [tail_jump]
 
 
 ; set the zero flag if an 8-bit operation resulted in an output of 0.
 .proc set_zero_flag_8
-    lda Reg::zwD0
+    lda Reg::zwD0X
     beq set_zero_flag
     bne clear_zero_flag
+    ; [tail_branch]
 .endproc
 
 
 ; set the zero flag if a 16-bit operation resulted in an output of 0.
 .proc set_zero_flag_16
-    lda Reg::zwD0
-    ora Reg::zwD0+1
+    lda Reg::zwD0X
+    ora Reg::zwD0X+1
     beq set_zero_flag
     bne clear_zero_flag
+    ; [tail_branch]
 .endproc
 
 
 clear_zero_flag:
     lda #<Reg::FLAG_ZF
-    jmp Reg::clear_flag_lo ; jsr rts -> jmp
+    jmp Reg::clear_flag_lo
+    ; [tail_jump]
 set_zero_flag:
     lda #<Reg::FLAG_ZF
-    jmp Reg::set_flag_lo ; jsr rts -> jmp
+    jmp Reg::set_flag_lo
+    ; [tail_jump]
 
 
 ; set the sign flag if an execution resulted in a negative output.
 .proc set_sign_flag_8
-    lda Reg::zwD0
+    lda Reg::zwD0X
     bmi set_sign_flag
     bpl clear_sign_flag
+    ; [tail_branch]
 .endproc
 
 
 ; set the sign flag if an execution resulted in a negative output.
 .proc set_sign_flag_16
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     bmi set_sign_flag
     bpl clear_sign_flag
+    ; [tail_branch]
 .endproc
 
 
 clear_sign_flag:
     lda #<Reg::FLAG_SF
-    jmp Reg::clear_flag_lo ; jsr rts -> jmp
+    jmp Reg::clear_flag_lo
+    ; [tail_jump]
 set_sign_flag:
     lda #<Reg::FLAG_SF
-    jmp Reg::set_flag_lo ; jsr rts -> jmp
+    jmp Reg::set_flag_lo
+    ; [tail_jump]
 
 
 ; set the overflow flag if 8-bit addition caused an arithmetic overflow.
 .proc set_overflow_flag_add_8
-    lda Reg::zwS0
-    eor Reg::zwS1
+    lda Reg::zwS0X
+    eor Reg::zwS1X
     bmi clear_overflow_flag ; branch if source registers have different signs
-    lda Reg::zwS0
-    eor Reg::zwD0
+    lda Reg::zwS0X
+    eor Reg::zwD0X
     bpl clear_overflow_flag ; branch if sources and destination have the same sign
     bmi set_overflow_flag
+    ; [tail_branch]
 .endproc
 
 
 ; set the overflow flag if 16-bit addition caused an arithmetic overflow.
 .proc set_overflow_flag_add_16
-    lda Reg::zwS0+1
-    eor Reg::zwS1+1
+    lda Reg::zwS0X+1
+    eor Reg::zwS1X+1
     bmi clear_overflow_flag ; branch if source registers have different signs
-    lda Reg::zwS0+1
-    eor Reg::zwD0+1
+    lda Reg::zwS0X+1
+    eor Reg::zwD0X+1
     bpl clear_overflow_flag ; branch if sources and destination have the same sign
     bmi set_overflow_flag
+    ; [tail_branch]
 .endproc
 
 
 ; set the overflow flag if subtraction caused an arithmetic overflow.
 .proc set_overflow_flag_sub_8
-    lda Reg::zwS0
-    eor Reg::zwS1
+    lda Reg::zwS0X
+    eor Reg::zwS1X
     bpl clear_overflow_flag ; branch if source registers have the same signs
-    lda Reg::zwS0
-    eor Reg::zwD0
+    lda Reg::zwS0X
+    eor Reg::zwD0X
     bpl clear_overflow_flag ; branch if source 1 and destination have the same sign
     bmi set_overflow_flag
+    ; [tail_branch]
 .endproc
 
 
 ; set the overflow flag if subtraction caused an arithmetic overflow.
 .proc set_overflow_flag_sub_16
-    lda Reg::zwS0+1
-    eor Reg::zwS1+1
+    lda Reg::zwS0X+1
+    eor Reg::zwS1X+1
     bpl clear_overflow_flag ; branch if source registers have the same signs
-    lda Reg::zwS0+1
-    eor Reg::zwD0+1
+    lda Reg::zwS0X+1
+    eor Reg::zwD0X+1
     bpl clear_overflow_flag ; branch if source 1 and destination have the same sign
     bmi set_overflow_flag ; branch if source 1 and destination have the same sign
+    ; [tail_branch]
 .endproc
 
 
 set_overflow_flag:
     lda #>Reg::FLAG_OF
-    jmp Reg::set_flag_hi ; jsr rts -> jmp
+    jmp Reg::set_flag_hi
+    ; [tail_jump]
 clear_overflow_flag:
     lda #>Reg::FLAG_OF
-    jmp Reg::clear_flag_hi ; jsr rts -> jmp
+    jmp Reg::clear_flag_hi
+    ; [tail_jump]

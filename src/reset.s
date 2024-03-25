@@ -59,5 +59,6 @@
     bpl @vblank_wait2
 
     jmp Main::main
+    ; [tail_jump]
     ; TODO: locate "main" here to avoid the jump
 .endproc

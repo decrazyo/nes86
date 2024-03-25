@@ -153,6 +153,7 @@ done:
     stx Reg::zbInstrLen
     lda #X86::Err::FETCH_FUNC
     jmp X86::panic
+    ; [tail_jump]
 .endproc
 
 
@@ -163,6 +164,7 @@ done:
     ldx Reg::zbInstrLen
     sty Reg::zbInstrLen
     jmp copy_bytes::store_first
+    ; [tail_jump]
 .endproc
 
 
@@ -223,4 +225,5 @@ register_index:
 .proc fetch_seg_pre
     sta Reg::zbInstrPrefix
     jmp fetch::next
+    ; [tail_jump]
 .endproc

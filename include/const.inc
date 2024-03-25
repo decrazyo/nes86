@@ -44,11 +44,26 @@ _CONST_ = 1
     MODRM_SEG_MASK   = %00011000 ; segment register index
     MODRM_RM_MASK    = %00000111 ; register index or index to registers to use as pointers
 
+    ; ModR/M R/M field indicates a direct address
+    MODRM_RM_DIRECT  = %00000110
+
 .endscope
 
 ; CPU ignores the following 1 or 2 bytes
 .define SKIP_BYTE .byte $24 ; 8-bit BIT instruction.
 .define SKIP_WORD .byte $2c ; 16-bit BIT instruction.
 .define KILL .byte $02 ; halt and catch fire.
+
+.macro mov8 dst, src
+    lda src
+    sta dst
+.endmac
+
+.macro mov16 dst, src
+    lda src
+    sta dst
+    lda src+1
+    sta dst+1
+.endmac
 
 .endif

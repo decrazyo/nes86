@@ -78,7 +78,8 @@ rsUnknown:
     jsr Fetch::fetch
     jsr Decode::decode
     jsr Execute::execute
-    jmp Write::write ; jsr rts -> jmp
+    jmp Write::write
+    ; [tail_jump]
 .endproc
 
 
@@ -86,6 +87,7 @@ rsUnknown:
 .proc run
     jsr step
     jmp run
+    ; [tail_jump]
 .endproc
 
 
@@ -111,6 +113,7 @@ valid_error:
     .endif
 loop:
     jmp loop
+    ; [tail_jump]
 .endproc
 
 

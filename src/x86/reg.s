@@ -40,9 +40,25 @@
 .exportzp zbFlagsLo
 .exportzp zbFlagsHi
 
-.exportzp zwS0
-.exportzp zwS1
-.exportzp zwD0
+.exportzp zwS0X
+.exportzp zbS0L
+.exportzp zbS0H
+.exportzp zwS1X
+.exportzp zbS1L
+.exportzp zbS1H
+.exportzp zwS2X
+.exportzp zbS2L
+.exportzp zbS2H
+
+.exportzp zwD0X
+.exportzp zbD0L
+.exportzp zbD0H
+.exportzp zwD1X
+.exportzp zbD1L
+.exportzp zbD1H
+.exportzp zwD2X
+.exportzp zbD2L
+.exportzp zbD2H
 
 .exportzp zbInstrLen
 .exportzp zbInstrPrefix
@@ -118,12 +134,27 @@ zbFlagsLo: .res 1
 zbFlagsHi: .res 1
 
 ; pseudo-registers:
-; these 24-bits wide to allow for 20-bit address calculations.
+; mainly used by the ALU.
 ; source registers
-zwS0: .res 2
-zwS1: .res 2
+zwS0X:
+zbS0L: .res 1
+zbS0H: .res 1
+zwS1X:
+zbS1L: .res 1
+zbS1H: .res 1
+zwS2X:
+zbS2L: .res 1
+zbS2H: .res 1
 ; destination registers
-zwD0: .res 2
+zwD0X:
+zbD0L: .res 1
+zbD0H: .res 1
+zwD1X:
+zbD1L: .res 1
+zbD1H: .res 1
+zwD2X:
+zbD2L: .res 1
+zbD2H: .res 1
 
 ; instruction length
 ; opcode + operands
@@ -293,8 +324,16 @@ rsS0:
 .byte "S0:\t\t", 0
 rsS1:
 .byte "S1:\t\t", 0
+rsS2:
+.byte "S2:\t\t", 0
+
 rsD0:
 .byte "D0:\t\t", 0
+rsD1:
+.byte "D1:\t\t", 0
+rsD2:
+.byte "D2:\t\t", 0
+
 
 rsInstr:
 .byte "instr:\t", 0
@@ -530,35 +569,72 @@ rsBlank:
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zwS0
+    lda #<zwS0X
     jsr Tmp::set_zp_ptr0
     ldy #2
     jsr Con::print_hex_arr_rev
 
-    lda #Chr::NEW_LINE
+    lda #Chr::TAB
     jsr Con::print_chr
-
-
-    lda #<rsS1
-    ldx #>rsS1
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwS1
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
 
     lda #<rsD0
     ldx #>rsD0
     jsr Tmp::set_ptr0
     jsr Con::print_str
 
-    lda #<zwD0
+    lda #<zwD0X
+    jsr Tmp::set_zp_ptr0
+    ldy #2
+    jsr Con::print_hex_arr_rev
+
+    lda #Chr::NEW_LINE
+    jsr Con::print_chr
+
+    lda #<rsS1
+    ldx #>rsS1
+    jsr Tmp::set_ptr0
+    jsr Con::print_str
+
+    lda #<zwS1X
+    jsr Tmp::set_zp_ptr0
+    ldy #2
+    jsr Con::print_hex_arr_rev
+
+    lda #Chr::TAB
+    jsr Con::print_chr
+
+    lda #<rsD1
+    ldx #>rsD1
+    jsr Tmp::set_ptr0
+    jsr Con::print_str
+
+    lda #<zwD1X
+    jsr Tmp::set_zp_ptr0
+    ldy #2
+    jsr Con::print_hex_arr_rev
+
+    lda #Chr::NEW_LINE
+    jsr Con::print_chr
+
+    lda #<rsS2
+    ldx #>rsS2
+    jsr Tmp::set_ptr0
+    jsr Con::print_str
+
+    lda #<zwS2X
+    jsr Tmp::set_zp_ptr0
+    ldy #2
+    jsr Con::print_hex_arr_rev
+
+    lda #Chr::TAB
+    jsr Con::print_chr
+
+    lda #<rsD2
+    ldx #>rsD2
+    jsr Tmp::set_ptr0
+    jsr Con::print_str
+
+    lda #<zwD2X
     jsr Tmp::set_zp_ptr0
     ldy #2
     jsr Con::print_hex_arr_rev

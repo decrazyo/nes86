@@ -239,7 +239,7 @@ skip_embed:
     tay
     ldx Reg::rzbaReg8Map, y
 
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Const::ZERO_PAGE, x
     rts
 .endproc
@@ -253,10 +253,10 @@ skip_embed:
     tay
     ldx Reg::rzbaReg16Map, y
 
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Const::ZERO_PAGE, x
     inx
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Const::ZERO_PAGE, x
 
     ; if we changed SP then we need to tell the MMU.
@@ -269,22 +269,22 @@ done:
 
 
 .proc write_ax_d0
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwAX+1
-    ; fall through to copy the low byte
+    ; [fall_through]
 .endproc
 
 .proc write_al_d0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zbAL
     rts
 .endproc
 
 
 .proc write_ip_d0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwIP
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwIP+1
     lda #1
     sta Mmu::zbCodeDirty
@@ -303,11 +303,13 @@ done:
     ; write the value back to a register
     lda Reg::zaInstrOperands
     and #Const::MODRM_RM_MASK
-    jmp write_embed_reg8_d0::skip_embed ; jsr rts -> jmp
+    jmp write_embed_reg8_d0::skip_embed
+    ; [tail_jump]
 
 write_ram:
-    lda Reg::zwD0
-    jmp Mmu::set_byte ; jsr rts -> jmp
+    lda Reg::zwD0X
+    jmp Mmu::set_byte
+    ; [tail_jump]
 .endproc
 
 
@@ -322,14 +324,16 @@ write_ram:
     ; write the value back to a register
     lda Reg::zaInstrOperands
     and #Const::MODRM_RM_MASK
-    jmp write_embed_reg16_d0::skip_embed ; jsr rts -> jmp
+    jmp write_embed_reg16_d0::skip_embed
+    ; [tail_jump]
 
 write_ram:
-    lda Reg::zwD0
+    lda Reg::zwD0X
     jsr Mmu::set_byte
     jsr Mmu::inc_address
-    lda Reg::zwD0+1
-    jsr Mmu::set_byte ; jsr rts -> jmp
+    lda Reg::zwD0X+1
+    jmp Mmu::set_byte
+    ; [tail_jump]
 .endproc
 
 
@@ -339,7 +343,8 @@ write_ram:
     lsr
     lsr
     lsr
-    jmp write_embed_reg8_d0::skip_embed ; jsr rts -> jmp
+    jmp write_embed_reg8_d0::skip_embed
+    ; [tail_jump]
 .endproc
 
 
@@ -349,7 +354,8 @@ write_ram:
     lsr
     lsr
     lsr
-    jmp write_embed_reg16_d0::skip_embed ; jsr rts -> jmp
+    jmp write_embed_reg16_d0::skip_embed
+    ; [tail_jump]
 .endproc
 
 
@@ -363,10 +369,10 @@ write_ram:
     tay
     ldx Reg::rzbaSegRegMap, y
 
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Const::ZERO_PAGE, x
     inx
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Const::ZERO_PAGE, x
 
     ; if we changed CS or SS then we need to tell the MMU.
@@ -384,59 +390,62 @@ done:
 
 
 .proc write_mmu8_d0
-    lda Reg::zwD0
-    jmp Mmu::set_byte ; jsr rts -> jmp
+    lda Reg::zwD0X
+    jmp Mmu::set_byte
+    ; [tail_jump]
 .endproc
 
 
 .proc write_mmu16_d0
     jsr write_mmu8_d0
     jsr Mmu::inc_address
-    lda Reg::zwD0+1
-    jmp Mmu::set_byte ; jsr rts -> jmp
+    lda Reg::zwD0X+1
+    jmp Mmu::set_byte
+    ; [tail_jump]
 .endproc
 
 
 .proc write_stack_d0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Tmp::zw0
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Tmp::zw0+1
     jmp Mmu::push_word
+    ; [tail_jump]
 .endproc
 
 
 .proc write_bx_d0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwBX
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwBX+1
     rts
 .endproc
 
 
 .proc write_cx_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwCX
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwCX+1
     rts
 .endproc
 
 
 .proc write_dx_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwDX
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwDX+1
     rts
 .endproc
 
 
 .proc write_sp_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwSP
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwSP+1
     lda #1
     sta Mmu::zbStackDirty
@@ -445,36 +454,36 @@ done:
 
 
 .proc write_bp_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwBP
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwBP+1
     rts
 .endproc
 
 
 .proc write_si_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwSI
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwSI+1
     rts
 .endproc
 
 
 .proc write_di_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwDI
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwDI+1
     rts
 .endproc
 
 
 .proc write_cs_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwCS
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwCS+1
     lda #1
     sta Mmu::zbCodeDirty
@@ -483,27 +492,27 @@ done:
 
 
 .proc write_ds_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwDS
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwDS+1
     rts
 .endproc
 
 
 .proc write_es_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwES
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwES+1
     rts
 .endproc
 
 
 .proc write_ss_s0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwSS
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwSS+1
     lda #1
     sta Mmu::zbStackDirty
@@ -512,79 +521,86 @@ done:
 
 
 .proc write_bx_s0_ax_s1
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zwBX
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Reg::zwBX+1
-    jmp write_ax_s1 ; jsr rts -> jmp
+    jmp write_ax_s1
+    ; [tail_jump]
 .endproc
 
 
 .proc write_cx_s0_ax_s1
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zwCX
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Reg::zwCX+1
-    jmp write_ax_s1 ; jsr rts -> jmp
+    jmp write_ax_s1
+    ; [tail_jump]
 .endproc
 
 
 .proc write_dx_s0_ax_s1
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zwDX
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Reg::zwDX+1
-    jmp write_ax_s1 ; jsr rts -> jmp
+    jmp write_ax_s1
+    ; [tail_jump]
 .endproc
 
 
 .proc write_sp_s0_ax_s1
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zwSP
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Reg::zwSP+1
     lda #1
     sta Mmu::zbStackDirty
-    jmp write_ax_s1 ; jsr rts -> jmp
+    jmp write_ax_s1
+    ; [tail_jump]
 .endproc
 
 
 .proc write_bp_s0_ax_s1
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zwBP
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Reg::zwBP+1
-    jmp write_ax_s1 ; jsr rts -> jmp
+    jmp write_ax_s1
+    ; [tail_jump]
 .endproc
 
 
 .proc write_si_s0_ax_s1
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zwSI
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Reg::zwSI+1
-    jmp write_ax_s1 ; jsr rts -> jmp
+    jmp write_ax_s1
+    ; [tail_jump]
 .endproc
 
 
 .proc write_di_s0_ax_s1
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zwDI
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Reg::zwDI+1
-    jmp write_ax_s1 ; jsr rts -> jmp
+    jmp write_ax_s1
+    ; [tail_jump]
 .endproc
 
 
 .proc write_ip_s0_cs_s1
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zwIP
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Reg::zwIP+1
 
-    lda Reg::zwS1
+    lda Reg::zwS1X
     sta Reg::zwCS
-    lda Reg::zwS1+1
+    lda Reg::zwS1X+1
     sta Reg::zwCS+1
 
     lda #1
@@ -600,9 +616,9 @@ done:
     sta Tmp::zw0+1
     jsr Mmu::push_word
 
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwIP
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwIP+1
 
     lda #1
@@ -626,18 +642,19 @@ done:
 
     ; this should mark the code segment as dirty
     jmp write_ip_s0_cs_s1
+    ; [tail_jump]
 .endproc
 
 
 .proc write_cs_s1_ip_d0
-    lda Reg::zwS1
+    lda Reg::zwS1X
     sta Reg::zwCS
-    lda Reg::zwS1+1
+    lda Reg::zwS1X+1
     sta Reg::zwCS+1
 
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zwIP
-    lda Reg::zwD0+1
+    lda Reg::zwD0X+1
     sta Reg::zwIP+1
 
     lda #1
@@ -661,12 +678,12 @@ done:
     tay
     ldx Reg::rzbaReg8Map, y
 
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Const::ZERO_PAGE, x
     jmp handle_reg
 
 write_ram:
-    lda Reg::zwS0
+    lda Reg::zwS0X
     jsr Mmu::set_byte
 
 handle_reg:
@@ -679,7 +696,7 @@ handle_reg:
     tay
     ldx Reg::rzbaReg8Map, y
 
-    lda Reg::zwS1
+    lda Reg::zwS1X
     sta Const::ZERO_PAGE, x
     rts
 .endproc
@@ -700,17 +717,17 @@ handle_reg:
     tay
     ldx Reg::rzbaReg8Map, y
 
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Const::ZERO_PAGE, x
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Const::ZERO_PAGE+1, x
     jmp handle_reg
 
 write_ram:
-    lda Reg::zwS0
+    lda Reg::zwS0X
     jsr Mmu::set_byte
     jsr Mmu::inc_address
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     jsr Mmu::set_byte
 
 handle_reg:
@@ -723,41 +740,41 @@ handle_reg:
     tay
     ldx Reg::rzbaReg8Map, y
 
-    lda Reg::zwS1
+    lda Reg::zwS1X
     sta Const::ZERO_PAGE, x
-    lda Reg::zwS1+1
+    lda Reg::zwS1X+1
     sta Const::ZERO_PAGE+1, x
     rts
 .endproc
 
 
 .proc write_ax_s0
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zwAX
-    lda Reg::zwS0+1
+    lda Reg::zwS0X+1
     sta Reg::zwAX+1
     rts
 .endproc
 
 
 .proc write_flags_s1
-    lda Reg::zwS1
+    lda Reg::zwS1X
     sta Reg::zwFlags
-    lda Reg::zwS1+1
+    lda Reg::zwS1X+1
     sta Reg::zwFlags+1
     rts
 .endproc
 
 
 .proc write_flags_lo_s0
-    lda Reg::zwS0
+    lda Reg::zwS0X
     sta Reg::zbFlagsLo
     rts
 .endproc
 
 
 .proc write_ah_d0
-    lda Reg::zwD0
+    lda Reg::zwD0X
     sta Reg::zbAH
     rts
 .endproc
@@ -766,14 +783,15 @@ handle_reg:
 .proc write_bad
     lda #X86::Err::WRITE_FUNC
     jmp X86::panic
+    ; [tail_jump]
 .endproc
 
 ; ==============================================================================
 
 .proc write_ax_s1
-    lda Reg::zwS1
+    lda Reg::zwS1X
     sta Reg::zwAX
-    lda Reg::zwS1+1
+    lda Reg::zwS1X+1
     sta Reg::zwAX+1
     rts
 .endproc

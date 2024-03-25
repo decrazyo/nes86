@@ -35,9 +35,25 @@ _X86_REG_ = 1
     .importzp zbFlagsLo
     .importzp zbFlagsHi
 
-    .importzp zwS0
-    .importzp zwS1
-    .importzp zwD0
+    .importzp zwS0X
+    .importzp zbS0L
+    .importzp zbS0H
+    .importzp zwS1X
+    .importzp zbS1L
+    .importzp zbS1H
+    .importzp zwS2X
+    .importzp zbS2L
+    .importzp zbS2H
+
+    .importzp zwD0X
+    .importzp zbD0L
+    .importzp zbD0H
+    .importzp zwD1X
+    .importzp zbD1L
+    .importzp zbD1H
+    .importzp zwD2X
+    .importzp zbD2L
+    .importzp zbD2H
 
     .importzp zbInstrLen
     .importzp zbInstrPrefix
@@ -113,6 +129,9 @@ _X86_REG_ = 1
         SI
         DI
     .endenum
+
+
+
 
     .ifdef DEBUG
     .import debug_reg

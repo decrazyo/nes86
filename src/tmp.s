@@ -34,6 +34,7 @@ zb3: .res 1
 .proc set_zp_ptr0
     ldx #0
     beq set_ptr0 ; branch always
+    ; [tail_branch]
 .endproc
 
 
@@ -43,6 +44,7 @@ zb3: .res 1
 .proc set_zp_ptr1
     ldx #0
     beq set_ptr1 ; branch always
+    ; [tail_branch]
 .endproc
 
 

@@ -233,7 +233,8 @@ done:
 .proc get_next_byte
     ; select the necessary bank
     jsr inc_address
-    jmp get_byte ; jsr rts -> jmp
+    jmp get_byte
+    ; [tail_jump]
 .endproc
 
 
@@ -315,7 +316,8 @@ do_pop:
 
     lda (zpStackAddress), y
     sta Tmp::zw0+1
-    jmp inc_stack_address ; jsr rts -> jmp
+    jmp inc_stack_address
+    ; [tail_jump]
 .endproc
 
 

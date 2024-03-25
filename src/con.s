@@ -38,7 +38,7 @@ zbCursorY: .res 1
 ; initialize the console
 .proc con
     jmp Ppu::ppu
-    ; jsr rts -> jmp
+    ; [tail_jump]
 .endproc
 
 
@@ -223,7 +223,7 @@ mul32:
     lsr
     lsr
     jmp print_nibble_hex
-    ; jsr rts -> jmp
+    ; [tail_jump]
 .endproc
 
 
@@ -232,7 +232,7 @@ mul32:
 .proc print_nibble_lo
     and #$0f
     jmp print_nibble_hex
-    ; jsr rts -> jmp
+    ; [tail_jump]
 .endproc
 
 
@@ -245,7 +245,7 @@ mul32:
 digit:
     ora #$30
     jmp pur_char
-    ; jsr rts -> jmp
+    ; [tail_jump]
 .endproc
 
 
@@ -342,8 +342,8 @@ done:
     sty Tmp::zb3
     jsr Nmi::write_addr
     ldy Tmp::zb3
+    ; [fall_through]
 .endproc
-
 
 ; try to handle control characters.
 ; < A = possible control character

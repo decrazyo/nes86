@@ -64,6 +64,7 @@ $(ROM): $(OBJS) $(LD_CONF) $(BIN_DIR)
 
 # assemble source files into objects
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s $(INCS) $(BINCS) $(BINC_DIR) $(BUILD_DIR)
+	#python $(TOOLS_DIR)/linter.py $<
 	$(AS) $(AS_FLAGS) -o $@ $<
 
 $(BUILD_DIR):

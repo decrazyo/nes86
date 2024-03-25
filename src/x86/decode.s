@@ -205,7 +205,7 @@ rbaInstrDecode:
 .byte D17,D19,D20,D18,D21,D22,D23,D24,D29,D29,D29,D29,D29,D29,D29,D29 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
 .byte D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06 ; 7_
-.byte BAD,BAD,BAD,BAD,D09,D10,D09,D10,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
+.byte BAD,BAD,BAD,BAD,D07,D08,D09,D10,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
 .byte D00,D31,D32,D30,D33,D34,D35,D36,D40,D17,D38,BAD,D41,D29,D42,D43 ; 9_
 .byte D15,D16,D13,D14,BAD,BAD,BAD,BAD,D02,D03,BAD,BAD,BAD,BAD,BAD,BAD ; A_
 .byte D04,D04,D04,D04,D04,D04,D04,D04,D05,D05,D05,D05,D05,D05,D05,D05 ; B_
@@ -260,10 +260,10 @@ rbaInstrDecode:
 
     ; copy the register to S0
     lda Const::ZERO_PAGE, x
-    sta Reg::zwS0
+    sta Reg::zwS0X
     inx
     lda Const::ZERO_PAGE, x
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     rts
 .endproc
@@ -274,21 +274,21 @@ rbaInstrDecode:
     inc zbWord
 
     lda Reg::zwAX+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     lda Reg::zaInstrOperands+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
-    ; fall through to copy the low bytes
+    ; [fall_through]
 .endproc
 
 ; opcode implies that AL is used and an 8-bit operand follows it
 .proc decode_s0_al_s1_imm8
     lda Reg::zbAL
-    sta Reg::zwS0
+    sta Reg::zwS0X
 
     lda Reg::zaInstrOperands
-    sta Reg::zwS1
+    sta Reg::zwS1X
     rts
 .endproc
 
@@ -298,15 +298,15 @@ rbaInstrDecode:
     inc zbWord
 
     lda Reg::zaInstrOperands+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
-    ; fall through to copy the low bytes
+    ; [fall_through]
 .endproc
 
 ; opcode is followed by an 8-bit operand
 .proc decode_s1_imm8
     lda Reg::zaInstrOperands
-    sta Reg::zwS1
+    sta Reg::zwS1X
     rts
 .endproc
 
@@ -315,12 +315,12 @@ rbaInstrDecode:
 ; used for conditional jumps.
 .proc decode_s0_ip_s1_imm8
     lda Reg::zwIP
-    sta Reg::zwS0
+    sta Reg::zwS0X
     lda Reg::zwIP+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     lda Reg::zaInstrOperands
-    sta Reg::zwS1
+    sta Reg::zwS1X
     rts
 .endproc
 
@@ -328,11 +328,11 @@ rbaInstrDecode:
 .proc decode_s0_modrm_rm8_s1_modrm_reg8
     jsr handle_modrm_rm
     lda Tmp::zb0
-    sta Reg::zwS0
+    sta Reg::zwS0X
 
     jsr handle_modrm_reg
     lda Tmp::zb0
-    sta Reg::zwS1
+    sta Reg::zwS1X
 
     rts
 .endproc
@@ -343,15 +343,15 @@ rbaInstrDecode:
 
     jsr handle_modrm_rm
     lda Tmp::zw0
-    sta Reg::zwS0
+    sta Reg::zwS0X
     lda Tmp::zw0+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     jsr handle_modrm_reg
     lda Tmp::zw0
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Tmp::zw0+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
     rts
 .endproc
@@ -360,11 +360,11 @@ rbaInstrDecode:
 .proc decode_s0_modrm_reg8_s1_modrm_rm8
     jsr handle_modrm_reg
     lda Tmp::zb0
-    sta Reg::zwS0
+    sta Reg::zwS0X
 
     jsr handle_modrm_rm
     lda Tmp::zb0
-    sta Reg::zwS1
+    sta Reg::zwS1X
 
     rts
 .endproc
@@ -375,15 +375,15 @@ rbaInstrDecode:
 
     jsr handle_modrm_reg
     lda Tmp::zw0
-    sta Reg::zwS0
+    sta Reg::zwS0X
     lda Tmp::zw0+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     jsr handle_modrm_rm
     lda Tmp::zw0
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Tmp::zw0+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
     rts
 .endproc
@@ -394,15 +394,15 @@ rbaInstrDecode:
 
     jsr handle_modrm_rm
     lda Tmp::zw0
-    sta Reg::zwS0
+    sta Reg::zwS0X
     lda Tmp::zw0+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     jsr handle_modrm_seg
     lda Tmp::zw0
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Tmp::zw0+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
     rts
 .endproc
@@ -413,15 +413,15 @@ rbaInstrDecode:
 
     jsr handle_modrm_seg
     lda Tmp::zw0
-    sta Reg::zwS0
+    sta Reg::zwS0X
     lda Tmp::zw0+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     jsr handle_modrm_rm
     lda Tmp::zw0
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Tmp::zw0+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
 
     rts
 .endproc
@@ -432,14 +432,14 @@ rbaInstrDecode:
     inc zbWord
 
     lda Reg::zwAX+1
-    sta Reg::zwS1+1
-    ; fall through to copy the low bytes
+    sta Reg::zwS1X+1
+    ; [fall_through]
 .endproc
 
 ; opcode implies AL is needed
 .proc decode_mmu_ptr8_s1_al
     lda Reg::zbAL
-    sta Reg::zwS1
+    sta Reg::zwS1X
 
     jsr prefix_seg_index
     bcc segment_prefix
@@ -466,7 +466,7 @@ segment_prefix:
     jsr Mmu::set_address
 
     jsr Mmu::get_byte
-    sta Reg::zwS1
+    sta Reg::zwS1X
     rts
 .endproc
 
@@ -484,117 +484,117 @@ segment_prefix:
     jsr Mmu::set_address
 
     jsr Mmu::get_byte
-    sta Reg::zwS1
+    sta Reg::zwS1X
     jsr Mmu::peek_next_byte
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_ax
     lda Reg::zwAX
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwAX+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_bx
     lda Reg::zwBX
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwBX+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_cx
     lda Reg::zwCX
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwCX+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_dx
     lda Reg::zwDX
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwDX+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_sp
     lda Reg::zwSP
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwSP+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_bp
     lda Reg::zwBP
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwBP+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_si
     lda Reg::zwSI
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwSI+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_di
     lda Reg::zwDI
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwDI+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_cs
     lda Reg::zwCS
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwCS+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_ds
     lda Reg::zwDS
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwDS+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_es
     lda Reg::zwES
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwES+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s1_ss
     lda Reg::zwSS
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zwSS+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
@@ -602,118 +602,125 @@ segment_prefix:
 .proc decode_s1_stack
     jsr Mmu::pop_word
     lda Tmp::zw0
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Tmp::zw0+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s0_ax_s1_bx
     jsr decode_s0_ax
-    jmp decode_s1_bx ; jsr rts -> jmp
+    jmp decode_s1_bx
+    ; [tail_jump]
 .endproc
 
 
 .proc decode_s0_ax_s1_cx
     jsr decode_s0_ax
-    jmp decode_s1_cx ; jsr rts -> jmp
+    jmp decode_s1_cx
+    ; [tail_jump]
 .endproc
 
 
 .proc decode_s0_ax_s1_dx
     jsr decode_s0_ax
-    jmp decode_s1_dx ; jsr rts -> jmp
+    jmp decode_s1_dx
+    ; [tail_jump]
 .endproc
 
 
 .proc decode_s0_ax_s1_sp
     jsr decode_s0_ax
-    jmp decode_s1_sp ; jsr rts -> jmp
+    jmp decode_s1_sp
+    ; [tail_jump]
 .endproc
 
 
 .proc decode_s0_ax_s1_bp
     jsr decode_s0_ax
-    jmp decode_s1_bp ; jsr rts -> jmp
+    jmp decode_s1_bp
+    ; [tail_jump]
 .endproc
 
 
 .proc decode_s0_ax_s1_si
     jsr decode_s0_ax
-    jmp decode_s1_si ; jsr rts -> jmp
+    jmp decode_s1_si
+    ; [tail_jump]
 .endproc
 
 
 .proc decode_s0_ax_s1_di
     jsr decode_s0_ax
-    jmp decode_s1_di ; jsr rts -> jmp
+    jmp decode_s1_di
+    ; [tail_jump]
 .endproc
 
 
 .proc decode_s0_ip_s1_imm16
     lda Reg::zwIP
-    sta Reg::zwS0
+    sta Reg::zwS0X
     lda Reg::zwIP+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     lda Reg::zaInstrOperands
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zaInstrOperands+1
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s0_imm16_s1_imm16
     lda Reg::zaInstrOperands
-    sta Reg::zwS0
+    sta Reg::zwS0X
     lda Reg::zaInstrOperands+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
 
     lda Reg::zaInstrOperands+2
-    sta Reg::zwS1
+    sta Reg::zwS1X
     lda Reg::zaInstrOperands+3
-    sta Reg::zwS1+1
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s0_imm16
     lda Reg::zaInstrOperands
-    sta Reg::zwS0
+    sta Reg::zwS0X
     lda Reg::zaInstrOperands+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
     rts
 .endproc
 
 
 .proc decode_s0_al
     lda Reg::zbAL
-    sta Reg::zwS0
+    sta Reg::zwS0X
     rts
 .endproc
 
 
 .proc decode_d0_flags
     lda Reg::zwFlags
-    sta Reg::zwD0
+    sta Reg::zwD0X
     lda Reg::zwFlags+1
-    sta Reg::zwD0+1
+    sta Reg::zwD0X+1
     rts
 .endproc
 
 
 .proc decode_s0_ah
     lda Reg::zbAH
-    sta Reg::zwS0
+    sta Reg::zwS0X
     rts
 .endproc
 
 
 .proc decode_d0_flags_lo
     lda Reg::zbFlagsLo
-    sta Reg::zwD0
+    sta Reg::zwD0X
     rts
 .endproc
 
@@ -723,6 +730,7 @@ segment_prefix:
 .proc decode_bad
     lda #X86::Err::DECODE_FUNC
     jmp X86::panic
+    ; [tail_jump]
 .endproc
 
 ; ==============================================================================
@@ -777,7 +785,8 @@ rbaModRMFuncEnd:
     lsr
     lsr
     lsr
-    jmp modrm_rm_mode3 ; jsr rts -> jmp
+    jmp modrm_rm_mode3
+    ; [tail_jump]
 .endproc
 
 
@@ -821,7 +830,8 @@ direct_address:
     sta Tmp::zw0+1
 
 get_bytes:
-    jmp modrm_get_bytes ; jsr rts -> jmp
+    jmp modrm_get_bytes
+    ; [tail_jump]
 .endproc
 
 ; handle pointer in registers + 8-bit signed offset
@@ -840,7 +850,8 @@ get_bytes:
     adc Tmp::zw0+1
     sta Tmp::zw0+1
 
-    jmp modrm_get_bytes ; jsr rts -> jmp
+    jmp modrm_get_bytes
+    ; [tail_jump]
 .endproc
 
 
@@ -859,7 +870,8 @@ get_bytes:
     adc Tmp::zw0+1
     sta Tmp::zw0+1
 
-    jmp modrm_get_bytes ; jsr rts -> jmp
+    jmp modrm_get_bytes
+    ; [tail_jump]
 .endproc
 
 
@@ -951,9 +963,9 @@ done:
 
 .proc decode_s0_ax
     lda Reg::zwAX
-    sta Reg::zwS0
+    sta Reg::zwS0X
     lda Reg::zwAX+1
-    sta Reg::zwS0+1
+    sta Reg::zwS0X+1
     rts
 .endproc
 

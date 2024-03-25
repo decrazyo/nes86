@@ -1,14 +1,13 @@
 
-; only use A
-; make each function independent so we don't waste time jumping around
-; uses temp registers
-; read operands from S0X and S1X
-; write results to D0X
+; this module handles x86 arithmetic and logic operations.
+; each function is written to only utilize the A register and RAM.
+; function arguments are passed in through source pseudo-registers. see also "x86/reg.s".
+; results are written to destination pseudo-registers and do not modify source pseudo-registers.
+; some complex operations also use temporary RAM addresses. see also "tmp.s".
 
 .include "x86/alu.inc"
 .include "x86/reg.inc"
 
-.include "const.inc"
 .include "mmc5.inc"
 .include "tmp.inc"
 

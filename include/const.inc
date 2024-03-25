@@ -54,16 +54,4 @@ _CONST_ = 1
 .define SKIP_WORD .byte $2c ; 16-bit BIT instruction.
 .define KILL .byte $02 ; halt and catch fire.
 
-.macro mov8 dst, src
-    lda src
-    sta dst
-.endmac
-
-.macro mov16 dst, src
-    lda src
-    sta dst
-    lda src+1
-    sta dst+1
-.endmac
-
 .endif

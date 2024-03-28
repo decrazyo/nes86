@@ -56,7 +56,8 @@ _X86_REG_ = 1
     .importzp zbD2H
 
     .importzp zbInstrLen
-    .importzp zbInstrPrefix
+    .importzp zbPrefixSegment
+    .importzp zbInstrBuffer
     .importzp zbInstrOpcode
     .importzp zaInstrOperands
 

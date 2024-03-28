@@ -1,15 +1,34 @@
 
 ; this module handles x86 arithmetic and logic operations.
-; each function is written to only utilize the A register and RAM.
-; function arguments are passed in through source pseudo-registers. see also "x86/reg.s".
-; results are written to destination pseudo-registers and do not modify source pseudo-registers.
-; some complex operations also use temporary RAM addresses. see also "tmp.s".
+; functions are written to only utilize the A register, C flag, and RAM.
+; arguments are passed in through source pseudo-registers.
+; source pseudo-registers are not modified.
+; results are written to destination pseudo-registers.
+; some complex operations also use temporary RAM addresses.
+; this module does not access the x86 flags register.
+;
+; this module contains some "extended" ALU functions that do not follow the above rules.
+; they utilize X and Y to pass zero-page addresses to use as source and destination address.
+; these functions are more flexible at the cost of size and cycles.
+;
+; this module also contains some special-purpose ALU functions.
+; these are intended to perform common operations that would be difficult/inefficient
+; to reproduce with other ALU functions.
+; e.g. computing 20-bit x86 addresses.
+;
+; see also:
+;   x86/reg.s
+;   tmp.s
 
 .include "x86/alu.inc"
 .include "x86/reg.inc"
 
+.include "const.inc"
 .include "mmc5.inc"
 .include "tmp.inc"
+
+.export cbw
+.export cwd
 
 .export inc16
 .export inc8
@@ -35,11 +54,11 @@
 .export div16
 .export div8
 
-; .export imul16
-; .export imul8
+.export imul16
+.export imul8
 
-; .export idiv16
-; .export idiv8
+.export idiv16
+.export idiv8
 
 .export neg16
 .export neg8
@@ -56,49 +75,83 @@
 .export xor16
 .export xor8
 
-.export shl16
-.export shl8
+.export shl16_1
+.export shl8_1
 
-.export shr16
-.export shr8
+.export shr16_1
+.export shr8_1
 
-.export sar16
-.export sar8
+.export sar16_1
+.export sar8_1
 
-.export rol16
-.export rol8
+.export rol16_1
+.export rol8_1
 
-.export ror16
-.export ror8
+.export ror16_1
+.export ror8_1
 
-.export rcl16
-.export rcl8
+.export rcl16_1
+.export rcl8_1
 
-.export rcr16
-.export rcr8
+.export rcr16_1
+.export rcr8_1
 
-.export shl16_ex
-.export shl8_ex
+.export shl16_n
+.export shl8_n
 
-.export shr16_ex
-.export shr8_ex
+.export shr16_n
+.export shr8_n
 
-.export sar16_ex
-.export sar8_ex
+.export sar16_n
+.export sar8_n
 
-.export rol16_ex
-.export rol8_ex
+.export rol16_n
+.export rol8_n
 
-.export ror16_ex
-.export ror8_ex
+.export ror16_n
+.export ror8_n
 
-.export rcl16_ex
-.export rcl8_ex
+.export rcl16_n
+.export rcl8_n
 
-.export rcr16_ex
-.export rcr8_ex
+.export rcr16_n
+.export rcr8_n
 
 .segment "CODE"
+
+; sign extend byte to word.
+; < S0L
+; > D0X
+; changes: C
+.proc cbw
+    lda Reg::zbS0L
+    sta Reg::zwD0X
+    asl
+    lda #$ff
+    sbc #0
+    sta Reg::zwD0X + 1
+    rts
+.endproc
+
+
+; sign extend word to double.
+; < S0X
+; > D0X
+; > D1X
+; changes: C
+.proc cwd
+    lda Reg::zwS0X
+    sta Reg::zwD0X
+    lda Reg::zwS0X+1
+    sta Reg::zwD0X+1
+    asl
+    lda #$ff
+    sbc #0
+    sta Reg::zwD1X
+    sta Reg::zwD1X+1
+    rts
+.endproc
+
 
 ; 16-bit increment. D0X = S0X + 1.
 ; < S0X
@@ -556,15 +609,28 @@ done:
 .endproc
 
 
-; TODO: add signed multiplication and division
-; .proc imul16
-; .endproc
-; .proc imul8
-; .endproc
-; .proc idiv16
-; .endproc
-; .proc idiv8
-; .endproc
+; 16-bit signed multiplication
+.proc imul16
+    rts
+.endproc
+
+
+; 8-bit signed multiplication
+.proc imul8
+    rts
+.endproc
+
+
+; 16-bit signed division
+.proc idiv16
+    rts
+.endproc
+
+
+; 8-bit signed division
+.proc idiv8
+    rts
+.endproc
 
 
 ; 16-bit two's complement negation. D0X = (S0X ^ $ffff) + 1
@@ -702,7 +768,7 @@ done:
 ; > D0X
 ; > C = S0X.15
 ; changes: A
-.proc shl16
+.proc shl16_1
     lda Reg::zwS0X
     asl
     sta Reg::zwD0X
@@ -718,7 +784,7 @@ done:
 ; > D0L
 ; > C = S0L.7
 ; changes: A
-.proc shl8
+.proc shl8_1
     lda Reg::zbS0L
     asl
     sta Reg::zbD0L
@@ -731,7 +797,7 @@ done:
 ; > D0X
 ; > C = S0X.0
 ; changes: A
-.proc shr16
+.proc shr16_1
     lda Reg::zwS0X+1
     lsr
     sta Reg::zwD0X+1
@@ -747,7 +813,7 @@ done:
 ; > D0L
 ; > C = S0L.0
 ; changes: A
-.proc shr8
+.proc shr8_1
     lda Reg::zwS0X
     lsr
     sta Reg::zwD0X
@@ -760,7 +826,7 @@ done:
 ; > D0X
 ; > C = S0X.0
 ; changes: A
-.proc sar16
+.proc sar16_1
     lda Reg::zwS0X+1
     rol
     lda Reg::zwS0X+1
@@ -778,7 +844,7 @@ done:
 ; > D0L
 ; > C = S0L.0
 ; changes: A
-.proc sar8
+.proc sar8_1
     lda Reg::zbS0L
     rol
     lda Reg::zbS0L
@@ -793,7 +859,7 @@ done:
 ; > D0X
 ; > C = S0X.15
 ; changes: A
-.proc rol16
+.proc rol16_1
     lda Reg::zwS0X+1
     rol
     lda Reg::zwS0X
@@ -811,7 +877,7 @@ done:
 ; > D0L
 ; > C = S0L.7
 ; changes: A
-.proc rol8
+.proc rol8_1
     lda Reg::zbS0L
     rol
     lda Reg::zbS0L
@@ -826,7 +892,7 @@ done:
 ; > D0X
 ; > C = S0X.0
 ; changes: A
-.proc ror16
+.proc ror16_1
     lda Reg::zwS0X
     ror
     lda Reg::zwS0X+1
@@ -844,7 +910,7 @@ done:
 ; > D0L
 ; > C = S0L.0
 ; changes: A
-.proc ror8
+.proc ror8_1
     lda Reg::zbS0L
     ror
     lda Reg::zbS0L
@@ -860,7 +926,7 @@ done:
 ; > D0X
 ; > C = S0X.15
 ; changes: A
-.proc rcl16
+.proc rcl16_1
     lda Reg::zwS0X
     rol
     sta Reg::zwD0X
@@ -877,7 +943,7 @@ done:
 ; > D0L
 ; > C = S0L.7
 ; changes: A
-.proc rcl8
+.proc rcl8_1
     lda Reg::zbS0L
     rol
     sta Reg::zbD0L
@@ -891,7 +957,7 @@ done:
 ; > D0X
 ; > C = S0X.0
 ; changes: A
-.proc rcr16
+.proc rcr16_1
     lda Reg::zwS0X+1
     ror
     sta Reg::zwD0X+1
@@ -904,7 +970,7 @@ done:
 ; > D0L
 ; > C = S0L.0
 ; changes: A
-.proc rcr8
+.proc rcr8_1
     lda Reg::zbS0L
     ror
     sta Reg::zbD0L
@@ -918,7 +984,7 @@ done:
 ; > D0X
 ; > C = (S0X << (S1L - 1)).15
 ; changes: A, D1L
-.proc shl16_ex
+.proc shl16_n
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -944,7 +1010,7 @@ done:
 ; > D0L
 ; > C = (S0L << (S1L - 1)).7
 ; changes: A, D1L
-.proc shl8_ex
+.proc shl8_n
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -967,7 +1033,7 @@ done:
 ; > D0X
 ; > C = (S0X >> (S1L - 1)).0
 ; changes: A, D1L
-.proc shr16_ex
+.proc shr16_n
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -993,7 +1059,7 @@ done:
 ; > D0L
 ; > C = (S0L << (S1L - 1)).0
 ; changes: A, D1L
-.proc shr8_ex
+.proc shr8_n
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1016,7 +1082,7 @@ done:
 ; > D0X
 ; > C = (S0X >> (S1L - 1)).0
 ; changes: A, D1L
-.proc sar16_ex
+.proc sar16_n
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1048,7 +1114,7 @@ done:
 ; > D0L
 ; > C = (S0L >> (S1L - 1)).0
 ; changes: A, D1L
-.proc sar8_ex
+.proc sar8_n
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1075,7 +1141,7 @@ done:
 ; > D0X
 ; > C = (S0X << ((D1L % 16) - 1)).15
 ; changes: A, D1L
-.proc rol16_ex
+.proc rol16_n
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1107,7 +1173,7 @@ done:
 ; > D0L
 ; > C = (S0X << ((D1L % 8) - 1)).7
 ; changes: A, D1L
-.proc rol8_ex
+.proc rol8_n
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1134,7 +1200,7 @@ done:
 ; > D0X
 ; > C = (S0X >> ((D1L % 16) - 1)).0
 ; changes: A, D1L
-.proc ror16_ex
+.proc ror16_n
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1168,7 +1234,7 @@ done:
 ; > D0L
 ; > C = (S0X >> ((D1L % 8) - 1)).7
 ; changes: A, D1L
-.proc ror8_ex
+.proc ror8_n
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1196,7 +1262,7 @@ done:
 ; > D0X
 ; > C = (S0X << ((D1L % 17) - 1)).15
 ; changes: A, D1L
-.proc rcl16_ex
+.proc rcl16_n
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1227,7 +1293,7 @@ done:
 ; > D0L
 ; > C = (S0X << ((D1L % 9) - 1)).7
 ; changes: A, D1L
-.proc rcl8_ex
+.proc rcl8_n
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1253,7 +1319,7 @@ done:
 ; > D0X
 ; > C = (S0X >> ((D1L % 17) - 1)).0
 ; changes: A, D1L
-.proc rcr16_ex
+.proc rcr16_n
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1283,8 +1349,7 @@ done:
 ; > D0L
 ; > C = (S0X >> ((D1L % 9) - 1)).7
 ; changes: A, D1L
-.proc rcr8_ex
-
+.proc rcr8_n
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1302,3 +1367,72 @@ loop:
 done:
     rts
 .endproc
+
+; ==============================================================================
+; extended functions
+; ==============================================================================
+
+SRC0_LO = 0
+SRC0_HI = 1
+SRC1_LO = 2
+SRC1_HI = 3
+DST0_LO = 0
+DST0_HI = 1
+
+; 16-bit addition. [Y] = [X] + [X+2]
+; < X
+; < Y
+; > C = 1 if overflow occurs
+;   C = 0 otherwise
+; changes: A
+.proc add16_ex
+    clc
+    ; [fall_through]
+.endproc
+
+; 16-bit addition with carry. [Y] = [X] + [X+2] + C.
+; < X
+; < Y
+; < C
+; > C = 1 if overflow occurs
+;   C = 0 otherwise
+; changes: A
+.proc adc16_ex
+    lda Const::ZERO_PAGE+SRC0_LO, x
+    adc Const::ZERO_PAGE+SRC1_LO, x
+    sta Const::ZERO_PAGE+DST0_LO, y
+    lda Const::ZERO_PAGE+SRC0_HI, x
+    adc Const::ZERO_PAGE+SRC1_HI, x
+    sta Const::ZERO_PAGE+DST0_HI, y
+    rts
+.endproc
+
+
+; 8-bit addition. [Y] = [X] + [X+1].
+; < X
+; < Y
+; > C = 1 if overflow occurs
+;   C = 0 otherwise
+; changes: A
+.proc add8_ex
+    clc
+    ; [fall_through]
+.endproc
+
+; 8-bit addition with carry. [Y] = [X] + [X+1] + C.
+; < X
+; < Y
+; < C
+; > C = 1 if overflow occurs
+;   C = 0 otherwise
+; changes: A
+.proc adc8_ex
+    lda Const::ZERO_PAGE+SRC0_LO, x
+    adc Const::ZERO_PAGE+SRC1_LO, x
+    sta Const::ZERO_PAGE+DST0_LO, y
+    rts
+.endproc
+
+; ==============================================================================
+; special purpose functions
+; ==============================================================================

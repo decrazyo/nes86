@@ -60,11 +60,6 @@
 .exportzp zbD2L
 .exportzp zbD2H
 
-.exportzp zbInstrLen
-.exportzp zbInstrPrefix
-.exportzp zbInstrOpcode
-.exportzp zaInstrOperands
-
 .exportzp rzbaRegMapsBegin
 .exportzp rzbaSegRegMap
 .exportzp rzbaReg8Map
@@ -156,17 +151,6 @@ zwD2X:
 zbD2L: .res 1
 zbD2H: .res 1
 
-; instruction length
-; opcode + operands
-; does not include prefix
-zbInstrLen: .res 1
-
-; instruction prefix
-zbInstrPrefix: .res 1
-
-; instruction buffer
-zbInstrOpcode: .res 1
-zaInstrOperands: .res 4
 
 ; register maps get copied here from ROM to save on access time
 rzbaRegMapsBegin:
@@ -645,23 +629,24 @@ rsBlank:
     jsr Con::print_chr
 
 
-    lda #<rsInstr
-    ldx #>rsInstr
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zbInstrOpcode
-    jsr Tmp::set_zp_ptr0
-    ldy zbInstrLen
-    jsr Con::print_hex_arr
-
-    lda #<rsBlank
-    ldx #>rsBlank
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
+; TODO: move these somewhere else
+;    lda #<rsInstr
+;    ldx #>rsInstr
+;    jsr Tmp::set_ptr0
+;    jsr Con::print_str
+;
+;    lda #<zbInstrOpcode
+;    jsr Tmp::set_zp_ptr0
+;    ldy zbInstrLen
+;    jsr Con::print_hex_arr
+;
+;    lda #<rsBlank
+;    ldx #>rsBlank
+;    jsr Tmp::set_ptr0
+;    jsr Con::print_str
+;
+;    lda #Chr::NEW_LINE
+;    jsr Con::print_chr
 
     jsr Nmi::wait
     rts

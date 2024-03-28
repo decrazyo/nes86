@@ -13,6 +13,7 @@
 ;   Reg::zbD0
 
 .include "x86/execute.inc"
+.include "x86/fetch.inc"
 .include "x86/mmu.inc"
 .include "x86/reg.inc"
 .include "x86.inc"
@@ -254,7 +255,7 @@ rbaInstrExecute:
 
 ; execute the current instruction.
 .proc execute
-    ldx Reg::zbInstrOpcode
+    ldx Fetch::zbInstrOpcode
     ldy rbaInstrExecute, x
     lda rbaExecuteFuncHi, y
     pha
@@ -1036,6 +1037,78 @@ minus:
     jmp X86::panic
     ; [tail_jump]
 .endproc
+
+
+
+
+; ASCII adjust after addition
+; the caller is responsible for setting C = AF.
+; on return, C will contain the new value for AF and CF.
+; > S0X = AX
+; < C = AF
+; > D0X = AX
+; > C = AF and CF
+.proc aaa
+    bcs adjust
+
+    lda Reg::zwS0X
+    and #$0f
+    cmp #10
+    bcc mask ; branch if (S0X & $0f) < 10
+
+adjust:
+    ; D0X  = S0X + $105 + C
+    AAA_ADJUST = $0105
+    lda Reg::zwS0X
+    adc #<AAA_ADJUST
+    and #$0f
+    sta Reg::zwD0X
+    lda Reg::zwS0X+1
+    adc #>AAA_ADJUST
+    sta Reg::zwD0X+1
+    sec
+    rts
+
+mask:
+    sta Reg::zwD0X
+    rts
+.endproc
+
+
+; ASCII adjust after subtraction
+; the caller is responsible for setting C = AF.
+; on return, C will contain the new value for AF and CF.
+; > S0X = AX
+; < C = AF
+; > D0X = AX
+; > C = AF and CF
+.proc aas
+    bcs adjust
+
+    lda Reg::zwS0X
+    and #$0f
+    cmp #10
+    bcc mask ; branch if (S0X & $0f) < 10
+
+adjust:
+    ; D0X  = S0X - $106 - ~C
+    AAS_ADJUST = $0106
+    lda Reg::zwS0X
+    sbc #<AAS_ADJUST
+    and #$0f
+    sta Reg::zwD0X
+    lda Reg::zwS0X+1
+    sbc #>AAS_ADJUST
+    sta Reg::zwD0X+1
+    sec
+    rts
+
+mask:
+    sta Reg::zwD0X
+    rts
+.endproc
+
+
 
 ; ==============================================================================
 ; utility functions

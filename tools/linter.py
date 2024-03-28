@@ -103,6 +103,10 @@ def main():
                 #   jmp some_func
                 #   ; [tail_jump]
                 if instr == 'jsr' and temp == 'rts':
+                    # TODO: don't emit this warning if there is a label between "jsr" and "rts"
+                    #       we're getting away this this for now because labels are considered instructions
+                    #       and i guess i don't have any "jsrxxx:" labels before an "rts".
+                    #       gawd this code sucks.
                     warn('unoptimized tail call')
 
                 instr = temp

@@ -9,12 +9,13 @@
 ; uses:
 ;   Mmu::get_ip_byte
 ; changes:
-;   Reg::zbInstrLen
-;   Reg::zbInstrPrefix
-;   Reg::zbInstrOpcode
-;   Reg::zaInstrOperands
+;   Fetch::zbInstrLen
+;   Fetch::zbPrefixSegment
+;   Fetch::zbInstrOpcode
+;   Fetch::zaInstrOperands
 
 .include "x86/fetch.inc"
+.include "x86/decode.inc"
 .include "x86/reg.inc"
 .include "x86/mmu.inc"
 .include "x86.inc"
@@ -22,55 +23,92 @@
 .include "tmp.inc"
 .include "const.inc"
 
+.exportzp zbPrefixSegment
+.exportzp zbPrefixOther
+
+.exportzp zbInstrLen
+.exportzp zbInstrBuffer
+.exportzp zbInstrOpcode
+.exportzp zaInstrOperands
+
 .export fetch
 
+.segment "ZEROPAGE"
+
+; segment prefix
+; CS, DS, ES, SS
+zbPrefixSegment: .res 1
+
+; other mutually exclusive prefixes
+; LOCK, REPZ, REPNZ
+zbPrefixOther: .res 1
+
+; instruction buffer length
+; opcode + operands
+; does not include prefixes
+zbInstrLen: .res 1
+
+; instruction buffer
+zbInstrBuffer:
+zbInstrOpcode: .res 1
+zaInstrOperands: .res 6
+
 .segment "RODATA"
+
+; map instruction encodings to their decoding functions.
+rbaFetchFuncLo:
+.byte <(fetch_bad-1)
+.byte <(fetch_len_1-1)
+.byte <(fetch_len_2-1)
+.byte <(fetch_len_3-1)
+.byte <(fetch_len_4-1)
+.byte <(fetch_len_5-1)
+.byte <(fetch_modrm_reg-1)
+.byte <(fetch_modrm_ext_1-1)
+.byte <(fetch_modrm_ext_2-1)
+.byte <(fetch_segment_prefix-1)
+.byte <(fetch_other_prefix-1)
+rbaFetchFuncHi:
+.byte >(fetch_bad-1)
+.byte >(fetch_len_1-1)
+.byte >(fetch_len_2-1)
+.byte >(fetch_len_3-1)
+.byte >(fetch_len_4-1)
+.byte >(fetch_len_5-1)
+.byte >(fetch_modrm_reg-1)
+.byte >(fetch_modrm_ext_1-1)
+.byte >(fetch_modrm_ext_2-1)
+.byte >(fetch_segment_prefix-1)
+.byte >(fetch_other_prefix-1)
+rbaFetchFuncEnd:
+
+.assert (rbaFetchFuncHi - rbaFetchFuncLo) = (rbaFetchFuncEnd - rbaFetchFuncHi), error, "incomplete fetch function"
 
 ; instruction lengths
 .enum
     BAD ; used for unimplemented or non-existent instructions
-    ; opcode directly determines the instruction length
     F01 ; 1 byte instruction
     F02 ; 2 byte instruction
     F03 ; 3 byte instruction
     F04 ; 4 byte instruction
     F05 ; 5 byte instruction
     F06 ; instruction with a ModR/M byte
-    F07 ; instruction segment prefix
+    F07 ; instruction with a ModR/M byte and 8-bit immediate
+    F08 ; instruction with a ModR/M byte and 16-bit immediate
+    F09 ; instruction segment prefix
+    F10 ; instruction other prefix
     FUNC_COUNT ; used to check function table size at compile-time
 .endenum
 
-; map instruction encodings to their decoding functions.
-rbaFetchFuncLo:
-.byte <(fetch_bad-1)
-.byte <(fetch_len-1)
-.byte <(fetch_len-1)
-.byte <(fetch_len-1)
-.byte <(fetch_len-1)
-.byte <(fetch_len-1)
-.byte <(fetch_modrm-1)
-.byte <(fetch_seg_pre-1)
-rbaFetchFuncHi:
-.byte >(fetch_bad-1)
-.byte >(fetch_len-1)
-.byte >(fetch_len-1)
-.byte >(fetch_len-1)
-.byte >(fetch_len-1)
-.byte >(fetch_len-1)
-.byte >(fetch_modrm-1)
-.byte >(fetch_seg_pre-1)
-rbaFetchFuncEnd:
-
-.assert (rbaFetchFuncHi - rbaFetchFuncLo) = (rbaFetchFuncEnd - rbaFetchFuncHi), error, "incomplete fetch function"
 .assert (rbaFetchFuncHi - rbaFetchFuncLo) = FUNC_COUNT, error, "fetch function count"
 
 ; map opcodes to instruction length
-rbaInstrLength:
+rbaInstrFetch:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
 .byte F06,F06,F06,F06,F02,F03,F01,F01,F06,F06,F06,F06,F02,F03,F01,BAD ; 0_
 .byte F06,F06,F06,F06,F02,F03,F01,F01,F06,F06,F06,F06,F02,F03,F01,F01 ; 1_
-.byte F06,F06,F06,F06,F02,F03,F07,F01,F06,F06,F06,F06,F02,F03,F07,F01 ; 2_
-.byte F06,F06,F06,F06,F02,F03,F07,F01,F06,F06,F06,F06,F02,F03,F07,F01 ; 3_
+.byte F06,F06,F06,F06,F02,F03,F09,F01,F06,F06,F06,F06,F02,F03,F09,F01 ; 2_
+.byte F06,F06,F06,F06,F02,F03,F09,F01,F06,F06,F06,F06,F02,F03,F09,F01 ; 3_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 4_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
@@ -84,6 +122,20 @@ rbaInstrLength:
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,F03,F03,F05,F02,BAD,BAD,BAD,BAD ; E_
 .byte BAD,BAD,BAD,BAD,BAD,F01,BAD,BAD,F01,F01,F01,F01,F01,F01,BAD,BAD ; F_
 
+rbaModRMFuncLo:
+.byte <(modrm_rm_mode_0-1)
+.byte <(modrm_rm_mode_1-1)
+.byte <(modrm_rm_mode_2-1)
+.byte <(modrm_rm_mode_3-1)
+rbaModRMFuncHi:
+.byte >(modrm_rm_mode_0-1)
+.byte >(modrm_rm_mode_1-1)
+.byte >(modrm_rm_mode_2-1)
+.byte >(modrm_rm_mode_3-1)
+rbaModRMFuncEnd:
+
+.assert (rbaModRMFuncHi - rbaModRMFuncLo) = (rbaModRMFuncEnd - rbaModRMFuncHi), error, "incomplete ModR/M function"
+
 .segment "CODE"
 
 ; ==============================================================================
@@ -91,139 +143,246 @@ rbaInstrLength:
 ; ==============================================================================
 
 ; instruction fetch
-; read instruction opcode and operands into the instruction buffer.
+; read instruction bytes into the instruction buffer.
 ; changes: A, X, Y
+; calls fetch handlers with
+; < A = instruction byte
+; < X = instruction length
+; < Y = function index
 .proc fetch
-    ; reset the instruction length
+    ; reset the instruction length and prefix
     lda #0
-    sta Reg::zbInstrLen
-    sta Reg::zbInstrPrefix
+    sta Fetch::zbInstrLen
+    sta Fetch::zbPrefixSegment
 
 next:
     ; get a byte from memory
     jsr Mmu::get_ip_byte
 
-    ; lookup the appropriate fetch handler
+    ; lookup the appropriate handler
     tax
-    lda rbaInstrLength, x
-    tay
+    ldy rbaInstrFetch, x
 
     ; call the fetch handler
-    ; fetch handlers can expect A to be the most recently read byte
     lda rbaFetchFuncHi, y
     pha
     lda rbaFetchFuncLo, y
     pha
     txa
-    rts
-.endproc
-
-
-; most fetch handlers should call this after determining the instruction length.
-; < X = current instruction length
-; < Reg::zbInstrLen = final instruction length
-; if calling copy_bytes::store_first then
-; < A = instruction byte
-.proc copy_bytes
-    jsr Mmu::get_ip_byte
-store_first:
-    sta Reg::zbInstrOpcode, x
-    inx
-    cpx Reg::zbInstrLen
-    bcc copy_bytes
-    beq done
-    ; somehow we have read too much.
-    ; TODO: remove this after testing.
-    lda #X86::Err::FETCH_LEN
-    jmp X86::panic
-done:
+    ldx Fetch::zbInstrLen
     rts
 .endproc
 
 ; ==============================================================================
 ; fetch handlers.
 ; ==============================================================================
+; see "fetch" for argument descriptions
 
 ; called when an unsupported instruction byte is fetch.
-; < A = instruction byte
 .proc fetch_bad
-    ldx Reg::zbInstrLen
-    sta Reg::zbInstrOpcode, x
+    sta Fetch::zbInstrBuffer, x
     inx
-    stx Reg::zbInstrLen
+    stx Fetch::zbInstrLen
     lda #X86::Err::FETCH_FUNC
     jmp X86::panic
     ; [tail_jump]
 .endproc
 
 
-; handle fixed length instruction
-; < A = instruction byte
-; < Y = number of bytes to read
-.proc fetch_len
-    ldx Reg::zbInstrLen
-    sty Reg::zbInstrLen
-    jmp copy_bytes::store_first
-    ; [tail_jump]
+; handle fixed length 5 byte instruction.
+.proc fetch_len_5
+    sta Fetch::zbInstrBuffer, x
+    inx
+    jsr Mmu::get_ip_byte
+    ; [fall_through]
 .endproc
 
-
-; handle an instruction with a ModR/M operand
-; < A = instruction byte
-.proc fetch_modrm
-    ; store the opcode
-    ldx Reg::zbInstrLen
-    sta Reg::zbInstrOpcode, x
+; handle fixed length 4 byte instruction.
+.proc fetch_len_4
+    sta Fetch::zbInstrBuffer, x
     inx
-    stx Reg::zbInstrLen
-
-    ; get the ModR/M byte
     jsr Mmu::get_ip_byte
-    tay ; save A for later
-    and #Const::MODRM_MOD_MASK
-    bne check_displacement
-    ; mod = 00
-    ; check if we are dealing with a direct address
-    tya
-    and #Const::MODRM_RM_MASK
-    cmp #%00000110
-    bne register_index ; branch if R/M is a register index
-    beq operand16 ; branch if R/M is followed by a direct address
+    ; [fall_through]
+.endproc
 
-check_displacement:
-    eor #Const::MODRM_MOD_MASK
-    beq register_index ; branch if R/M is a register index
-    ; mod = 10 or 01 but the value in A has been inverted
-    ; A = 01 if 16-bit displacement
-    ;   = 10 if 8-bit displacement
-    bpl operand16 ; branch if we have a 16-bit displacement address to handle
-    ; handle 8-bit displacement address
-    tya
-    ldy #3 ; opcode(1) + modrm(1) + address(1)
-    bne jmp_copy_bytes_store_first; branch always
+; handle fixed length 3 byte instruction.
+.proc fetch_len_3
+    sta Fetch::zbInstrBuffer, x
+    inx
+    jsr Mmu::get_ip_byte
+    ; [fall_through]
+.endproc
 
-operand16:
-    tya
-    ldy #4 ; opcode(1) + modrm(1) + address(2)
+; handle fixed length 2 byte instruction.
+.proc fetch_len_2
+    sta Fetch::zbInstrBuffer, x
+    inx
+    jsr Mmu::get_ip_byte
+    ; [fall_through]
+.endproc
 
-jmp_copy_bytes_store_first:
-    sty Reg::zbInstrLen
-    jmp copy_bytes::store_first
-
-register_index:
-    ; mod = 11
-    ; handle register index
-    sty Reg::zbInstrOpcode, x
-    inc Reg::zbInstrLen
-    ; no more bytes need to be fetched
+; handle fixed length 1 byte instruction.
+.proc fetch_len_1
+    sta Fetch::zbInstrBuffer, x
+    inx
+    stx Fetch::zbInstrLen
     rts
 .endproc
 
 
-; handle instruction segment prefix
-; < A = segment prefix byte
-.proc fetch_seg_pre
-    sta Reg::zbInstrPrefix
+; fetch ModR/M bytes.
+; the reg field indexes a register
+; or an opcode extension that doesn't need anything special.
+.proc fetch_modrm_reg
+    jsr modrm_rm_mode
+    stx Fetch::zbInstrLen
+    rts
+.endproc
+
+
+; fetch ModR/M bytes.
+; the reg field indexes an opcode extension.
+; the extended opcode needs an additional 1 byte immediate value.
+.proc fetch_modrm_ext_1
+    jsr modrm_rm_mode
+    jsr modrm_rm_mode_1
+    stx Fetch::zbInstrLen
+    rts
+.endproc
+
+
+; fetch ModR/M bytes.
+; the reg field indexes an opcode extension.
+; the extended opcode needs an additional 2 byte immediate value.
+.proc fetch_modrm_ext_2
+    jsr modrm_rm_mode
+    jsr modrm_rm_mode_2
+    stx Fetch::zbInstrLen
+    rts
+.endproc
+
+
+; fetch ModR/M bytes.
+; the reg field indexes an opcode extension.
+; the extended opcode might need an additional 1 byte immediate value.
+.proc fetch_modrm_ext_1_opt
+    jsr modrm_rm_mode
+    lda zaInstrOperands
+    and #Decode::MODRM_EXT_MASK
+    bne done ; branch if the extended opcode isn't a TEST instruction.
+    jsr modrm_rm_mode_1
+done:
+    rts
+.endproc
+
+
+; fetch ModR/M bytes.
+; the reg field indexes an opcode extension.
+; the extended opcode might need an additional 2 byte immediate value.
+.proc fetch_modrm_ext_2_opt
+    jsr modrm_rm_mode
+    lda zaInstrOperands
+    and #Decode::MODRM_EXT_MASK
+    bne done ; branch if the extended opcode isn't a TEST instruction.
+    jsr modrm_rm_mode_2
+done:
+    rts
+.endproc
+
+
+; fetch segment prefix
+.proc fetch_segment_prefix
+    sta Fetch::zbPrefixSegment
     jmp fetch::next
     ; [tail_jump]
+.endproc
+
+
+; fetch other prefix
+.proc fetch_other_prefix
+    sta Fetch::zbPrefixOther
+    jmp fetch::next
+    ; [tail_jump]
+.endproc
+
+; ==============================================================================
+; ModR/M mode specific handlers.
+; ==============================================================================
+
+; read a ModR/M byte and any additional bytes indicated by the Mod and R/M fields.
+.proc modrm_rm_mode
+    ; store the instruction byte
+    sta Fetch::zbInstrBuffer, x
+    inx
+
+    ; store the ModR/M byte
+    jsr Mmu::get_ip_byte
+    sta Fetch::zbInstrBuffer, x
+    inx
+
+    ; move the Mod field into the 2 lowest bits.
+    and #Decode::MODRM_MOD_MASK
+    asl
+    rol
+    rol
+
+    ; other CPU stages will probably need this data.
+    ; we'll store it so it doesn't need to be computed again later
+    ; even though this doesn't really fit the purpose of the "fetch" stage.
+    sta Decode::zbMode
+
+    ; use the mode to index a function pointer.
+    tay
+    lda rbaModRMFuncHi, y
+    pha
+    lda rbaModRMFuncLo, y
+    pha
+
+    ; call ModR/M mode specific handler.
+    ; A = garbage
+    ; X = instruction length
+    ; Y = ModR/M mode
+    rts
+.endproc
+
+
+; handle ModR/M mode 0
+; possibly fetch 2 more bytes depending on the R/M field value.
+.proc modrm_rm_mode_0
+    ; grab the ModR/M byte
+    lda Fetch::zbInstrBuffer-1, x
+
+    ; assess the R/M field.
+    and #Decode::MODRM_RM_MASK
+    cmp #Decode::MODRM_RM_DIRECT
+    bne modrm_rm_mode_3 ; branch if the R/M field refers to registers.
+    ; the R/M field refers to a direct address that we need to fetch.
+    ; [tail_branch]
+.endproc
+
+; handle ModR/M mode 2
+; 16-bit signed offset
+; read 2 more byte
+.proc modrm_rm_mode_2
+    jsr Mmu::get_ip_byte
+    sta Fetch::zbInstrBuffer, x
+    inx
+    ; [fall_through]
+.endproc
+
+; handle ModR/M mode 1
+; 8-bit signed offset
+; read 1 more byte
+.proc modrm_rm_mode_1
+    jsr Mmu::get_ip_byte
+    sta Fetch::zbInstrBuffer, x
+    inx
+    ; [fall_through]
+.endproc
+
+; handle ModR/M mode 3
+; the R/M field contains a register index.
+; nothing more to do.
+.proc modrm_rm_mode_3
+    rts
 .endproc

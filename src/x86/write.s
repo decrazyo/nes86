@@ -31,6 +31,8 @@
 ;   Reg::zwDS
 
 .include "x86/write.inc"
+.include "x86/fetch.inc"
+.include "x86/decode.inc"
 .include "x86/reg.inc"
 .include "x86/mmu.inc"
 .include "x86.inc"
@@ -213,7 +215,7 @@ rbaInstrWrite:
 
 ; write data back to memory or registers after execution.
 .proc write
-    ldx Reg::zbInstrOpcode
+    ldx Fetch::zbInstrOpcode
     ldy rbaInstrWrite, x
     lda rbaWriteFuncHi, y
     pha
@@ -232,8 +234,8 @@ rbaInstrWrite:
 
 
 .proc write_embed_reg8_d0
-    lda Reg::zbInstrOpcode
-    and #Const::OPCODE_REG_MASK
+    lda Fetch::zbInstrOpcode
+    and #Decode::OPCODE_REG_MASK
 
 skip_embed:
     tay
@@ -246,8 +248,8 @@ skip_embed:
 
 
 .proc write_embed_reg16_d0
-    lda Reg::zbInstrOpcode
-    and #Const::OPCODE_REG_MASK
+    lda Fetch::zbInstrOpcode
+    and #Decode::OPCODE_REG_MASK
 
 skip_embed:
     tay
@@ -294,15 +296,15 @@ done:
 
 .proc write_modrm_rm8_d0
     ; check if we're writing to a register or RAM
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_MOD_MASK
-    cmp #Const::MODRM_MOD_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_MOD_MASK
+    cmp #Decode::MODRM_MOD_MASK
 
     bne write_ram ; branch if we need to write back to RAM.
 
     ; write the value back to a register
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_RM_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_RM_MASK
     jmp write_embed_reg8_d0::skip_embed
     ; [tail_jump]
 
@@ -315,15 +317,15 @@ write_ram:
 
 .proc write_modrm_rm16_d0
     ; check if we're writing to a register or RAM
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_MOD_MASK
-    cmp #Const::MODRM_MOD_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_MOD_MASK
+    cmp #Decode::MODRM_MOD_MASK
 
     bne write_ram ; branch if we need to write back to RAM.
 
     ; write the value back to a register
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_RM_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_RM_MASK
     jmp write_embed_reg16_d0::skip_embed
     ; [tail_jump]
 
@@ -338,8 +340,8 @@ write_ram:
 
 
 .proc write_modrm_reg8_d0
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_REG_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_REG_MASK
     lsr
     lsr
     lsr
@@ -349,8 +351,8 @@ write_ram:
 
 
 .proc write_modrm_reg16_d0
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_REG_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_REG_MASK
     lsr
     lsr
     lsr
@@ -361,8 +363,8 @@ write_ram:
 
 .proc write_modrm_seg16_d0
     ; lookup the address of the segment register
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_SEG_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_SEG_MASK
     lsr
     lsr
     lsr
@@ -665,15 +667,15 @@ done:
 
 .proc write_modrm_rm8_s0_modrm_reg8_s1
     ; check if we're writing to a register or RAM
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_MOD_MASK
-    cmp #Const::MODRM_MOD_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_MOD_MASK
+    cmp #Decode::MODRM_MOD_MASK
 
     bne write_ram ; branch if we need to write back to RAM.
 
     ; write the value back to a register
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_RM_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_RM_MASK
 
     tay
     ldx Reg::rzbaReg8Map, y
@@ -687,8 +689,8 @@ write_ram:
     jsr Mmu::set_byte
 
 handle_reg:
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_REG_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_REG_MASK
     lsr
     lsr
     lsr
@@ -704,15 +706,15 @@ handle_reg:
 
 .proc write_modrm_rm16_s0_modrm_reg16_s1
     ; check if we're writing to a register or RAM
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_MOD_MASK
-    cmp #Const::MODRM_MOD_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_MOD_MASK
+    cmp #Decode::MODRM_MOD_MASK
 
     bne write_ram ; branch if we need to write back to RAM.
 
     ; write the value back to a register
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_RM_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_RM_MASK
 
     tay
     ldx Reg::rzbaReg8Map, y
@@ -731,8 +733,8 @@ write_ram:
     jsr Mmu::set_byte
 
 handle_reg:
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_REG_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_REG_MASK
     lsr
     lsr
     lsr

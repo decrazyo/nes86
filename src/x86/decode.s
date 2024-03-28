@@ -25,6 +25,7 @@
 ;   Reg::zbD0
 
 .include "x86/decode.inc"
+.include "x86/fetch.inc"
 .include "x86/reg.inc"
 .include "x86/mmu.inc"
 .include "x86.inc"
@@ -32,16 +33,42 @@
 .include "tmp.inc"
 .include "const.inc"
 
-.export zbWord
+
+.exportzp zbDir
+.exportzp zbWord
+
+.exportzp zbMode
+
+.exportzp zbExt
+.exportzp zbSeg
+.exportzp zbReg
+
+.exportzp zbRM
 
 .export decode
 
 .segment "ZEROPAGE"
 
-; indicates if the current instruction is performing a 16-bit.
-; 0 = 8-bit
-; 1 = 16-bit
+
+; direction
+; 0 = direction is from a register
+; 1 = direction is to a register
+zbDir: .res 1
+
+; 0 = 8-bit operation
+; 1 = 16-bit operation
 zbWord: .res 1
+
+; ModR/M Mode field
+zbMode: .res 1
+
+; ModR/M reg field and aliases
+zbExt: ; opcode extension index
+zbSeg: ; segment register index
+zbReg: .res 1 ; register index
+
+; ModR/M R/M field
+zbRM: .res 1
 
 .segment "RODATA"
 
@@ -228,7 +255,7 @@ rbaInstrDecode:
     lda #0
     sta zbWord
 
-    ldx Reg::zbInstrOpcode
+    ldx Fetch::zbInstrOpcode
     ldy rbaInstrDecode, x
     lda rbaDecodeFuncHi, y
     pha
@@ -253,8 +280,8 @@ rbaInstrDecode:
     inc zbWord
 
     ; lookup the address of the register
-    lda Reg::zbInstrOpcode
-    and #Const::OPCODE_REG_MASK
+    lda Fetch::zbInstrOpcode
+    and #Decode::OPCODE_REG_MASK
     tay
     ldx Reg::rzbaReg16Map, y
 
@@ -276,7 +303,7 @@ rbaInstrDecode:
     lda Reg::zwAX+1
     sta Reg::zwS0X+1
 
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     sta Reg::zwS1X+1
 
     ; [fall_through]
@@ -287,7 +314,7 @@ rbaInstrDecode:
     lda Reg::zbAL
     sta Reg::zwS0X
 
-    lda Reg::zaInstrOperands
+    lda Fetch::zaInstrOperands
     sta Reg::zwS1X
     rts
 .endproc
@@ -297,7 +324,7 @@ rbaInstrDecode:
 .proc decode_s1_imm16
     inc zbWord
 
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     sta Reg::zwS1X+1
 
     ; [fall_through]
@@ -305,7 +332,7 @@ rbaInstrDecode:
 
 ; opcode is followed by an 8-bit operand
 .proc decode_s1_imm8
-    lda Reg::zaInstrOperands
+    lda Fetch::zaInstrOperands
     sta Reg::zwS1X
     rts
 .endproc
@@ -319,7 +346,7 @@ rbaInstrDecode:
     lda Reg::zwIP+1
     sta Reg::zwS0X+1
 
-    lda Reg::zaInstrOperands
+    lda Fetch::zaInstrOperands
     sta Reg::zwS1X
     rts
 .endproc
@@ -445,9 +472,9 @@ rbaInstrDecode:
     bcc segment_prefix
     ldy #Reg::Seg::DS
 segment_prefix:
-    lda Reg::zaInstrOperands
+    lda Fetch::zaInstrOperands
     sta Tmp::zw0
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     sta Tmp::zw0+1
     jsr Mmu::set_address
     rts
@@ -459,9 +486,9 @@ segment_prefix:
     bcc segment_prefix
     ldy #Reg::Seg::DS
 segment_prefix:
-    lda Reg::zaInstrOperands
+    lda Fetch::zaInstrOperands
     sta Tmp::zw0
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     sta Tmp::zw0+1
     jsr Mmu::set_address
 
@@ -477,9 +504,9 @@ segment_prefix:
     bcc segment_prefix
     ldy #Reg::Seg::DS
 segment_prefix:
-    lda Reg::zaInstrOperands
+    lda Fetch::zaInstrOperands
     sta Tmp::zw0
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     sta Tmp::zw0+1
     jsr Mmu::set_address
 
@@ -664,32 +691,32 @@ segment_prefix:
     lda Reg::zwIP+1
     sta Reg::zwS0X+1
 
-    lda Reg::zaInstrOperands
+    lda Fetch::zaInstrOperands
     sta Reg::zwS1X
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s0_imm16_s1_imm16
-    lda Reg::zaInstrOperands
+    lda Fetch::zaInstrOperands
     sta Reg::zwS0X
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     sta Reg::zwS0X+1
 
-    lda Reg::zaInstrOperands+2
+    lda Fetch::zaInstrOperands+2
     sta Reg::zwS1X
-    lda Reg::zaInstrOperands+3
+    lda Fetch::zaInstrOperands+3
     sta Reg::zwS1X+1
     rts
 .endproc
 
 
 .proc decode_s0_imm16
-    lda Reg::zaInstrOperands
+    lda Fetch::zaInstrOperands
     sta Reg::zwS0X
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     sta Reg::zwS0X+1
     rts
 .endproc
@@ -758,8 +785,8 @@ rbaModRMFuncEnd:
 ; > Tmp::zw0 16-bit data
 .proc handle_modrm_rm
     ; use the Mod portion of a ModR/M byte as an index to a function pointer.
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_MOD_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_MOD_MASK
     asl ; discard C as it's in an unknown state
     rol
     rol
@@ -768,8 +795,8 @@ rbaModRMFuncEnd:
     pha
     lda rbaModRMFuncLo, x
     pha
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_RM_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_RM_MASK
     rts
 .endproc
 
@@ -780,8 +807,8 @@ rbaModRMFuncEnd:
 ; for 16-bit operations
 ; > Tmp::zw0 16-bit data
 .proc handle_modrm_reg
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_REG_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_REG_MASK
     lsr
     lsr
     lsr
@@ -794,8 +821,8 @@ rbaModRMFuncEnd:
 ; > Tmp::zw0 16-bit data
 .proc handle_modrm_seg
     ; lookup the address of the segment register
-    lda Reg::zaInstrOperands
-    and #Const::MODRM_SEG_MASK
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_SEG_MASK
     lsr
     lsr
     lsr
@@ -824,9 +851,9 @@ rbaModRMFuncEnd:
     jmp get_bytes
 
 direct_address:
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     sta Tmp::zw0
-    lda Reg::zaInstrOperands+2
+    lda Fetch::zaInstrOperands+2
     sta Tmp::zw0+1
 
 get_bytes:
@@ -843,7 +870,7 @@ get_bytes:
     ; add 8-bit signed offset
     ; TODO: handle negative values
     clc
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     adc Tmp::zw0
     sta Tmp::zw0
     lda #0
@@ -863,10 +890,10 @@ get_bytes:
 
     ; add 16-bit unsigned offset
     clc
-    lda Reg::zaInstrOperands+1
+    lda Fetch::zaInstrOperands+1
     adc Tmp::zw0
     sta Tmp::zw0
-    lda Reg::zaInstrOperands+2
+    lda Fetch::zaInstrOperands+2
     adc Tmp::zw0+1
     sta Tmp::zw0+1
 
@@ -976,7 +1003,7 @@ done:
 ;   C = 1 failure.
 ; changes: A, Y
 .proc prefix_seg_index
-    lda Reg::zbInstrPrefix
+    lda Fetch::zbPrefixSegment
     beq error ; branch if there is no prefix
 
     ; this kind of checks if we have a segment prefix.
@@ -985,7 +1012,7 @@ done:
     cmp #$3f
     bcs done ; branch if the prefix isn't a segment prefix
 
-    and #Const::PREFIX_SEG_MASK
+    and #Decode::PREFIX_SEG_MASK
     lsr
     lsr
     lsr

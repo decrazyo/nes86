@@ -128,6 +128,7 @@ loop:
     jsr Con::print_chr
 
     jsr Reg::debug_reg
+    jsr Fetch::debug_fetch
     jsr Mmu::debug_mmu
     rts
 .endproc

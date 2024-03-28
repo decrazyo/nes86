@@ -17,11 +17,14 @@ _X86_DECODE_ = 1
 
     .import decode
 
-    ; bitmask for segment index in instruction prefix
+    ; bitmask for segment prefix index
     PREFIX_SEG_MASK = %00011000
 
     ; bitmask for opcodes with an embedded register index
-    OPCODE_REG_MASK = %00000111
+    OPCODE_REG_MASK  = %00000111
+
+    ; bitmasks for opcode direction and byte/word flags
+    OPCODE_DIR_MASK  = %00000010
     OPCODE_WORD_MASK = %00000001
 
     ; ModR/M bitmasks

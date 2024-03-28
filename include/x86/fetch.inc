@@ -14,6 +14,9 @@ _X86_FETCH_ = 1
 
     .import fetch
 
+    .ifdef DEBUG
+    .import debug_fetch
+    .endif
 .endscope
 
 .endif

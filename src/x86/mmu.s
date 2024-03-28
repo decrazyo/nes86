@@ -37,10 +37,6 @@
 ; YYYY YYYY     Y YYYY            ; address within bank
 ; addresses must be adjusted to read/write a particular window
 
-zpAddress:
-zbAddressLo: .res 1
-zbAddressHi: .res 1
-zbBank: .res 1
 
 zpStackAddress:
 zbStackAddressLo: .res 1
@@ -53,6 +49,19 @@ zbCodeAddressLo: .res 1
 zbCodeAddressHi: .res 1
 zbCodeBank: .res 1
 zbCodeDirty: .res 1
+
+; TODO: use another window for dedicated ES:DI access.
+;       this should help with string operation performance.
+; zpStringAddress:
+; zbStringAddressLo: .res 1
+; zbStringAddressHi: .res 1
+; zbStringBank: .res 1
+; zbStringDirty: .res 1
+
+zpAddress:
+zbAddressLo: .res 1
+zbAddressHi: .res 1
+zbBank: .res 1
 
 .segment "RODATA"
 

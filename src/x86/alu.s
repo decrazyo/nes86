@@ -75,47 +75,26 @@
 .export xor16
 .export xor8
 
-.export shl16_1
-.export shl8_1
+.export shl16
+.export shl8
 
-.export shr16_1
-.export shr8_1
+.export shr16
+.export shr8
 
-.export sar16_1
-.export sar8_1
+.export sar16
+.export sar8
 
-.export rol16_1
-.export rol8_1
+.export rol16
+.export rol8
 
-.export ror16_1
-.export ror8_1
+.export ror16
+.export ror8
 
-.export rcl16_1
-.export rcl8_1
+.export rcl16
+.export rcl8
 
-.export rcr16_1
-.export rcr8_1
-
-.export shl16_n
-.export shl8_n
-
-.export shr16_n
-.export shr8_n
-
-.export sar16_n
-.export sar8_n
-
-.export rol16_n
-.export rol8_n
-
-.export ror16_n
-.export ror8_n
-
-.export rcl16_n
-.export rcl8_n
-
-.export rcr16_n
-.export rcr8_n
+.export rcr16
+.export rcr8
 
 .segment "CODE"
 
@@ -763,228 +742,13 @@ done:
 .endproc
 
 
-; 16-bit logical shift left. C:D0X = S0X:0 << 1
-; < S0X
-; > D0X
-; > C = S0X.15
-; changes: A
-.proc shl16_1
-    lda Reg::zwS0X
-    asl
-    sta Reg::zwD0X
-    lda Reg::zwS0X+1
-    rol
-    sta Reg::zwD0X+1
-    rts
-.endproc
-
-
-; 8-bit logical shift left. C:D0L = S0L:0 << 1
-; < S0L
-; > D0L
-; > C = S0L.7
-; changes: A
-.proc shl8_1
-    lda Reg::zbS0L
-    asl
-    sta Reg::zbD0L
-    rts
-.endproc
-
-
-; 16-bit logical shift right. D0X:C = 0:S0X >> 1
-; < S0X
-; > D0X
-; > C = S0X.0
-; changes: A
-.proc shr16_1
-    lda Reg::zwS0X+1
-    lsr
-    sta Reg::zwD0X+1
-    lda Reg::zwS0X
-    ror
-    sta Reg::zwD0X
-    rts
-.endproc
-
-
-; 8-bit logical shift right. D0L:C = 0:S0L >> 1
-; < S0L
-; > D0L
-; > C = S0L.0
-; changes: A
-.proc shr8_1
-    lda Reg::zwS0X
-    lsr
-    sta Reg::zwD0X
-    rts
-.endproc
-
-
-; 16-bit arithmetic shift right. D0X:C = S0X.15:S0X >> 1
-; < S0X
-; > D0X
-; > C = S0X.0
-; changes: A
-.proc sar16_1
-    lda Reg::zwS0X+1
-    rol
-    lda Reg::zwS0X+1
-    ror
-    sta Reg::zwD0X+1
-    lda Reg::zwS0X
-    ror
-    sta Reg::zwD0X
-    rts
-.endproc
-
-
-; 8-bit arithmetic shift right. D0L:C = S0L.7:S0L >> 1
-; < S0L
-; > D0L
-; > C = S0L.0
-; changes: A
-.proc sar8_1
-    lda Reg::zbS0L
-    rol
-    lda Reg::zbS0L
-    ror
-    sta Reg::zbD0L
-    rts
-.endproc
-
-
-; 16-bit rotate left. D0X = (S0X << 1) | (S0X >> 15)
-; < S0X
-; > D0X
-; > C = S0X.15
-; changes: A
-.proc rol16_1
-    lda Reg::zwS0X+1
-    rol
-    lda Reg::zwS0X
-    rol
-    sta Reg::zwD0X
-    lda Reg::zwS0X+1
-    rol
-    sta Reg::zwD0X+1
-    rts
-.endproc
-
-
-; 8-bit rotate left. D0L = (S0L << 1) | (S0L >> 7)
-; < S0L
-; > D0L
-; > C = S0L.7
-; changes: A
-.proc rol8_1
-    lda Reg::zbS0L
-    rol
-    lda Reg::zbS0L
-    rol
-    sta Reg::zbD0L
-    rts
-.endproc
-
-
-; 16-bit rotate right. D0X = (S0X >> 1) | (S0X << 15)
-; < S0X
-; > D0X
-; > C = S0X.0
-; changes: A
-.proc ror16_1
-    lda Reg::zwS0X
-    ror
-    lda Reg::zwS0X+1
-    ror
-    sta Reg::zwD0X+1
-    lda Reg::zwS0X
-    ror
-    sta Reg::zwD0X
-    rts
-.endproc
-
-
-; 8-bit rotate right. D0L = (S0L >> 1) | (S0L << 7)
-; < S0L
-; > D0L
-; > C = S0L.0
-; changes: A
-.proc ror8_1
-    lda Reg::zbS0L
-    ror
-    lda Reg::zbS0L
-    ror
-    sta Reg::zbD0L
-    rts
-.endproc
-
-
-; 16-bit rotate left through C. C:D0X = S0X:C << 1
-; < S0X
-; < C
-; > D0X
-; > C = S0X.15
-; changes: A
-.proc rcl16_1
-    lda Reg::zwS0X
-    rol
-    sta Reg::zwD0X
-    lda Reg::zwS0X+1
-    rol
-    sta Reg::zwD0X+1
-    rts
-.endproc
-
-
-; 8-bit rotate left through C. C:D0L = S0L:C << 1
-; < S0L
-; < C
-; > D0L
-; > C = S0L.7
-; changes: A
-.proc rcl8_1
-    lda Reg::zbS0L
-    rol
-    sta Reg::zbD0L
-    rts
-.endproc
-
-
-; 16-bit rotate right through C. D0X:C = C:S0X >> 1
-; < S0X
-; < C
-; > D0X
-; > C = S0X.0
-; changes: A
-.proc rcr16_1
-    lda Reg::zwS0X+1
-    ror
-    sta Reg::zwD0X+1
-    ; [fall_through]
-.endproc
-
-; 8-bit rotate right through C. D0L:C = C:S0L >> 1
-; < S0L
-; < C
-; > D0L
-; > C = S0L.0
-; changes: A
-.proc rcr8_1
-    lda Reg::zbS0L
-    ror
-    sta Reg::zbD0L
-    rts
-.endproc
-
-
 ; 16-bit logical shift left. C:D0X = S0X:0 << S1L
 ; < S0X
 ; < S1L
 ; > D0X
 ; > C = (S0X << (S1L - 1)).15
 ; changes: A, D1L
-.proc shl16_n
+.proc shl16
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1010,7 +774,7 @@ done:
 ; > D0L
 ; > C = (S0L << (S1L - 1)).7
 ; changes: A, D1L
-.proc shl8_n
+.proc shl8
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1033,7 +797,7 @@ done:
 ; > D0X
 ; > C = (S0X >> (S1L - 1)).0
 ; changes: A, D1L
-.proc shr16_n
+.proc shr16
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1059,7 +823,7 @@ done:
 ; > D0L
 ; > C = (S0L << (S1L - 1)).0
 ; changes: A, D1L
-.proc shr8_n
+.proc shr8
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1082,7 +846,7 @@ done:
 ; > D0X
 ; > C = (S0X >> (S1L - 1)).0
 ; changes: A, D1L
-.proc sar16_n
+.proc sar16
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1114,7 +878,7 @@ done:
 ; > D0L
 ; > C = (S0L >> (S1L - 1)).0
 ; changes: A, D1L
-.proc sar8_n
+.proc sar8
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1141,7 +905,7 @@ done:
 ; > D0X
 ; > C = (S0X << ((D1L % 16) - 1)).15
 ; changes: A, D1L
-.proc rol16_n
+.proc rol16
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1173,7 +937,7 @@ done:
 ; > D0L
 ; > C = (S0X << ((D1L % 8) - 1)).7
 ; changes: A, D1L
-.proc rol8_n
+.proc rol8
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1200,7 +964,7 @@ done:
 ; > D0X
 ; > C = (S0X >> ((D1L % 16) - 1)).0
 ; changes: A, D1L
-.proc ror16_n
+.proc ror16
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1234,7 +998,7 @@ done:
 ; > D0L
 ; > C = (S0X >> ((D1L % 8) - 1)).7
 ; changes: A, D1L
-.proc ror8_n
+.proc ror8
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1262,7 +1026,7 @@ done:
 ; > D0X
 ; > C = (S0X << ((D1L % 17) - 1)).15
 ; changes: A, D1L
-.proc rcl16_n
+.proc rcl16
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1293,7 +1057,7 @@ done:
 ; > D0L
 ; > C = (S0X << ((D1L % 9) - 1)).7
 ; changes: A, D1L
-.proc rcl8_n
+.proc rcl8
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L
@@ -1319,7 +1083,7 @@ done:
 ; > D0X
 ; > C = (S0X >> ((D1L % 17) - 1)).0
 ; changes: A, D1L
-.proc rcr16_n
+.proc rcr16
     lda Reg::zwS0X
     sta Reg::zwD0X
     lda Reg::zwS0X+1
@@ -1349,7 +1113,7 @@ done:
 ; > D0L
 ; > C = (S0X >> ((D1L % 9) - 1)).7
 ; changes: A, D1L
-.proc rcr8_n
+.proc rcr8
     lda Reg::zbS0L
     sta Reg::zbD0L
     lda Reg::zbS1L

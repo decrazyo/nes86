@@ -151,7 +151,6 @@ zwD2X:
 zbD2L: .res 1
 zbD2H: .res 1
 
-
 ; register maps get copied here from ROM to save on access time
 rzbaRegMapsBegin:
 rzbaSegRegMap: .res 4
@@ -207,6 +206,10 @@ loop:
     sta rzbaRegMapsBegin, x
     dex
     bpl loop
+
+    ; TODO: add an "init.inc" file.
+    ;       use that to store initial register values to load at boot.
+    ;       allow the values to be set on the command line at compile time too.
 
     ; set the CS register to the first ROM-only address
     lda #<$2000
@@ -317,12 +320,6 @@ rsD1:
 .byte "D1:\t\t", 0
 rsD2:
 .byte "D2:\t\t", 0
-
-
-rsInstr:
-.byte "instr:\t", 0
-rsBlank:
-.byte "      ", 0
 
 .segment "CODE"
 
@@ -627,26 +624,6 @@ rsBlank:
     jsr Con::print_chr
     lda #Chr::NEW_LINE
     jsr Con::print_chr
-
-
-; TODO: move these somewhere else
-;    lda #<rsInstr
-;    ldx #>rsInstr
-;    jsr Tmp::set_ptr0
-;    jsr Con::print_str
-;
-;    lda #<zbInstrOpcode
-;    jsr Tmp::set_zp_ptr0
-;    ldy zbInstrLen
-;    jsr Con::print_hex_arr
-;
-;    lda #<rsBlank
-;    ldx #>rsBlank
-;    jsr Tmp::set_ptr0
-;    jsr Con::print_str
-;
-;    lda #Chr::NEW_LINE
-;    jsr Con::print_chr
 
     jsr Nmi::wait
     rts

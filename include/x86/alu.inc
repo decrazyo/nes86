@@ -71,65 +71,33 @@ _X86_ALU_ = 1
     .import xor16
     .import xor8
 
-    ; shift/rotate 1 bit:
-
     ; shift left
-    .import shl16_1
-    .import shl8_1
+    .import shl16
+    .import shl8
 
     ; shift right
-    .import shr16_1
-    .import shr8_1
+    .import shr16
+    .import shr8
 
     ; shift right and preserve sign
-    .import sar16_1
-    .import sar8_1
+    .import sar16
+    .import sar8
 
     ; rotate left
-    .import rol16_1
-    .import rol8_1
+    .import rol16
+    .import rol8
 
     ; rotate right
-    .import ror16_1
-    .import ror8_1
+    .import ror16
+    .import ror8
 
     ; rotate left through carry
-    .import rcl16_1
-    .import rcl8_1
+    .import rcl16
+    .import rcl8
 
     ; rotate right through carry
-    .import rcr16_1
-    .import rcr8_1
-
-    ; shift/rotate N bits:
-
-    ; shift left multiple times
-    .import shl16_n
-    .import shl8_n
-
-    ; shift right multiple times
-    .import shr16_n
-    .import shr8_n
-
-    ; shift right and preserve sign multiple times
-    .import sar16_n
-    .import sar8_n
-
-    ; rotate left multiple times
-    .import rol16_n
-    .import rol8_n
-
-    ; rotate right multiple times
-    .import ror16_n
-    .import ror8_n
-
-    ; rotate left through carry multiple times
-    .import rcl16_n
-    .import rcl8_n
-
-    ; rotate right through carry multiple times
-    .import rcr16_n
-    .import rcr8_n
+    .import rcr16
+    .import rcr8
 
     ; extended ALU functions.
 

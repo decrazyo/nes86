@@ -60,6 +60,7 @@ zbDir: .res 1
 zbWord: .res 1
 
 ; ModR/M Mode field
+; populated by the fetch stage
 zbMode: .res 1
 
 ; ModR/M reg field and aliases
@@ -71,57 +72,6 @@ zbReg: .res 1 ; register index
 zbRM: .res 1
 
 .segment "RODATA"
-
-; instruction encodings
-.enum
-    D00 ; no operands. nothing to do.
-    D01 ; 16-bit register embedded in opcode -> S0
-    D02 ; AL -> S0 ; imm8 -> S1
-    D03 ; AX -> S0 ; imm16 -> S1
-    D04 ; imm8 -> S1
-    D05 ; imm16 -> S1
-    D06 ; IP -> S0 ; imm8 -> S1
-    D07 ; rm8 -> S0 ; reg8 -> S1
-    D08 ; rm16 -> S0 ; reg16 -> S1
-    D09 ; reg8 -> S0 ; rm8 -> S1
-    D10 ; reg16 -> S0 ; rm16 -> S1
-    D11 ; rm16 -> S0 ; seg16 -> S1
-    D12 ; seg16 -> S0 ; rm16 -> S1
-    D13 ; ptr8 -> mmu ; AL -> S1
-    D14 ; ptr16 -> mmu ; AX -> S1
-    D15 ; ptr8 -> mmu -> S1
-    D16 ; ptr16 -> mmu -> S1
-    D17 ; AX -> S1
-    D18 ; BX -> S1
-    D19 ; CX -> S1
-    D20 ; DX -> S1
-    D21 ; SP -> S1
-    D22 ; BP -> S1
-    D23 ; SI -> S1
-    D24 ; DI -> S1
-    D25 ; CS -> S1
-    D26 ; DS -> S1
-    D27 ; ES -> S1
-    D28 ; SS -> S1
-    D29 ; stack -> S1
-    D30 ; AX -> S0 ; BX -> S1
-    D31 ; AX -> S0 ; CX -> S1
-    D32 ; AX -> S0 ; DX -> S1
-    D33 ; AX -> S0 ; SP -> S1
-    D34 ; AX -> S0 ; BP -> S1
-    D35 ; AX -> S0 ; SI -> S1
-    D36 ; AX -> S0 ; DI -> S1
-    D37 ; ip -> s0 ; imm16 -> s1
-    D38 ; imm16 -> s0 ; imm16 -> s1
-    D39 ; imm16 -> s0
-    D40 ; AL -> S0
-    D41 ; flags -> S0
-    D42 ; AH -> S0
-    D43 ; flags lo -> S0
-
-    BAD ; used for unimplemented or non-existent instructions
-    FUNC_COUNT ; used to check function table size at compile-time
-.endenum
 
 ; map instruction encodings to their decoding functions.
 rbaDecodeFuncLo:
@@ -219,6 +169,58 @@ rbaDecodeFuncHi:
 rbaDecodeFuncEnd:
 
 .assert (rbaDecodeFuncHi - rbaDecodeFuncLo) = (rbaDecodeFuncEnd - rbaDecodeFuncHi), error, "incomplete decode function"
+
+; instruction encodings
+.enum
+    D00 ; no operands. nothing to do.
+    D01 ; 16-bit register embedded in opcode -> S0
+    D02 ; AL -> S0 ; imm8 -> S1
+    D03 ; AX -> S0 ; imm16 -> S1
+    D04 ; imm8 -> S1
+    D05 ; imm16 -> S1
+    D06 ; IP -> S0 ; imm8 -> S1
+    D07 ; rm8 -> S0 ; reg8 -> S1
+    D08 ; rm16 -> S0 ; reg16 -> S1
+    D09 ; reg8 -> S0 ; rm8 -> S1
+    D10 ; reg16 -> S0 ; rm16 -> S1
+    D11 ; rm16 -> S0 ; seg16 -> S1
+    D12 ; seg16 -> S0 ; rm16 -> S1
+    D13 ; ptr8 -> mmu ; AL -> S1
+    D14 ; ptr16 -> mmu ; AX -> S1
+    D15 ; ptr8 -> mmu -> S1
+    D16 ; ptr16 -> mmu -> S1
+    D17 ; AX -> S1
+    D18 ; BX -> S1
+    D19 ; CX -> S1
+    D20 ; DX -> S1
+    D21 ; SP -> S1
+    D22 ; BP -> S1
+    D23 ; SI -> S1
+    D24 ; DI -> S1
+    D25 ; CS -> S1
+    D26 ; DS -> S1
+    D27 ; ES -> S1
+    D28 ; SS -> S1
+    D29 ; stack -> S1
+    D30 ; AX -> S0 ; BX -> S1
+    D31 ; AX -> S0 ; CX -> S1
+    D32 ; AX -> S0 ; DX -> S1
+    D33 ; AX -> S0 ; SP -> S1
+    D34 ; AX -> S0 ; BP -> S1
+    D35 ; AX -> S0 ; SI -> S1
+    D36 ; AX -> S0 ; DI -> S1
+    D37 ; ip -> s0 ; imm16 -> s1
+    D38 ; imm16 -> s0 ; imm16 -> s1
+    D39 ; imm16 -> s0
+    D40 ; AL -> S0
+    D41 ; flags -> S0
+    D42 ; AH -> S0
+    D43 ; flags lo -> S0
+
+    BAD ; used for unimplemented or non-existent instructions
+    FUNC_COUNT ; used to check function table size at compile-time
+.endenum
+
 .assert (rbaDecodeFuncHi - rbaDecodeFuncLo) = FUNC_COUNT, error, "decode function count"
 
 ; map opcodes to instruction encodings
@@ -252,9 +254,6 @@ rbaInstrDecode:
 ; determine which registers/memory needs to be accessed.
 ; move data into pseudo-registers.
 .proc decode
-    lda #0
-    sta zbWord
-
     ldx Fetch::zbInstrOpcode
     ldy rbaInstrDecode, x
     lda rbaDecodeFuncHi, y
@@ -273,6 +272,15 @@ rbaInstrDecode:
 .proc decode_nop
     rts
 .endproc
+
+.proc decode_src_embed_reg16_dst_
+.endproc
+
+
+.proc decode_src_embed_reg8
+.endproc
+
+
 
 
 ; handle an opcode that contains an index to a 16-bit register

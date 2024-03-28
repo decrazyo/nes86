@@ -16,12 +16,13 @@
 
 .include "x86/fetch.inc"
 .include "x86/decode.inc"
-.include "x86/reg.inc"
 .include "x86/mmu.inc"
 .include "x86.inc"
 
+.include "con.inc"
+.include "chr.inc"
 .include "tmp.inc"
-.include "const.inc"
+.include "nmi.inc"
 
 .exportzp zbPrefixSegment
 .exportzp zbPrefixOther
@@ -66,6 +67,8 @@ rbaFetchFuncLo:
 .byte <(fetch_modrm_reg-1)
 .byte <(fetch_modrm_ext_1-1)
 .byte <(fetch_modrm_ext_2-1)
+.byte <(fetch_modrm_ext_1_opt-1)
+.byte <(fetch_modrm_ext_2_opt-1)
 .byte <(fetch_segment_prefix-1)
 .byte <(fetch_other_prefix-1)
 rbaFetchFuncHi:
@@ -78,6 +81,8 @@ rbaFetchFuncHi:
 .byte >(fetch_modrm_reg-1)
 .byte >(fetch_modrm_ext_1-1)
 .byte >(fetch_modrm_ext_2-1)
+.byte >(fetch_modrm_ext_1_opt-1)
+.byte >(fetch_modrm_ext_2_opt-1)
 .byte >(fetch_segment_prefix-1)
 .byte >(fetch_other_prefix-1)
 rbaFetchFuncEnd:
@@ -95,8 +100,10 @@ rbaFetchFuncEnd:
     F06 ; instruction with a ModR/M byte
     F07 ; instruction with a ModR/M byte and 8-bit immediate
     F08 ; instruction with a ModR/M byte and 16-bit immediate
-    F09 ; instruction segment prefix
-    F10 ; instruction other prefix
+    F09 ; instruction with a ModR/M byte and maybe 16-bit immediate
+    F10 ; instruction with a ModR/M byte and maybe 16-bit immediate
+    F11 ; instruction segment prefix
+    F12 ; instruction other prefix
     FUNC_COUNT ; used to check function table size at compile-time
 .endenum
 
@@ -107,8 +114,8 @@ rbaInstrFetch:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
 .byte F06,F06,F06,F06,F02,F03,F01,F01,F06,F06,F06,F06,F02,F03,F01,BAD ; 0_
 .byte F06,F06,F06,F06,F02,F03,F01,F01,F06,F06,F06,F06,F02,F03,F01,F01 ; 1_
-.byte F06,F06,F06,F06,F02,F03,F09,F01,F06,F06,F06,F06,F02,F03,F09,F01 ; 2_
-.byte F06,F06,F06,F06,F02,F03,F09,F01,F06,F06,F06,F06,F02,F03,F09,F01 ; 3_
+.byte F06,F06,F06,F06,F02,F03,F11,F01,F06,F06,F06,F06,F02,F03,F11,F01 ; 2_
+.byte F06,F06,F06,F06,F02,F03,F11,F01,F06,F06,F06,F06,F02,F03,F11,F01 ; 3_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 4_
 .byte F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01,F01 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
@@ -152,8 +159,11 @@ rbaModRMFuncEnd:
 .proc fetch
     ; reset the instruction length and prefix
     lda #0
+    ; TODO: setting these every time seems kind of wasteful.
+    ;       find a better way.
     sta Fetch::zbInstrLen
     sta Fetch::zbPrefixSegment
+    sta Fetch::zbPrefixOther
 
 next:
     ; get a byte from memory
@@ -386,3 +396,54 @@ done:
 .proc modrm_rm_mode_3
     rts
 .endproc
+
+; ==============================================================================
+; debugging
+; ==============================================================================
+
+.ifdef DEBUG
+.segment "RODATA"
+
+rsInstr:
+.byte "instr:\t", 0
+rsBlank:
+.byte "        ", 0
+
+.segment "CODE"
+
+.export debug_fetch
+.proc debug_fetch
+    ; TODO: print prefix bytes
+
+    lda #<rsInstr
+    ldx #>rsInstr
+    jsr Tmp::set_ptr0
+    jsr Con::print_str
+
+    lda zbPrefixSegment
+    beq print_other
+    jsr Con::print_hex
+
+print_other:
+    lda zbPrefixOther
+    beq print_instr
+    jsr Con::print_hex
+
+print_instr:
+    lda #<zbInstrBuffer
+    jsr Tmp::set_zp_ptr0
+    ldy zbInstrLen
+    jsr Con::print_hex_arr
+
+    lda #<rsBlank
+    ldx #>rsBlank
+    jsr Tmp::set_ptr0
+    jsr Con::print_str
+
+    lda #Chr::NEW_LINE
+    jsr Con::print_chr
+
+    jsr Nmi::wait
+    rts
+.endproc
+.endif

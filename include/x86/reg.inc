@@ -55,12 +55,6 @@ _X86_REG_ = 1
     .importzp zbD2L
     .importzp zbD2H
 
-    .importzp zbInstrLen
-    .importzp zbPrefixSegment
-    .importzp zbInstrBuffer
-    .importzp zbInstrOpcode
-    .importzp zaInstrOperands
-
     .importzp rzbaRegMapsBegin
     .importzp rzbaSegRegMap
     .importzp rzbaReg8Map
@@ -95,13 +89,6 @@ _X86_REG_ = 1
     .import set_flag_hi
     .import clear_flag_hi
 
-    OPCODE_REG_MASK = %00000111
-
-    MODRM_MOD_MASK = %11000000
-    MODRM_REG_MASK = %00111000
-    MODRM_SEG_MASK = %00011000
-    MODRM_RM_MASK  = %00000111
-
     .enum Seg
         ES
         CS
@@ -130,9 +117,6 @@ _X86_REG_ = 1
         SI
         DI
     .endenum
-
-
-
 
     .ifdef DEBUG
     .import debug_reg

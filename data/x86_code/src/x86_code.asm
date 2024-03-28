@@ -1,9 +1,8 @@
 
 [BITS 16]
 
-    ;mov byte [0], 1
-    ;mov word [0], 1
-
-    jmp ax
+    mov ax, 0x1234
+    mov bx, 0x9876
+    xchg ax, bx
 
     hlt

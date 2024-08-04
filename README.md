@@ -1,5 +1,5 @@
 
-![NES86 logo](https://github.com/decrazyo/nes86/blob/main/img/nes86.jpg)
+![NES86 logo](https://github.com/decrazyo/nes86/blob/main/img/nes86.png)
 
 # NES86
 NES86 is an IBM PC emulator for the NES.  
@@ -14,7 +14,7 @@ as long as it doesn't require more than a simple serial terminal.
 <!-- TODO: add a link to the youtube video when i make one -->
 
 ## How to run NES86
-![Mesen2 running NES86](https://github.com/decrazyo/nes86/blob/main/img/mesen.jpg)
+![Mesen2 running NES86](https://github.com/decrazyo/nes86/blob/main/img/mesen.png)
 
 Download an NES ROM containing NES86 and ELKS from the releases page
 or build ELKS and NES86 from source.

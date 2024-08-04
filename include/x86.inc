@@ -3,6 +3,8 @@
 _X86_ = 1
 
 .scope X86
+    .importzp zbHalt
+
     .import x86
     .import step
     .import run
@@ -17,12 +19,10 @@ _X86_ = 1
         EXECUTE_FUNC
         WRITE_FUNC
         MOD_RM
+        IO_FUNC
         UNKNOWN
     .endenum
 
-    .ifdef DEBUG
-    .import debug_x86
-    .endif
 .endscope
 
 .endif

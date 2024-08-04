@@ -2,7 +2,7 @@
 ; This module is responsible for copying values needed by x86 instructions
 ; into temporary registers.
 ; This module must only read the x86 address space though the
-; MMU's general-purpose memory interface and dedicated stack interface.
+; Mem's general-purpose memory interface and dedicated stack interface.
 ; This module must not write to the x86 address space at all.
 ; This module may only move data and must not transform it in any other way.
 ; If an instruction's opcode indicates that it simply moves a value to or from a fixed
@@ -12,13 +12,13 @@
 ; since the opcode of the instruction (0x9A) always requires "CS" to be
 ; pushed onto the stack and "CS" is not needed by the "execute" stage.
 ; If an instruction will write to the x86 address space during the "write" stage
-; then this module must configure the MMU appropriately for that write.
+; then this module must configure the Mem appropriately for that write.
 ;
 ; uses:
-;   Mmu::set_address
-;   Mmu::get_byte
-;   Mmu::peek_next_byte
-;   Mmu::pop_word
+;   Mem::set_address
+;   Mem::get_byte
+;   Mem::peek_next_byte
+;   Mem::pop_word
 ; changes:
 ;   Reg::zbS0
 ;   Reg::zbS1
@@ -27,17 +27,14 @@
 .include "x86/decode.inc"
 .include "x86/fetch.inc"
 .include "x86/reg.inc"
-.include "x86/mmu.inc"
+.include "x86/mem.inc"
+.include "x86/util.inc"
 .include "x86.inc"
 
 .include "tmp.inc"
 .include "const.inc"
 
-
-.exportzp zbDir
-.exportzp zbWord
-
-.exportzp zbMode
+.exportzp zbMod
 
 .exportzp zbExt
 .exportzp zbSeg
@@ -49,19 +46,9 @@
 
 .segment "ZEROPAGE"
 
-
-; direction
-; 0 = direction is from a register
-; 1 = direction is to a register
-zbDir: .res 1
-
-; 0 = 8-bit operation
-; 1 = 16-bit operation
-zbWord: .res 1
-
-; ModR/M Mode field
+; ModR/M Mod field
 ; populated by the fetch stage
-zbMode: .res 1
+zbMod: .res 1
 
 ; ModR/M reg field and aliases
 zbExt: ; opcode extension index
@@ -75,96 +62,140 @@ zbRM: .res 1
 
 ; map instruction encodings to their decoding functions.
 rbaDecodeFuncLo:
-.byte <(decode_nop-1)
-.byte <(decode_s0_embed_reg16-1)
-.byte <(decode_s0_al_s1_imm8-1)
-.byte <(decode_s0_ax_s1_imm16-1)
-.byte <(decode_s1_imm8-1)
-.byte <(decode_s1_imm16-1)
-.byte <(decode_s0_ip_s1_imm8-1)
-.byte <(decode_s0_modrm_rm8_s1_modrm_reg8-1)
-.byte <(decode_s0_modrm_rm16_s1_modrm_reg16-1)
-.byte <(decode_s0_modrm_reg8_s1_modrm_rm8-1)
-.byte <(decode_s0_modrm_reg16_s1_modrm_rm16-1)
-.byte <(decode_s0_modrm_rm16_s1_modrm_seg16-1)
-.byte <(decode_s0_modrm_seg16_s1_modrm_rm16-1)
-.byte <(decode_mmu_ptr8_s1_al-1)
-.byte <(decode_mmu_ptr16_s1_ax-1)
-.byte <(decode_s1_ptr8-1)
-.byte <(decode_s1_ptr16-1)
-.byte <(decode_s1_ax-1)
-.byte <(decode_s1_bx-1)
-.byte <(decode_s1_cx-1)
-.byte <(decode_s1_dx-1)
-.byte <(decode_s1_sp-1)
-.byte <(decode_s1_bp-1)
-.byte <(decode_s1_si-1)
-.byte <(decode_s1_di-1)
-.byte <(decode_s1_cs-1)
-.byte <(decode_s1_ds-1)
-.byte <(decode_s1_es-1)
-.byte <(decode_s1_ss-1)
-.byte <(decode_s1_stack-1)
-.byte <(decode_s0_ax_s1_bx-1)
-.byte <(decode_s0_ax_s1_cx-1)
-.byte <(decode_s0_ax_s1_dx-1)
-.byte <(decode_s0_ax_s1_sp-1)
-.byte <(decode_s0_ax_s1_bp-1)
-.byte <(decode_s0_ax_s1_si-1)
-.byte <(decode_s0_ax_s1_di-1)
-.byte <(decode_s0_ip_s1_imm16-1)
-.byte <(decode_s0_imm16_s1_imm16-1)
-.byte <(decode_s0_imm16-1)
-.byte <(decode_s0_al-1)
-.byte <(decode_d0_flags-1)
-.byte <(decode_s0_ah-1)
-.byte <(decode_d0_flags_lo-1)
+.byte <(decode_nothing-1)
+.byte <(decode_s0l_modrm_reg8_d0l_modrm_rm8-1)
+.byte <(decode_s0x_modrm_reg16_d0x_modrm_rm16-1)
+.byte <(decode_s0l_modrm_rm8_d0l_modrm_reg8-1)
+.byte <(decode_s0x_modrm_rm16_d0x_modrm_reg16-1)
+.byte <(decode_s0l_imm8_d0l_modrm_rm8-1)
+.byte <(decode_s0x_imm16_d0x_modrm_rm16-1)
+.byte <(decode_s0l_imm8_d0l_embed_reg8-1)
+.byte <(decode_s0x_imm16_d0x_embed_reg16-1)
+.byte <(decode_s0l_mem8_imm16-1)
+.byte <(decode_s0x_mem16_imm16-1)
+.byte <(decode_s0l_al_d0l_mem8-1)
+.byte <(decode_s0x_ax_d0x_mem16-1)
+.byte <(decode_s0x_modrm_seg16_d0x_modrm_rm16-1)
+.byte <(decode_s0x_embed_reg16-1)
+.byte <(decode_s0x_embed_seg16-1)
+.byte <(decode_d0x_modrm_rm-1)
+.byte <(decode_d0x_embed_reg16-1)
+.byte <(decode_d0x_embed_seg16-1)
+.byte <(decode_s0l_modrm_reg8_s1l_modrm_rm8-1)
+.byte <(decode_s0x_modrm_reg16_s1x_modrm_rm16-1)
+.byte <(decode_s0x_embed_reg16_s1x_ax-1)
+.byte <(decode_s0x_imm8-1)
+.byte <(decode_s0x_dx-1)
+.byte <(decode_s0l_mem8_bx_al-1)
+.byte <(decode_s0x_modrm_m_addr-1)
+.byte <(decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi-1)
+.byte <(decode_s0l_flags_lo-1)
+.byte <(decode_s0l_ah-1)
+.byte <(decode_s0x_flags-1)
+.byte <(decode_s0l_modrm_rm8_s1l_modrm_reg8-1)
+.byte <(decode_s0x_modrm_rm16_s1x_modrm_reg16-1)
+.byte <(decode_s0l_al_s1l_imm8-1)
+.byte <(decode_s0x_ax_s1x_imm16-1)
+.byte <(decode_s0x_embed_reg16_d0x_embed_reg16-1)
+.byte <(decode_s0x_ax-1)
+.byte <(decode_s0l_al-1)
+.byte <(decode_s0l_al_s1l_ah_s2l_imm8-1)
+.byte <(decode_s0l_mem8_si-1)
+.byte <(decode_s0x_mem16_si-1)
+.byte <(decode_s0l_mem8_si_s1l_mem8_di-1)
+.byte <(decode_s0x_mem16_si_s1x_mem16_di-1)
+.byte <(decode_s0x_al_s1x_mem8_di-1)
+.byte <(decode_s0x_ax_s1x_mem16_di-1)
+.byte <(decode_s0l_imm8-1)
+.byte <(decode_s0x_imm16-1)
+.byte <(decode_s0x_imm16_s1x_imm16-1)
+.byte <(decode_s0l_modrm_rm8_s1l_imm8-1)
+.byte <(decode_s0x_modrm_rm16_s1x_imm16-1)
+.byte <(decode_s0x_modrm_rm16_s1x_imm8-1)
+.byte <(decode_s0l_modrm_rm8_s1l_1-1)
+.byte <(decode_s0x_modrm_rm16_s1l_1-1)
+.byte <(decode_s0l_modrm_rm8_s1l_cl-1)
+.byte <(decode_s0x_modrm_rm16_s1l_cl-1)
+.byte <(decode_s0l_modrm_rm8_opt_s1l_imm8-1)
+.byte <(decode_s0x_modrm_rm16_opt_s1x_imm16-1)
+.byte <(decode_s0l_modrm_rm8-1)
+.byte <(decode_s0x_modrm_rm16_or_s0x_modrm_m32_lo_s1x_modrm_m32_hi-1)
+.byte <(decode_s0l_al_d0l_mem8_di-1)
+.byte <(decode_s0x_ax_d0x_mem16_di-1)
+.byte <(decode_s0l_mem8_si_d0l_mem8_di-1)
+.byte <(decode_s0x_mem16_si_d0x_mem16_di-1)
+.byte <(decode_s0x_imm8_s1l_al-1)
+.byte <(decode_s0x_imm8_s1x_ax-1)
+.byte <(decode_s0x_dx_s1l_al-1)
+.byte <(decode_s0x_dx_s1x_ax-1)
 .byte <(decode_bad-1)
 rbaDecodeFuncHi:
-.byte >(decode_nop-1)
-.byte >(decode_s0_embed_reg16-1)
-.byte >(decode_s0_al_s1_imm8-1)
-.byte >(decode_s0_ax_s1_imm16-1)
-.byte >(decode_s1_imm8-1)
-.byte >(decode_s1_imm16-1)
-.byte >(decode_s0_ip_s1_imm8-1)
-.byte >(decode_s0_modrm_rm8_s1_modrm_reg8-1)
-.byte >(decode_s0_modrm_rm16_s1_modrm_reg16-1)
-.byte >(decode_s0_modrm_reg8_s1_modrm_rm8-1)
-.byte >(decode_s0_modrm_reg16_s1_modrm_rm16-1)
-.byte >(decode_s0_modrm_rm16_s1_modrm_seg16-1)
-.byte >(decode_s0_modrm_seg16_s1_modrm_rm16-1)
-.byte >(decode_mmu_ptr8_s1_al-1)
-.byte >(decode_mmu_ptr16_s1_ax-1)
-.byte >(decode_s1_ptr8-1)
-.byte >(decode_s1_ptr16-1)
-.byte >(decode_s1_ax-1)
-.byte >(decode_s1_bx-1)
-.byte >(decode_s1_cx-1)
-.byte >(decode_s1_dx-1)
-.byte >(decode_s1_sp-1)
-.byte >(decode_s1_bp-1)
-.byte >(decode_s1_si-1)
-.byte >(decode_s1_di-1)
-.byte >(decode_s1_cs-1)
-.byte >(decode_s1_ds-1)
-.byte >(decode_s1_es-1)
-.byte >(decode_s1_ss-1)
-.byte >(decode_s1_stack-1)
-.byte >(decode_s0_ax_s1_bx-1)
-.byte >(decode_s0_ax_s1_cx-1)
-.byte >(decode_s0_ax_s1_dx-1)
-.byte >(decode_s0_ax_s1_sp-1)
-.byte >(decode_s0_ax_s1_bp-1)
-.byte >(decode_s0_ax_s1_si-1)
-.byte >(decode_s0_ax_s1_di-1)
-.byte >(decode_s0_ip_s1_imm16-1)
-.byte >(decode_s0_imm16_s1_imm16-1)
-.byte >(decode_s0_imm16-1)
-.byte >(decode_s0_al-1)
-.byte >(decode_d0_flags-1)
-.byte >(decode_s0_ah-1)
-.byte >(decode_d0_flags_lo-1)
+.byte >(decode_nothing-1)
+.byte >(decode_s0l_modrm_reg8_d0l_modrm_rm8-1)
+.byte >(decode_s0x_modrm_reg16_d0x_modrm_rm16-1)
+.byte >(decode_s0l_modrm_rm8_d0l_modrm_reg8-1)
+.byte >(decode_s0x_modrm_rm16_d0x_modrm_reg16-1)
+.byte >(decode_s0l_imm8_d0l_modrm_rm8-1)
+.byte >(decode_s0x_imm16_d0x_modrm_rm16-1)
+.byte >(decode_s0l_imm8_d0l_embed_reg8-1)
+.byte >(decode_s0x_imm16_d0x_embed_reg16-1)
+.byte >(decode_s0l_mem8_imm16-1)
+.byte >(decode_s0x_mem16_imm16-1)
+.byte >(decode_s0l_al_d0l_mem8-1)
+.byte >(decode_s0x_ax_d0x_mem16-1)
+.byte >(decode_s0x_modrm_seg16_d0x_modrm_rm16-1)
+.byte >(decode_s0x_embed_reg16-1)
+.byte >(decode_s0x_embed_seg16-1)
+.byte >(decode_d0x_modrm_rm-1)
+.byte >(decode_d0x_embed_reg16-1)
+.byte >(decode_d0x_embed_seg16-1)
+.byte >(decode_s0l_modrm_reg8_s1l_modrm_rm8-1)
+.byte >(decode_s0x_modrm_reg16_s1x_modrm_rm16-1)
+.byte >(decode_s0x_embed_reg16_s1x_ax-1)
+.byte >(decode_s0x_imm8-1)
+.byte >(decode_s0x_dx-1)
+.byte >(decode_s0l_mem8_bx_al-1)
+.byte >(decode_s0x_modrm_m_addr-1)
+.byte >(decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi-1)
+.byte >(decode_s0l_flags_lo-1)
+.byte >(decode_s0l_ah-1)
+.byte >(decode_s0x_flags-1)
+.byte >(decode_s0l_modrm_rm8_s1l_modrm_reg8-1)
+.byte >(decode_s0x_modrm_rm16_s1x_modrm_reg16-1)
+.byte >(decode_s0l_al_s1l_imm8-1)
+.byte >(decode_s0x_ax_s1x_imm16-1)
+.byte >(decode_s0x_embed_reg16_d0x_embed_reg16-1)
+.byte >(decode_s0x_ax-1)
+.byte >(decode_s0l_al-1)
+.byte >(decode_s0l_al_s1l_ah_s2l_imm8-1)
+.byte >(decode_s0l_mem8_si-1)
+.byte >(decode_s0x_mem16_si-1)
+.byte >(decode_s0l_mem8_si_s1l_mem8_di-1)
+.byte >(decode_s0x_mem16_si_s1x_mem16_di-1)
+.byte >(decode_s0x_al_s1x_mem8_di-1)
+.byte >(decode_s0x_ax_s1x_mem16_di-1)
+.byte >(decode_s0l_imm8-1)
+.byte >(decode_s0x_imm16-1)
+.byte >(decode_s0x_imm16_s1x_imm16-1)
+.byte >(decode_s0l_modrm_rm8_s1l_imm8-1)
+.byte >(decode_s0x_modrm_rm16_s1x_imm16-1)
+.byte >(decode_s0x_modrm_rm16_s1x_imm8-1)
+.byte >(decode_s0l_modrm_rm8_s1l_1-1)
+.byte >(decode_s0x_modrm_rm16_s1l_1-1)
+.byte >(decode_s0l_modrm_rm8_s1l_cl-1)
+.byte >(decode_s0x_modrm_rm16_s1l_cl-1)
+.byte >(decode_s0l_modrm_rm8_opt_s1l_imm8-1)
+.byte >(decode_s0x_modrm_rm16_opt_s1x_imm16-1)
+.byte >(decode_s0l_modrm_rm8-1)
+.byte >(decode_s0x_modrm_rm16_or_s0x_modrm_m32_lo_s1x_modrm_m32_hi-1)
+.byte >(decode_s0l_al_d0l_mem8_di-1)
+.byte >(decode_s0x_ax_d0x_mem16_di-1)
+.byte >(decode_s0l_mem8_si_d0l_mem8_di-1)
+.byte >(decode_s0x_mem16_si_d0x_mem16_di-1)
+.byte >(decode_s0x_imm8_s1l_al-1)
+.byte >(decode_s0x_imm8_s1x_ax-1)
+.byte >(decode_s0x_dx_s1l_al-1)
+.byte >(decode_s0x_dx_s1x_ax-1)
 .byte >(decode_bad-1)
 rbaDecodeFuncEnd:
 
@@ -172,50 +203,72 @@ rbaDecodeFuncEnd:
 
 ; instruction encodings
 .enum
-    D00 ; no operands. nothing to do.
-    D01 ; 16-bit register embedded in opcode -> S0
-    D02 ; AL -> S0 ; imm8 -> S1
-    D03 ; AX -> S0 ; imm16 -> S1
-    D04 ; imm8 -> S1
-    D05 ; imm16 -> S1
-    D06 ; IP -> S0 ; imm8 -> S1
-    D07 ; rm8 -> S0 ; reg8 -> S1
-    D08 ; rm16 -> S0 ; reg16 -> S1
-    D09 ; reg8 -> S0 ; rm8 -> S1
-    D10 ; reg16 -> S0 ; rm16 -> S1
-    D11 ; rm16 -> S0 ; seg16 -> S1
-    D12 ; seg16 -> S0 ; rm16 -> S1
-    D13 ; ptr8 -> mmu ; AL -> S1
-    D14 ; ptr16 -> mmu ; AX -> S1
-    D15 ; ptr8 -> mmu -> S1
-    D16 ; ptr16 -> mmu -> S1
-    D17 ; AX -> S1
-    D18 ; BX -> S1
-    D19 ; CX -> S1
-    D20 ; DX -> S1
-    D21 ; SP -> S1
-    D22 ; BP -> S1
-    D23 ; SI -> S1
-    D24 ; DI -> S1
-    D25 ; CS -> S1
-    D26 ; DS -> S1
-    D27 ; ES -> S1
-    D28 ; SS -> S1
-    D29 ; stack -> S1
-    D30 ; AX -> S0 ; BX -> S1
-    D31 ; AX -> S0 ; CX -> S1
-    D32 ; AX -> S0 ; DX -> S1
-    D33 ; AX -> S0 ; SP -> S1
-    D34 ; AX -> S0 ; BP -> S1
-    D35 ; AX -> S0 ; SI -> S1
-    D36 ; AX -> S0 ; DI -> S1
-    D37 ; ip -> s0 ; imm16 -> s1
-    D38 ; imm16 -> s0 ; imm16 -> s1
-    D39 ; imm16 -> s0
-    D40 ; AL -> S0
-    D41 ; flags -> S0
-    D42 ; AH -> S0
-    D43 ; flags lo -> S0
+    D00 ; decode_nothing
+    D01 ; decode_s0l_modrm_reg8_d0l_modrm_rm8
+    D02 ; decode_s0x_modrm_reg16_d0x_modrm_rm16
+    D03 ; decode_s0l_modrm_rm8_d0l_modrm_reg8
+    D04 ; decode_s0x_modrm_rm16_d0x_modrm_reg16
+    D05 ; decode_s0l_imm8_d0l_modrm_rm8
+    D06 ; decode_s0x_imm16_d0x_modrm_rm16
+    D07 ; decode_s0l_imm8_d0l_embed_reg8
+    D08 ; decode_s0x_imm16_d0x_embed_reg16
+    D09 ; decode_s0l_mem8_imm16
+    D10 ; decode_s0x_mem16_imm16
+    D11 ; decode_s0l_al_d0l_mem8
+    D12 ; decode_s0x_ax_d0x_mem16
+    D13 ; decode_s0x_modrm_seg16_d0x_modrm_rm16
+    D14 ; decode_s0x_embed_reg16
+    D15 ; decode_s0x_embed_seg16
+    D16 ; decode_d0x_modrm_rm
+    D17 ; decode_d0x_embed_reg16
+    D18 ; decode_d0x_embed_seg16
+    D19 ; decode_s0l_modrm_reg8_s1l_modrm_rm8
+    D20 ; decode_s0x_modrm_reg16_s1x_modrm_rm16
+    D21 ; decode_s0x_embed_reg16_s1x_ax
+    D22 ; decode_s0x_imm8
+    D23 ; decode_s0x_dx
+    D24 ; decode_s0l_mem8_bx_al
+    D25 ; decode_s0x_modrm_m_addr
+    D26 ; decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi
+    D27 ; decode_s0l_flags_lo
+    D28 ; decode_s0l_ah
+    D29 ; decode_s0x_flags
+    D30 ; decode_s0l_modrm_rm8_s1l_modrm_reg8
+    D31 ; decode_s0x_modrm_rm16_s1x_modrm_reg16
+    D32 ; decode_s0l_al_s1l_imm8
+    D33 ; decode_s0x_ax_s1x_imm16
+    D34 ; decode_s0x_embed_reg16_d0x_embed_reg16
+    D35 ; decode_s0x_ax
+    D36 ; decode_s0l_al
+    D37 ; decode_s0l_al_s1l_ah_s2l_imm8
+    D38 ; decode_s0l_mem8_si
+    D39 ; decode_s0x_mem16_si
+    D40 ; decode_s0l_mem8_si_s1l_mem8_di
+    D41 ; decode_s0x_mem16_si_s1x_mem16_di
+    D42 ; decode_s0x_al_s1x_mem8_di
+    D43 ; decode_s0x_ax_s1x_mem16_di
+    D44 ; decode_s0l_imm8
+    D45 ; decode_s0x_imm16
+    D46 ; decode_s0x_imm16_s1x_imm16
+    D47 ; decode_s0l_modrm_rm8_s1l_imm8
+    D48 ; decode_s0x_modrm_rm16_s1x_imm16
+    D49 ; decode_s0x_modrm_rm16_s1x_imm8
+    D50 ; decode_s0l_modrm_rm8_s1l_1
+    D51 ; decode_s0x_modrm_rm16_s1l_1
+    D52 ; decode_s0l_modrm_rm8_s1l_cl
+    D53 ; decode_s0x_modrm_rm16_s1l_cl
+    D54 ; decode_s0l_modrm_rm8_opt_s1l_imm8
+    D55 ; decode_s0x_modrm_rm16_opt_s1x_imm16
+    D56 ; decode_s0l_modrm_rm8
+    D57 ; decode_s0x_modrm_rm16_or_s0x_modrm_m32_lo_s1x_modrm_m32_hi
+    D58 ; decode_s0l_al_d0l_mem8_di
+    D59 ; decode_s0x_ax_d0x_mem16_di
+    D60 ; decode_s0l_mem8_si_d0l_mem8_di
+    D61 ; decode_s0x_mem16_si_d0x_mem16_di
+    D62 ; decode_s0x_imm8_s1l_al
+    D63 ; decode_s0x_imm8_s1x_ax
+    D64 ; decode_s0x_dx_s1l_al
+    D65 ; decode_s0x_dx_s1x_ax
 
     BAD ; used for unimplemented or non-existent instructions
     FUNC_COUNT ; used to check function table size at compile-time
@@ -226,24 +279,36 @@ rbaDecodeFuncEnd:
 ; map opcodes to instruction encodings
 rbaInstrDecode:
 ;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte D07,D08,D09,D10,D02,D03,D27,D29,D07,D08,D09,D10,D02,D03,D25,BAD ; 0_
-.byte D07,D08,D09,D10,D02,D03,D28,D29,D07,D08,D09,D10,D02,D03,D26,D29 ; 1_
-.byte D07,D08,D09,D10,D02,D03,BAD,BAD,D07,D08,D09,D10,D02,D03,BAD,BAD ; 2_
-.byte D07,D08,D09,D10,D02,D03,BAD,D40,D07,D08,D09,D10,D02,D03,BAD,D40 ; 3_
-.byte D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01,D01 ; 4_
-.byte D17,D19,D20,D18,D21,D22,D23,D24,D29,D29,D29,D29,D29,D29,D29,D29 ; 5_
+.byte D30,D31,D19,D20,D32,D33,D15,D18,D30,D31,D19,D20,D32,D33,D15,BAD ; 0_
+.byte D30,D31,D19,D20,D32,D33,D15,D18,D30,D31,D19,D20,D32,D33,D15,D18 ; 1_
+.byte D30,D31,D19,D20,D32,D33,BAD,D36,D30,D31,D19,D20,D32,D33,BAD,D36 ; 2_
+.byte D30,D31,D19,D20,D32,D33,BAD,D35,D30,D31,D19,D20,D32,D33,BAD,D35 ; 3_
+.byte D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34 ; 4_
+.byte D14,D14,D14,D14,D14,D14,D14,D14,D17,D17,D17,D17,D17,D17,D17,D17 ; 5_
 .byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
-.byte D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06,D06 ; 7_
-.byte BAD,BAD,BAD,BAD,D07,D08,D09,D10,D07,D08,D09,D10,D11,BAD,D12,BAD ; 8_
-.byte D00,D31,D32,D30,D33,D34,D35,D36,D40,D17,D38,BAD,D41,D29,D42,D43 ; 9_
-.byte D15,D16,D13,D14,BAD,BAD,BAD,BAD,D02,D03,BAD,BAD,BAD,BAD,BAD,BAD ; A_
-.byte D04,D04,D04,D04,D04,D04,D04,D04,D05,D05,D05,D05,D05,D05,D05,D05 ; B_
-.byte BAD,BAD,D39,D00,BAD,BAD,BAD,BAD,BAD,BAD,D39,D00,BAD,BAD,BAD,BAD ; C_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; D_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,D37,D37,D38,D06,BAD,BAD,BAD,BAD ; E_
-.byte BAD,BAD,BAD,BAD,BAD,D00,BAD,BAD,D00,D00,D00,D00,D00,D00,BAD,BAD ; F_
+.byte D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44 ; 7_
+.byte D47,D48,BAD,D49,D19,D20,D19,D20,D01,D02,D03,D04,D13,D25,D04,D16 ; 8_
+.byte D00,D21,D21,D21,D21,D21,D21,D21,D36,D35,D46,D00,D29,D00,D28,D27 ; 9_
+.byte D09,D10,D11,D12,D60,D61,D40,D41,D32,D33,D58,D59,D38,D39,D42,D43 ; A_
+.byte D07,D07,D07,D07,D07,D07,D07,D07,D08,D08,D08,D08,D08,D08,D08,D08 ; B_
+.byte BAD,BAD,D45,D00,D26,D26,D05,D06,BAD,BAD,D45,D00,D00,D44,D00,D00 ; C_
+.byte D50,D51,D52,D53,D32,D37,BAD,D24,D00,D00,D00,D00,D00,D00,D00,D00 ; D_
+.byte D44,D44,D44,D44,D22,D22,D62,D63,D45,D45,D46,D44,D23,D23,D64,D65 ; E_
+.byte BAD,BAD,BAD,BAD,D00,D00,D54,D55,D00,D00,D00,D00,D00,D00,D56,D57 ; F_
 
+rbaModRMAddrFuncLo:
+.byte <(get_modrm_m_mode_0-1)
+.byte <(get_modrm_m_mode_1-1)
+.byte <(get_modrm_m_mode_2-1)
+.byte <(get_modrm_r16-1)
+rbaModRMAddrFuncHi:
+.byte >(get_modrm_m_mode_0-1)
+.byte >(get_modrm_m_mode_1-1)
+.byte >(get_modrm_m_mode_2-1)
+.byte >(get_modrm_r16-1)
+rbaModRMAddrFuncEnd:
 
+.assert (rbaModRMAddrFuncHi - rbaModRMAddrFuncLo) = (rbaModRMAddrFuncEnd - rbaModRMAddrFuncHi), error, "incomplete ModR/M address function"
 
 .segment "CODE"
 
@@ -253,6 +318,11 @@ rbaInstrDecode:
 
 ; determine which registers/memory needs to be accessed.
 ; move data into pseudo-registers.
+; set any public values that might be useful for later steps.
+; calls decode handlers with
+; < A = garbage
+; < X = instruction opcode
+; < Y = function index
 .proc decode
     ldx Fetch::zbInstrOpcode
     ldy rbaInstrDecode, x
@@ -264,269 +334,250 @@ rbaInstrDecode:
 .endproc
 
 ; ==============================================================================
-; decode handlers.
+; decode handlers
+; see "decode" for argument descriptions
 ; ==============================================================================
 
-; do nothing and return.
-; used to handle instructions that don't need any decoding.
-.proc decode_nop
+; the instruction needs no inputs nor outputs or all inputs and outputs are static.
+; return immediately without performing any actions.
+; e.g.
+;   NOP
+;   CBW
+.proc decode_nothing
     rts
 .endproc
 
-.proc decode_src_embed_reg16_dst_
+
+;    reg -> rm
+;    rm -> reg
+.proc decode_s0x_modrm_reg16_d0x_modrm_rm16
+    jsr parse_modrm
+    jsr use_modrm_pointer
+    jsr get_modrm_reg16
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+    rts
 .endproc
 
-
-.proc decode_src_embed_reg8
+.proc decode_s0l_modrm_reg8_d0l_modrm_rm8
+    jsr parse_modrm
+    jsr use_modrm_pointer
+    jsr get_modrm_reg8
+    sta Reg::zbS0L
+    rts
 .endproc
 
+decode_s0x_modrm_rm16: ; extended CALL, JMP, PUSH
+decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
+.proc decode_s0x_modrm_rm16_d0x_modrm_reg16
+    jsr parse_modrm
+    jsr get_modrm_rm16
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+    rts
+.endproc
 
+.proc decode_s0l_modrm_rm8_d0l_modrm_reg8
+    jsr parse_modrm
+    jsr get_modrm_rm8
+    sta Reg::zbS0L
+    rts
+.endproc
 
+;    imm -> rm
+.proc decode_s0x_imm16_d0x_modrm_rm16
+    ldx Fetch::zbInstrLen
+    lda Fetch::zbInstrBuffer-2, x
+    sta Reg::zwS0X
 
-; handle an opcode that contains an index to a 16-bit register
-.proc decode_s0_embed_reg16
-    inc zbWord
+    lda Fetch::zbInstrBuffer-1, x
+    sta Reg::zwS0X+1
 
-    ; lookup the address of the register
+    jsr parse_modrm
+    jsr use_modrm_pointer
+    rts
+.endproc
+
+.proc decode_s0l_imm8_d0l_modrm_rm8
+    ldx Fetch::zbInstrLen
+    lda Fetch::zbInstrBuffer-1, x
+    sta Reg::zbS0L
+
+    jsr parse_modrm
+    jsr use_modrm_pointer
+    rts
+.endproc
+
+;    imm -> reg
+.proc decode_s0x_imm16_d0x_embed_reg16
+    lda Fetch::zaInstrOperands+1
+    sta Reg::zwS0X+1
+    ; [fall_through]
+.endproc
+
+.proc decode_s0l_imm8_d0l_embed_reg8
+    lda Fetch::zaInstrOperands
+    sta Reg::zbS0L
+
+    ; determine the register that the "write" stage needs
     lda Fetch::zbInstrOpcode
-    and #Decode::OPCODE_REG_MASK
+    and #Decode::EMBED_REG_MASK
+    sta zbReg
+
+    rts
+.endproc
+
+;    mem -> acc
+;    acc -> mem
+.proc decode_s0x_mem16_imm16
+    jsr use_prefix_or_ds_segment
+
+    lda Fetch::zaInstrOperands
+    ldx Fetch::zaInstrOperands+1
+    jsr Mem::use_pointer
+
+    jsr Mem::get_word
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+    rts
+.endproc
+
+.proc decode_s0l_mem8_imm16
+    jsr use_prefix_or_ds_segment
+
+    lda Fetch::zaInstrOperands
+    ldx Fetch::zaInstrOperands+1
+    jsr Mem::use_pointer
+
+    jsr Mem::get_byte
+    sta Reg::zbS0L
+    rts
+.endproc
+
+.proc decode_s0x_ax_d0x_mem16
+    lda Reg::zwAX+1
+    sta Reg::zwS0X+1
+    ; [fall_through]
+.endproc
+
+.proc decode_s0l_al_d0l_mem8
+    lda Reg::zbAL
+    sta Reg::zbS0L
+
+    jsr use_prefix_or_ds_segment
+
+    lda Fetch::zaInstrOperands
+    ldx Fetch::zaInstrOperands+1
+    jmp Mem::use_pointer
+    ; [tail_jump]
+.endproc
+
+;    seg -> rm
+;    rm -> seg
+.proc decode_s0x_modrm_seg16_d0x_modrm_rm16
+    jsr parse_modrm
+    jsr get_modrm_seg
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+    jmp use_modrm_pointer
+.endproc
+
+; changes: A, X, Y
+.proc decode_s0x_embed_reg16
+    lda Fetch::zbInstrOpcode
+    and #Decode::EMBED_REG_MASK
     tay
+
     ldx Reg::rzbaReg16Map, y
-
-    ; copy the register to S0
     lda Const::ZERO_PAGE, x
     sta Reg::zwS0X
-    inx
+    lda Const::ZERO_PAGE+1, x
+    sta Reg::zwS0X+1
+    rts
+.endproc
+
+; changes: A, X, Y
+.proc decode_s0x_embed_seg16
+    lda Fetch::zbInstrOpcode
+    and #Decode::EMBED_SEG_MASK
+    lsr
+    lsr
+    lsr
+    tay
+
+    ldx Reg::rzbaSegRegMap, y
     lda Const::ZERO_PAGE, x
+    sta Reg::zwS0X
+    lda Const::ZERO_PAGE+1, x
+    sta Reg::zwS0X+1
+    rts
+.endproc
+
+.proc decode_d0x_modrm_rm
+    jsr parse_modrm
+    jmp use_modrm_pointer
+    ; [tail_jump]
+.endproc
+
+; changes: A, X, Y
+.proc decode_d0x_embed_reg16
+    lda Fetch::zbInstrOpcode
+    and #Decode::EMBED_REG_MASK
+    sta zbReg
+    rts
+.endproc
+
+; changes: A, X, Y
+.proc decode_d0x_embed_seg16
+    lda Fetch::zbInstrOpcode
+    and #Decode::EMBED_SEG_MASK
+    lsr
+    lsr
+    lsr
+    sta zbSeg
+    rts
+.endproc
+
+
+;    reg -> rm
+;    rm -> reg
+.proc decode_s0x_modrm_reg16_s1x_modrm_rm16
+    jsr parse_modrm
+
+    jsr get_modrm_reg16
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+
+    jsr get_modrm_rm16
+    sta Reg::zwS1X
+    stx Reg::zwS1X+1
+    rts
+.endproc
+
+.proc decode_s0l_modrm_reg8_s1l_modrm_rm8
+    jsr parse_modrm
+
+    jsr get_modrm_reg8
+    sta Reg::zbS0L
+
+    jsr get_modrm_rm8
+    sta Reg::zbS1L
+    rts
+.endproc
+
+; changes: A, X, Y
+.proc decode_s0x_embed_reg16_s1x_ax
+    lda Fetch::zbInstrOpcode
+    and #Decode::EMBED_REG_MASK
+    sta zbReg
+    tay
+
+    ldx Reg::rzbaReg16Map, y
+    lda Const::ZERO_PAGE, x
+    sta Reg::zwS0X
+    lda Const::ZERO_PAGE+1, x
     sta Reg::zwS0X+1
 
-    rts
-.endproc
-
-
-; opcode implies that AX is used and a 16-bit operand follows it
-.proc decode_s0_ax_s1_imm16
-    inc zbWord
-
-    lda Reg::zwAX+1
-    sta Reg::zwS0X+1
-
-    lda Fetch::zaInstrOperands+1
-    sta Reg::zwS1X+1
-
-    ; [fall_through]
-.endproc
-
-; opcode implies that AL is used and an 8-bit operand follows it
-.proc decode_s0_al_s1_imm8
-    lda Reg::zbAL
-    sta Reg::zwS0X
-
-    lda Fetch::zaInstrOperands
-    sta Reg::zwS1X
-    rts
-.endproc
-
-
-; opcode is followed by a 16-bit operand
-.proc decode_s1_imm16
-    inc zbWord
-
-    lda Fetch::zaInstrOperands+1
-    sta Reg::zwS1X+1
-
-    ; [fall_through]
-.endproc
-
-; opcode is followed by an 8-bit operand
-.proc decode_s1_imm8
-    lda Fetch::zaInstrOperands
-    sta Reg::zwS1X
-    rts
-.endproc
-
-
-; opcode implies that IP is used and an 8-bit operand follows it.
-; used for conditional jumps.
-.proc decode_s0_ip_s1_imm8
-    lda Reg::zwIP
-    sta Reg::zwS0X
-    lda Reg::zwIP+1
-    sta Reg::zwS0X+1
-
-    lda Fetch::zaInstrOperands
-    sta Reg::zwS1X
-    rts
-.endproc
-
-
-.proc decode_s0_modrm_rm8_s1_modrm_reg8
-    jsr handle_modrm_rm
-    lda Tmp::zb0
-    sta Reg::zwS0X
-
-    jsr handle_modrm_reg
-    lda Tmp::zb0
-    sta Reg::zwS1X
-
-    rts
-.endproc
-
-
-.proc decode_s0_modrm_rm16_s1_modrm_reg16
-    inc zbWord
-
-    jsr handle_modrm_rm
-    lda Tmp::zw0
-    sta Reg::zwS0X
-    lda Tmp::zw0+1
-    sta Reg::zwS0X+1
-
-    jsr handle_modrm_reg
-    lda Tmp::zw0
-    sta Reg::zwS1X
-    lda Tmp::zw0+1
-    sta Reg::zwS1X+1
-
-    rts
-.endproc
-
-
-.proc decode_s0_modrm_reg8_s1_modrm_rm8
-    jsr handle_modrm_reg
-    lda Tmp::zb0
-    sta Reg::zwS0X
-
-    jsr handle_modrm_rm
-    lda Tmp::zb0
-    sta Reg::zwS1X
-
-    rts
-.endproc
-
-
-.proc decode_s0_modrm_reg16_s1_modrm_rm16
-    inc zbWord
-
-    jsr handle_modrm_reg
-    lda Tmp::zw0
-    sta Reg::zwS0X
-    lda Tmp::zw0+1
-    sta Reg::zwS0X+1
-
-    jsr handle_modrm_rm
-    lda Tmp::zw0
-    sta Reg::zwS1X
-    lda Tmp::zw0+1
-    sta Reg::zwS1X+1
-
-    rts
-.endproc
-
-
-.proc decode_s0_modrm_rm16_s1_modrm_seg16
-    inc zbWord
-
-    jsr handle_modrm_rm
-    lda Tmp::zw0
-    sta Reg::zwS0X
-    lda Tmp::zw0+1
-    sta Reg::zwS0X+1
-
-    jsr handle_modrm_seg
-    lda Tmp::zw0
-    sta Reg::zwS1X
-    lda Tmp::zw0+1
-    sta Reg::zwS1X+1
-
-    rts
-.endproc
-
-
-.proc decode_s0_modrm_seg16_s1_modrm_rm16
-    inc zbWord
-
-    jsr handle_modrm_seg
-    lda Tmp::zw0
-    sta Reg::zwS0X
-    lda Tmp::zw0+1
-    sta Reg::zwS0X+1
-
-    jsr handle_modrm_rm
-    lda Tmp::zw0
-    sta Reg::zwS1X
-    lda Tmp::zw0+1
-    sta Reg::zwS1X+1
-
-    rts
-.endproc
-
-
-; opcode implies AX is needed
-.proc decode_mmu_ptr16_s1_ax
-    inc zbWord
-
-    lda Reg::zwAX+1
-    sta Reg::zwS1X+1
-    ; [fall_through]
-.endproc
-
-; opcode implies AL is needed
-.proc decode_mmu_ptr8_s1_al
-    lda Reg::zbAL
-    sta Reg::zwS1X
-
-    jsr prefix_seg_index
-    bcc segment_prefix
-    ldy #Reg::Seg::DS
-segment_prefix:
-    lda Fetch::zaInstrOperands
-    sta Tmp::zw0
-    lda Fetch::zaInstrOperands+1
-    sta Tmp::zw0+1
-    jsr Mmu::set_address
-    rts
-.endproc
-
-
-.proc decode_s1_ptr8
-    jsr prefix_seg_index
-    bcc segment_prefix
-    ldy #Reg::Seg::DS
-segment_prefix:
-    lda Fetch::zaInstrOperands
-    sta Tmp::zw0
-    lda Fetch::zaInstrOperands+1
-    sta Tmp::zw0+1
-    jsr Mmu::set_address
-
-    jsr Mmu::get_byte
-    sta Reg::zwS1X
-    rts
-.endproc
-
-.proc decode_s1_ptr16
-    inc zbWord
-
-    jsr prefix_seg_index
-    bcc segment_prefix
-    ldy #Reg::Seg::DS
-segment_prefix:
-    lda Fetch::zaInstrOperands
-    sta Tmp::zw0
-    lda Fetch::zaInstrOperands+1
-    sta Tmp::zw0+1
-    jsr Mmu::set_address
-
-    jsr Mmu::get_byte
-    sta Reg::zwS1X
-    jsr Mmu::peek_next_byte
-    sta Reg::zwS1X+1
-    rts
-.endproc
-
-
-.proc decode_s1_ax
     lda Reg::zwAX
     sta Reg::zwS1X
     lda Reg::zwAX+1
@@ -535,233 +586,515 @@ segment_prefix:
 .endproc
 
 
-.proc decode_s1_bx
-    lda Reg::zwBX
-    sta Reg::zwS1X
-    lda Reg::zwBX+1
+.proc decode_s0x_imm8_s1x_ax
+    lda Reg::zwAX+1
     sta Reg::zwS1X+1
+    ; [fall_through]
+.endproc
+
+.proc decode_s0x_imm8_s1l_al
+    lda Reg::zbAL
+    sta Reg::zbS1L
+    ; [fall_through]
+.endproc
+
+.proc decode_s0x_imm8
+    lda Fetch::zaInstrOperands
+    sta Reg::zwS0X
+    ; convert the 8-bit unsigned int to a 16-bit unsigned int
+    lda #0
+    sta Reg::zwS0X+1
     rts
 .endproc
 
 
-.proc decode_s1_cx
-    lda Reg::zwCX
-    sta Reg::zwS1X
-    lda Reg::zwCX+1
+.proc decode_s0x_dx_s1x_ax
+    lda Reg::zwAX+1
     sta Reg::zwS1X+1
-    rts
+    ; [fall_through]
 .endproc
 
+.proc decode_s0x_dx_s1l_al
+    lda Reg::zbAL
+    sta Reg::zbS1L
+    ; [fall_through]
+.endproc
 
-.proc decode_s1_dx
+.proc decode_s0x_dx
     lda Reg::zwDX
-    sta Reg::zwS1X
+    sta Reg::zwS0X
     lda Reg::zwDX+1
-    sta Reg::zwS1X+1
+    sta Reg::zwS0X+1
     rts
 .endproc
 
 
-.proc decode_s1_sp
-    lda Reg::zwSP
-    sta Reg::zwS1X
-    lda Reg::zwSP+1
-    sta Reg::zwS1X+1
+.proc decode_s0l_mem8_bx_al
+    jsr use_prefix_or_ds_segment
+
+    clc
+
+    lda Reg::zwBX
+    adc Reg::zbAL
+    pha
+
+    lda Reg::zwBX+1
+    adc #0
+    tax
+    pla
+
+    jsr Mem::use_pointer
+
+    jsr Mem::get_byte
+    sta Reg::zbS0L
     rts
 .endproc
 
 
-.proc decode_s1_bp
-    lda Reg::zwBP
-    sta Reg::zwS1X
-    lda Reg::zwBP+1
-    sta Reg::zwS1X+1
-    rts
-.endproc
-
-
-.proc decode_s1_si
-    lda Reg::zwSI
-    sta Reg::zwS1X
-    lda Reg::zwSI+1
-    sta Reg::zwS1X+1
-    rts
-.endproc
-
-
-.proc decode_s1_di
-    lda Reg::zwDI
-    sta Reg::zwS1X
-    lda Reg::zwDI+1
-    sta Reg::zwS1X+1
-    rts
-.endproc
-
-
-.proc decode_s1_cs
-    lda Reg::zwCS
-    sta Reg::zwS1X
-    lda Reg::zwCS+1
-    sta Reg::zwS1X+1
-    rts
-.endproc
-
-
-.proc decode_s1_ds
-    lda Reg::zwDS
-    sta Reg::zwS1X
-    lda Reg::zwDS+1
-    sta Reg::zwS1X+1
-    rts
-.endproc
-
-
-.proc decode_s1_es
-    lda Reg::zwES
-    sta Reg::zwS1X
-    lda Reg::zwES+1
-    sta Reg::zwS1X+1
-    rts
-.endproc
-
-
-.proc decode_s1_ss
-    lda Reg::zwSS
-    sta Reg::zwS1X
-    lda Reg::zwSS+1
-    sta Reg::zwS1X+1
-    rts
-.endproc
-
-
-.proc decode_s1_stack
-    jsr Mmu::pop_word
+.proc decode_s0x_modrm_m_addr
+    jsr parse_modrm
+    jsr get_modrm_m
     lda Tmp::zw0
-    sta Reg::zwS1X
+    sta Reg::zwS0X
     lda Tmp::zw0+1
-    sta Reg::zwS1X+1
+    sta Reg::zwS0X+1
     rts
 .endproc
 
 
-.proc decode_s0_ax_s1_bx
-    jsr decode_s0_ax
-    jmp decode_s1_bx
-    ; [tail_jump]
-.endproc
+.proc decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi
+    jsr parse_modrm
 
+modrm_parsed:
 
-.proc decode_s0_ax_s1_cx
-    jsr decode_s0_ax
-    jmp decode_s1_cx
-    ; [tail_jump]
-.endproc
+    jsr use_modrm_pointer
 
-
-.proc decode_s0_ax_s1_dx
-    jsr decode_s0_ax
-    jmp decode_s1_dx
-    ; [tail_jump]
-.endproc
-
-
-.proc decode_s0_ax_s1_sp
-    jsr decode_s0_ax
-    jmp decode_s1_sp
-    ; [tail_jump]
-.endproc
-
-
-.proc decode_s0_ax_s1_bp
-    jsr decode_s0_ax
-    jmp decode_s1_bp
-    ; [tail_jump]
-.endproc
-
-
-.proc decode_s0_ax_s1_si
-    jsr decode_s0_ax
-    jmp decode_s1_si
-    ; [tail_jump]
-.endproc
-
-
-.proc decode_s0_ax_s1_di
-    jsr decode_s0_ax
-    jmp decode_s1_di
-    ; [tail_jump]
-.endproc
-
-
-.proc decode_s0_ip_s1_imm16
-    lda Reg::zwIP
+    jsr Mem::get_dword_lo
     sta Reg::zwS0X
-    lda Reg::zwIP+1
-    sta Reg::zwS0X+1
+    stx Reg::zwS0X+1
 
-    lda Fetch::zaInstrOperands
+    jsr Mem::get_dword_hi
     sta Reg::zwS1X
-    lda Fetch::zaInstrOperands+1
-    sta Reg::zwS1X+1
+    stx Reg::zwS1X+1
+    rts
+.endproc
+
+.proc decode_s0x_flags
+    lda Reg::zwFlags+1
+    sta Reg::zwS0X+1
+    ; [fall_through]
+.endproc
+
+.proc decode_s0l_flags_lo
+    lda Reg::zbFlagsLo
+    sta Reg::zbS0L
+    rts
+.endproc
+
+.proc decode_s0l_ah
+    lda Reg::zbAH
+    sta Reg::zbS0L
     rts
 .endproc
 
 
-.proc decode_s0_imm16_s1_imm16
-    lda Fetch::zaInstrOperands
+.proc decode_s0x_modrm_rm16_s1x_modrm_reg16
+    jsr parse_modrm
+
+    jsr get_modrm_rm16
     sta Reg::zwS0X
-    lda Fetch::zaInstrOperands+1
+    stx Reg::zwS0X+1
+
+    jsr get_modrm_reg16
+    sta Reg::zwS1X
+    stx Reg::zwS1X+1
+    rts
+.endproc
+
+.proc decode_s0l_modrm_rm8_s1l_modrm_reg8
+    jsr parse_modrm
+
+    jsr get_modrm_rm8
+    sta Reg::zbS0L
+
+    jsr get_modrm_reg8
+    sta Reg::zbS1L
+    rts
+.endproc
+
+
+.proc decode_s0x_ax_s1x_imm16
+    lda Reg::zwAX+1
     sta Reg::zwS0X+1
 
+    lda Fetch::zaInstrOperands+1
+    sta Reg::zwS1X+1
+    ; [fall_through]
+.endproc
+
+.proc decode_s0l_al_s1l_imm8
+    lda Reg::zbAL
+    sta Reg::zbS0L
+
+    lda Fetch::zaInstrOperands
+    sta Reg::zbS1L
+    rts
+.endproc
+
+
+.proc decode_s0x_embed_reg16_d0x_embed_reg16
+    lda Fetch::zbInstrOpcode
+    and #Decode::EMBED_REG_MASK
+    sta Decode::zbReg
+    tay
+
+    ldx Reg::rzbaReg16Map, y
+    lda Const::ZERO_PAGE, x
+    sta Reg::zwS0X
+    lda Const::ZERO_PAGE+1, x
+    sta Reg::zwS0X+1
+    rts
+.endproc
+
+.proc decode_s0x_ax
+    lda Reg::zwAX+1
+    sta Reg::zwS0X+1
+    ; [fall_through]
+.endproc
+
+.proc decode_s0l_al
+    lda Reg::zbAL
+    sta Reg::zbS0L
+    rts
+.endproc
+
+.proc decode_s0l_al_s1l_ah_s2l_imm8
+    lda Reg::zbAL
+    sta Reg::zbS0L
+
+    lda Reg::zbAH
+    sta Reg::zbS1L
+
+    lda Fetch::zaInstrOperands
+    sta Reg::zbS2L
+    rts
+.endproc
+
+.proc decode_s0x_mem16_si
+    jsr use_prefix_or_ds_segment
+    jsr Mem::get_si_word
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+    rts
+.endproc
+
+.proc decode_s0l_mem8_si
+    jsr use_prefix_or_ds_segment
+    jsr Mem::get_si_byte
+    sta Reg::zbS0L
+    rts
+.endproc
+
+
+.proc decode_s0x_mem16_si_s1x_mem16_di
+    jsr use_prefix_or_ds_segment
+
+    jsr Mem::get_si_word
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+
+    ldx #Reg::zwES
+    jsr Mem::use_segment
+
+    jsr Mem::get_di_word
+    sta Reg::zwS1X
+    stx Reg::zwS1X+1
+    rts
+.endproc
+
+.proc decode_s0l_mem8_si_s1l_mem8_di
+    jsr use_prefix_or_ds_segment
+
+    jsr Mem::get_si_byte
+    sta Reg::zbS0L
+
+    ldx #Reg::zwES
+    jsr Mem::use_segment
+
+    jsr Mem::get_di_byte
+    sta Reg::zbS1L
+    rts
+.endproc
+
+.proc decode_s0x_ax_s1x_mem16_di
+    lda Reg::zwAX
+    sta Reg::zwS0X
+    lda Reg::zwAX+1
+    sta Reg::zwS0X+1
+
+    ldx #Reg::zwES
+    jsr Mem::use_segment
+
+    jsr Mem::get_di_word
+    sta Reg::zwS1X
+    stx Reg::zwS1X+1
+    rts
+.endproc
+
+.proc decode_s0x_al_s1x_mem8_di
+    lda Reg::zbAL
+    sta Reg::zbS0L
+
+    ldx #Reg::zwES
+    jsr Mem::use_segment
+
+    jsr Mem::get_di_byte
+    sta Reg::zwS1X
+    stx Reg::zwS1X+1
+    rts
+.endproc
+
+
+.proc decode_s0x_imm16_s1x_imm16
     lda Fetch::zaInstrOperands+2
     sta Reg::zwS1X
     lda Fetch::zaInstrOperands+3
     sta Reg::zwS1X+1
-    rts
+    ; [fall_through]
 .endproc
 
-
-.proc decode_s0_imm16
-    lda Fetch::zaInstrOperands
-    sta Reg::zwS0X
+.proc decode_s0x_imm16
     lda Fetch::zaInstrOperands+1
     sta Reg::zwS0X+1
+    ; [fall_through]
+.endproc
+
+.proc decode_s0l_imm8
+    lda Fetch::zaInstrOperands
+    sta Reg::zbS0L
     rts
 .endproc
 
 
-.proc decode_s0_al
+.proc decode_s0x_ax_d0x_mem16_di
+    lda Reg::zwAX+1
+    sta Reg::zwS0X+1
+    ; [fall_through]
+.endproc
+
+.proc decode_s0l_al_d0l_mem8_di
     lda Reg::zbAL
+    sta Reg::zbS0L
+
+    ldx #Reg::zwES
+    jsr Mem::use_segment
+    rts
+.endproc
+
+.proc decode_s0x_mem16_si_d0x_mem16_di
+    jsr use_prefix_or_ds_segment
+    jsr Mem::get_si_word
     sta Reg::zwS0X
+    stx Reg::zwS0X+1
+
+    ldx #Reg::zwES
+    jsr Mem::use_segment
+    rts
+.endproc
+
+.proc decode_s0l_mem8_si_d0l_mem8_di
+    jsr use_prefix_or_ds_segment
+    jsr Mem::get_si_byte
+    sta Reg::zbS0L
+
+    ldx #Reg::zwES
+    jsr Mem::use_segment
     rts
 .endproc
 
 
-.proc decode_d0_flags
-    lda Reg::zwFlags
-    sta Reg::zwD0X
-    lda Reg::zwFlags+1
-    sta Reg::zwD0X+1
+; =============================================================================
+; decode extended instructions
+; =============================================================================
+
+; ----------------------------------------
+; group 1
+; ----------------------------------------
+
+.proc decode_s0l_modrm_rm8_s1l_imm8
+    jsr parse_modrm
+
+    jsr get_modrm_rm8
+    sta Reg::zbS0L
+
+    ldx Fetch::zbInstrLen
+    lda Fetch::zbInstrBuffer-1, x
+    sta Reg::zbS1L
     rts
 .endproc
 
 
-.proc decode_s0_ah
-    lda Reg::zbAH
+.proc decode_s0x_modrm_rm16_s1x_imm16
+    jsr parse_modrm
+
+    jsr get_modrm_rm16
     sta Reg::zwS0X
+    stx Reg::zwS0X+1
+
+    ldx Fetch::zbInstrLen
+    lda Fetch::zbInstrBuffer-2, x
+    sta Reg::zwS1X
+    lda Fetch::zbInstrBuffer-1, x
+    sta Reg::zwS1X+1
     rts
 .endproc
 
 
-.proc decode_d0_flags_lo
-    lda Reg::zbFlagsLo
-    sta Reg::zwD0X
+.proc decode_s0x_modrm_rm16_s1x_imm8
+    jsr parse_modrm
+
+    jsr get_modrm_rm16
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+
+    ldx Fetch::zbInstrLen
+    lda Fetch::zbInstrBuffer-1, x
+    sta Reg::zwS1X
+    jsr Util::get_extend_sign
+    sta Reg::zwS1X+1
+    rts
+.endproc
+
+; ----------------------------------------
+; group 2
+; ----------------------------------------
+
+.proc decode_s0l_modrm_rm8_s1l_1
+    jsr parse_modrm
+
+    jsr get_modrm_rm8
+    sta Reg::zbS0L
+
+    lda #1
+    sta Reg::zbS1L
     rts
 .endproc
 
 
-; called when an unsupported instruction byte is decoded.
-; < A = instruction byte
+.proc decode_s0x_modrm_rm16_s1l_1
+    jsr parse_modrm
+
+    jsr get_modrm_rm16
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+
+    lda #1
+    sta Reg::zbS1L
+    rts
+.endproc
+
+
+.proc decode_s0l_modrm_rm8_s1l_cl
+    jsr parse_modrm
+
+    jsr get_modrm_rm8
+    sta Reg::zbS0L
+
+    lda Reg::zbCL
+    sta Reg::zbS1L
+    rts
+.endproc
+
+
+.proc decode_s0x_modrm_rm16_s1l_cl
+    jsr parse_modrm
+
+    jsr get_modrm_rm16
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+
+    lda Reg::zbCL
+    sta Reg::zbS1L
+    rts
+.endproc
+
+; ----------------------------------------
+; group 3
+; ----------------------------------------
+
+.proc decode_s0l_modrm_rm8_opt_s1l_imm8
+    jsr parse_modrm
+
+    jsr get_modrm_rm8
+    sta Reg::zbS0L
+
+    lda zbExt
+    bne done ; branch if the instruction is not TEST.
+
+    ldx Fetch::zbInstrLen
+    lda Fetch::zbInstrBuffer-1, x
+    sta Reg::zbS1L
+
+done:
+    rts
+.endproc
+
+.proc decode_s0x_modrm_rm16_opt_s1x_imm16
+    jsr parse_modrm
+
+    jsr get_modrm_rm16
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+
+    lda zbExt
+    bne done ; branch if the instruction is not TEST.
+
+    ldx Fetch::zbInstrLen
+    lda Fetch::zbInstrBuffer-2, x
+    sta Reg::zwS1X
+    lda Fetch::zbInstrBuffer-1, x
+    sta Reg::zwS1X+1
+
+done:
+    rts
+.endproc
+
+; ----------------------------------------
+; group 4
+; ----------------------------------------
+
+.proc decode_s0l_modrm_rm8
+    jsr parse_modrm
+
+    jsr get_modrm_rm8
+    sta Reg::zbS0L
+    rts
+.endproc
+
+
+.proc decode_s0x_modrm_rm16_or_s0x_modrm_m32_lo_s1x_modrm_m32_hi
+    jsr parse_modrm
+
+    ; we need to get a segment and pointer from memory if the extended instruction is...
+    ;   CALL DWORD PTR [pointer]    - index 3
+    ;   JMP DWORD PTR [pointer]     - index 5
+    ; index 7 is illegal.
+    lda zbExt
+    lsr
+
+    bcc s0x_modrm_rm16 ; branch if the index was even.
+    beq s0x_modrm_rm16 ; branch if the index was 1.
+    jmp decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi::modrm_parsed
+
+s0x_modrm_rm16:
+    jsr get_modrm_rm16
+    sta Reg::zwS0X
+    stx Reg::zwS0X+1
+    rts
+.endproc
+
+
+; called when an unsupported opcode is decoded
 .proc decode_bad
     lda #X86::Err::DECODE_FUNC
     jmp X86::panic
@@ -769,134 +1102,182 @@ segment_prefix:
 .endproc
 
 ; ==============================================================================
+; utility functions
+; ==============================================================================
 
-.segment "RODATA"
+; get the segment for the current instruction.
+; if the instruction has a segment prefix then the indicated segment will be used.
+; otherwise, the default segment in X will be used.
+; < X = default segment register zero-page address.
+; > X = segment register zero-page address.
+; get the segment in preparation for calling ""
+; if the instruction has a segment prefix then the indicated segment will be used.
+; otherwise, the default segment in X will be used.
+; < X = default segment register zero-page address.
+; > Tmp::zb2 = segment register zero-page address.
+; changes: A, X, Y
 
-rbaModRMFuncLo:
-.byte <(modrm_rm_mode0-1)
-.byte <(modrm_rm_mode1-1)
-.byte <(modrm_rm_mode2-1)
-.byte <(modrm_rm_mode3-1)
-rbaModRMFuncHi:
-.byte >(modrm_rm_mode0-1)
-.byte >(modrm_rm_mode1-1)
-.byte >(modrm_rm_mode2-1)
-.byte >(modrm_rm_mode3-1)
-rbaModRMFuncEnd:
+.proc use_prefix_or_ds_segment
+    ldx #Reg::zwDS
+    lda Fetch::zbPrefixSegment
+    beq use_segment ; branch if there is no segment prefix
 
-.segment "CODE"
+    ; get segment register index
+    and #Decode::PREFIX_SEG_MASK
+    lsr
+    lsr
+    lsr
 
-; handle the R/M portion of a ModR/M byte based on the mode.
-; for 8-bit operations
-; > Tmp::zb0 8-bit data
-; for 16-bit operations
-; > Tmp::zw0 16-bit data
-.proc handle_modrm_rm
-    ; use the Mod portion of a ModR/M byte as an index to a function pointer.
-    lda Fetch::zaInstrOperands
-    and #Decode::MODRM_MOD_MASK
-    asl ; discard C as it's in an unknown state
-    rol
-    rol
-    tax
-    lda rbaModRMFuncHi, x
-    pha
-    lda rbaModRMFuncLo, x
-    pha
-    lda Fetch::zaInstrOperands
-    and #Decode::MODRM_RM_MASK
-    rts
+    ; get segment register address
+    tay
+    ldx Reg::rzbaSegRegMap, y
+
+use_segment:
+    jmp Mem::use_segment
+    ; [tail_jump]
 .endproc
 
 
-; handle the reg portion of a ModR/M byte.
-; for 8-bit operations
-; > Tmp::zb0 8-bit data
-; for 16-bit operations
-; > Tmp::zw0 16-bit data
-.proc handle_modrm_reg
+
+; extract the Mod, reg, and R/M fields of a ModR/M byte.
+; the fetch stage already set zbMod but callers should act as though it didn't.
+; that should make any future changes easier to implement.
+; > zbMod = ModR/M Mod field (not actually changed)
+; > zbReg, zbSeg, zbExt = ModR/M reg field
+; > zbRM = ModR/M R/M field
+; changes: A, C
+.proc parse_modrm
+    lda Fetch::zaInstrOperands
+    and #Decode::MODRM_RM_MASK
+    sta zbRM
+
     lda Fetch::zaInstrOperands
     and #Decode::MODRM_REG_MASK
     lsr
     lsr
     lsr
-    jmp modrm_rm_mode3
-    ; [tail_jump]
-.endproc
+    sta zbReg
 
-
-; handle the segreg portion of a ModR/M byte.
-; > Tmp::zw0 16-bit data
-.proc handle_modrm_seg
-    ; lookup the address of the segment register
     lda Fetch::zaInstrOperands
-    and #Decode::MODRM_SEG_MASK
-    lsr
-    lsr
-    lsr
-    tay
-    ldx Reg::rzbaSegRegMap, y
-
-    lda Const::ZERO_PAGE, x
-    sta Tmp::zw0
-    inx
-    lda Const::ZERO_PAGE, x
-    sta Tmp::zw0+1
-
+    and #Decode::MODRM_MOD_MASK
+    asl
+    rol
+    rol
+    sta zbMod
     rts
 .endproc
 
 
-; handle pointer in registers or a direct address
-; < A = R/M bits of a ModR/M byte
-; > Tmp::zw0 = byte(s) read from memory
-.proc modrm_rm_mode0
-    ; handle pointer in registers
-    cmp #%00000110
-    beq direct_address ; branch if we have a direct address as an operand
+; calculate a memory address from a ModR/M byte and relevant operands.
+; < zbMod
+; > Tmp::zw0 = calculated address
+; changes: A, X, Y
+.proc get_modrm_m
+    ldx zbMod
+    lda rbaModRMAddrFuncHi, x
+    pha
+    lda rbaModRMAddrFuncLo, x
+    pha
+    rts
+.endproc
 
-    jsr modrm_get_address
-    jmp get_bytes
 
-direct_address:
+; calculate a memory address from a ModR/M byte in mode 0.
+; < zbRM
+; > Tmp::zw0 = calculated address
+; changes: A, X, Y
+.proc get_modrm_m_mode_0
+    ldy zbRM
+    cpy #Decode::MODRM_RM_DIRECT
+    beq get_modrm_m_direct ; branch if we need to handle a direct 16-bit address.
+    ; [tail_branch]
+.endproc
+
+; calculate a indirect memory address from 1 or more registers
+; indicated by the R/M field of a ModR/M byte.
+; < Y = zbRM
+; > Tmp::zw0 = calculated address
+; changes: A, X, Y
+; see also:
+;   Reg::rzbaMem0Map
+;   Reg::rzbaMem1Map
+.proc get_modrm_m_indirect
+    ; get register address
+    ldx Reg::rzbaMem0Map, y
+
+    ; get register value
+    lda Const::ZERO_PAGE, x
+    sta Tmp::zw0
+    lda Const::ZERO_PAGE+1, x
+    sta Tmp::zw0+1
+
+    ; check if we need to add the value of another register.
+    cpy #Decode::MODRM_RM_MAP
+    bcs done
+
+    ; get register address
+    ldx Reg::rzbaMem1Map, y
+
+    ; add register value
+    clc
+    lda Const::ZERO_PAGE, x
+    adc Tmp::zw0
+    sta Tmp::zw0
+    lda Const::ZERO_PAGE+1, x
+    adc Tmp::zw0+1
+    sta Tmp::zw0+1
+
+done:
+    rts
+.endproc
+
+
+; copy a direct memory address operand.
+; > Tmp::zw0 = direct memory address
+; changes: A
+.proc get_modrm_m_direct
     lda Fetch::zaInstrOperands+1
     sta Tmp::zw0
     lda Fetch::zaInstrOperands+2
     sta Tmp::zw0+1
-
-get_bytes:
-    jmp modrm_get_bytes
-    ; [tail_jump]
+    rts
 .endproc
 
-; handle pointer in registers + 8-bit signed offset
-; < A = R/M bits of a ModR/M byte
-; > Tmp::zw0 = byte(s) read from memory
-.proc modrm_rm_mode1
-    jsr modrm_get_address
 
-    ; add 8-bit signed offset
-    ; TODO: handle negative values
+; calculate a memory address from a ModR/M byte in mode 1.
+; < zbRM
+; > Tmp::zw0 = calculated address
+; changes: A, X, Y
+.proc get_modrm_m_mode_1
+    ldy zbRM
+    jsr get_modrm_m_indirect
+
+    ; sign extend the 8-bit offset and store the high byte in X for later.
+    lda Fetch::zaInstrOperands+1
+    jsr Util::get_extend_sign
+    tax
+
+    ; add the offset to the address
     clc
     lda Fetch::zaInstrOperands+1
     adc Tmp::zw0
     sta Tmp::zw0
-    lda #0
+    txa
     adc Tmp::zw0+1
     sta Tmp::zw0+1
-
-    jmp modrm_get_bytes
-    ; [tail_jump]
+    rts
 .endproc
 
 
-; handle pointer in registers + 16-bit unsigned offset
-; < A = R/M bits of a ModR/M byte
-; > Tmp::zw0 = byte(s) read from memory
-.proc modrm_rm_mode2
-    jsr modrm_get_address
+; calculate a memory address from a ModR/M byte in mode 2.
+; < zbRM
+; > Tmp::zw0 = calculated address
+; changes: A, X, Y
+.proc get_modrm_m_mode_2
+    ldy zbRM
+    jsr get_modrm_m_indirect
 
-    ; add 16-bit unsigned offset
+    ; add the 16-bit unsigned offset to the address
     clc
     lda Fetch::zaInstrOperands+1
     adc Tmp::zw0
@@ -904,131 +1285,181 @@ get_bytes:
     lda Fetch::zaInstrOperands+2
     adc Tmp::zw0+1
     sta Tmp::zw0+1
+    rts
+.endproc
 
-    jmp modrm_get_bytes
+
+; set the  to a memory address indicated by a ModR/M byte.
+; if the ModR/M byte indicates that a register should be used then nothing is done.
+; < X = default segment register zero-page address.
+; > Tmp::zw0 = memory address calculated from a ModR/M byte.
+; > Tmp::zb2 = segment register zero-page address.
+; changes: A, X, Y
+.proc use_modrm_pointer
+    lda zbMod
+    cmp #Decode::MODRM_MOD_REGISTER
+    beq done ; branch if R/M value points to a register, not memory
+
+; this is an alternative entry point.
+; it assumes that the ModR/M byte doesn't indicate a register access.
+skip_reg_check:
+    jsr use_prefix_or_ds_segment
+    jsr get_modrm_m
+    lda Tmp::zw0
+    ldx Tmp::zw0+1
+    jsr Mem::use_pointer
+
+done:
+    rts
+.endproc
+
+
+; get a 16-bit value from a register or memory
+; depending on the state of a ModR/M byte.
+; < X = default segment register zero-page address.
+; < zbMod
+; > A = low byte
+; > X = high byte
+; changes: A, X, Y
+.proc get_modrm_rm16
+    lda zbMod
+    cmp #Decode::MODRM_MOD_REGISTER
+    beq get_modrm_r16 ; branch if the value comes from a register, not memory
+    ; [fall_through]
+.endproc
+
+; get a 16-bit value from memory.
+; < X = default segment register zero-page address.
+; < zbMod
+; > A = low byte
+; > X = high byte
+; changes: A, X, Y
+.proc get_modrm_m16
+    jsr use_modrm_pointer::skip_reg_check
+    jmp Mem::get_word
     ; [tail_jump]
 .endproc
 
 
-; handle register
-; < A = R/M bits of a ModR/M byte
-; > Tmp::zw0 = byte(s) read from register
-.proc modrm_rm_mode3
-    tay
+; get a 16-bit value from a register indicated by the R/M field of a ModR/M byte.
+; this is also used by "get_modrm_m" as a fail-safe of sorts.
+; < zbRM
+; > A = low byte
+; > X = high byte
+; changes: A, X, Y
+.proc get_modrm_r16
+    ; get register index
+    ldx zbRM
 
-    ; check if the opcode is dealing with 16-bit data
-    lda zbWord
-    lsr
-    bcc reg8 ; branch if 8-bit data is needed
+    ; get register address
+    ldy Reg::rzbaReg16Map, x
 
-    ldx Reg::rzbaReg16Map, y
-    SKIP_WORD
-reg8:
+    ; get register value
+    lda Const::ZERO_PAGE, y
+    ldx Const::ZERO_PAGE+1, y
+    rts
+.endproc
+
+
+; get a 8-bit value from a register or memory
+; depending on the state of a ModR/M byte.
+; < X = default segment register zero-page address.
+; < zbMod
+; > A
+; changes: A, X, Y
+.proc get_modrm_rm8
+    lda zbMod
+    cmp #Decode::MODRM_MOD_REGISTER
+    beq get_modrm_r8 ; branch if the value comes from a register, not memory
+    ; [fall_through]
+.endproc
+
+; get a 8-bit value from memory
+; < X = default segment register zero-page address.
+; < zbMod
+; > A
+; changes: A, X, Y
+.proc get_modrm_m8
+    jsr use_modrm_pointer::skip_reg_check
+    jmp Mem::get_byte
+    ; [tail_jump]
+.endproc
+
+
+; get a 8-bit value from a register indicated by the R/M field of a ModR/M byte.
+; < zbRM
+; > A
+; changes: A, X, Y
+.proc get_modrm_r8
+    ; get register index
+    ldy zbRM
+
+    ; get register address
     ldx Reg::rzbaReg8Map, y
 
-    ldy Const::ZERO_PAGE, x
-    sty Tmp::zw0
-
-    bcc done ; branch if 8-bit data is needed
-
-    inx
-    ldy Const::ZERO_PAGE, x
-    sty Tmp::zw0+1
-
-done:
+    ; get register value
+    lda Const::ZERO_PAGE, x
     rts
 .endproc
 
 
-; calculate a memory address from the register(s) indicated by ModR/M.
-; < A = R/M bits of a ModR/M byte
-; > Tmp::zw0 = memory address
+; get a 16-bit value from a register indicated by the reg field of a ModR/M byte.
+; < zbReg
+; > A = low byte
+; > X = high byte
 ; changes: A, X, Y
-.proc modrm_get_address
-    ; grab the contents of a register specified by table 0
-    tay
-    ldx Reg::rzbaMem0Map, y
-    ldy Const::ZERO_PAGE, x
-    sty Tmp::zw0
-    inx
-    ldy Const::ZERO_PAGE, x
-    sty Tmp::zw0
+.proc get_modrm_reg16
+    ; get register index
+    ldx zbReg
 
-    cmp #4
-    bcc done ; branch if we don't need data from a second register
+    ; get register address
+    ldy Reg::rzbaReg16Map, x
 
-    ; add the contents of another register specified by table 1
-    clc
-    tay
-    ldx Reg::rzbaMem1Map, y
+    ; get register value
+    lda Const::ZERO_PAGE, y
+    ldx Const::ZERO_PAGE+1, y
+    rts
+.endproc
+
+
+; get a 8-bit value from a register indicated by the reg field of a ModR/M byte.
+; < zbReg
+; > A
+; changes: A, X, Y
+.proc get_modrm_reg8
+    ; get register index
+    ldy zbReg
+
+    ; get register address
+    ldx Reg::rzbaReg8Map, y
+
+    ; get register value
     lda Const::ZERO_PAGE, x
-    adc Tmp::zw0
-    sta Tmp::zw0
-    inx
-    lda Const::ZERO_PAGE, x
-    adc Tmp::zw0
-    sta Tmp::zw0
-
-done:
     rts
 .endproc
 
 
-.proc modrm_get_bytes
-    jsr prefix_seg_index
-    bcc segment_prefix
-    ldy #Reg::Seg::DS
-segment_prefix:
-    jsr Mmu::set_address
-    jsr Mmu::get_byte
-    sta Tmp::zw0
+; get a 16-bit value from a segment register indicated by the reg field of a ModR/M byte.
+; this function can cause some unintended behavior if ModR/M bit 5 is set.
+; compilers/assemblers should generate well formed code that don't set bit 5.
+; it also shouldn't break the emulator either so i'm not fixing it.
+; unintended behavior is fun.
+; < zbSeg
+; > A = low byte
+; > X = high byte
+; changes: A, X, Y
+.proc get_modrm_seg
 
-    ; check if the opcode is dealing with 16-bit data
-    lda zbWord
-    beq done ; branch if the opcode is operating on 8-bit data
+    ; get register index
+    ldx zbSeg
 
-    ; get the next byte
-    jsr Mmu::peek_next_byte
-    sta Tmp::zw0+1
+    ; get register address
+    ldy Reg::rzbaSegRegMap, x
 
-done:
+    ; get register value
+    lda Const::ZERO_PAGE, y
+    ldx Const::ZERO_PAGE+1, y
     rts
 .endproc
 
 
-.proc decode_s0_ax
-    lda Reg::zwAX
-    sta Reg::zwS0X
-    lda Reg::zwAX+1
-    sta Reg::zwS0X+1
-    rts
-.endproc
-
-
-; extract a segment register index from an instruction prefix
-; > Y = segment register index
-; > C = 0 success. Y contains a segment register index
-;   C = 1 failure.
-; changes: A, Y
-.proc prefix_seg_index
-    lda Fetch::zbPrefixSegment
-    beq error ; branch if there is no prefix
-
-    ; this kind of checks if we have a segment prefix.
-    ; hopefully the fetch stage will ensure that only valid prefix values are set.
-    ; otherwise we could have some unintended behavior.
-    cmp #$3f
-    bcs done ; branch if the prefix isn't a segment prefix
-
-    and #Decode::PREFIX_SEG_MASK
-    lsr
-    lsr
-    lsr
-    tay
-
-    SKIP_BYTE
-error:
-    sec
-done:
-    rts
-.endproc

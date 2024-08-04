@@ -9,6 +9,11 @@ TAIL_BRANCH = 'tail_branch'
 # must follow any other non-'ret' instruction and the end of a procedure
 FALL_THROUGH ='fall_through'
 
+# TODO: warn the user when a constant is used as an address.
+#       add a tag to override the warning.
+#       could prevent annoying bugs.
+#       i'm going to have to rewrite this thing at some point, aren't i?...
+
 TAGS = (
     TAIL_JUMP,
     TAIL_BRANCH,

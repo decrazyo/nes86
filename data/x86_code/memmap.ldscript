@@ -1,0 +1,11 @@
+
+SECTIONS {
+    .bss 0x0 : {
+        *(.bss)
+    }
+    .text 0x0000 : {
+        *(.text)
+    }
+}
+
+OUTPUT_FORMAT(binary)

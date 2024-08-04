@@ -17,21 +17,27 @@ _CONST_ = 1
     JOYPAD_LEFT   = %00000010
     JOYPAD_RIGHT  = %00000001
 
-    ; tile dimensions
-    TILE_W = 8
-    TILE_H = 8
-
-    ; screen dimensions in tiles
-    SCREEN_W_TILE = 32
-    SCREEN_H_TILE = 30
-
-    ; screen dimensions in pixels
-    SCREEN_W_PIXEL = 256
-    SCREEN_H_PIXEL = 240
-
     ZERO_PAGE = $00
 
+    ; TODO: move this stuff to ppu.inc
+
+    ; tile dimensions
+    TILE_WIDTH = 8
+    TILE_HEIGHT = 8
+
+    ; screen dimensions in tiles
+    SCREEN_TILE_WIDTH = 32
+    SCREEN_TILE_HEIGHT = 30
+    SCREEN_TILE_AREA = SCREEN_TILE_WIDTH * SCREEN_TILE_HEIGHT
+
+    ; screen dimensions in pixels
+    SCREEN_PIXEL_WIDTH = 256
+    SCREEN_PIXEL_HEIGHT = 240
+    SCREEN_PIXEL_AREA = SCREEN_PIXEL_WIDTH * SCREEN_PIXEL_HEIGHT
+
 .endscope
+
+; TODO: remove this stuff completely.
 
 ; CPU ignores the following 1 or 2 bytes
 .define SKIP_BYTE .byte $24 ; 8-bit BIT instruction.

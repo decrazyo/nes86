@@ -16,7 +16,7 @@
 
 .export memcpy
 
-.segment "ZEROPAGE"
+.segment "TEMP":zp
 
 zd0:
 zw0:
@@ -26,7 +26,10 @@ zw1:
 zb2: .res 1
 zb3: .res 1
 
-.segment "CODE"
+; some functions may depend on this fact.
+.assert zb0 = 0, error, "temporary memory does not start at address 0"
+
+.segment "LOWCODE"
 
 ; copy a zero-page pointer into the 0th temp word.
 ; < A = address low byte

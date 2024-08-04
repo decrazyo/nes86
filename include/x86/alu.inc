@@ -3,113 +3,95 @@
 _X86_ALU_ = 1
 
 .scope Alu
-    .import alu
-
-    ; convert byte to word
-    .import cbw
-
-    ; convert word to double
-    .import cwd
-
     ; increment
-    .import inc16
-    .import inc8
+    .import inc_16
+    .import inc_8
 
     ; decrement
-    .import dec16
-    .import dec8
+    .import dec_16
+    .import dec_8
 
     ; addition
-    .import add8
-    .import add16
+    .import add_16_16
+    .import add_8_8
 
     ; addition with carry
-    .import adc16
-    .import adc8
+    .import adc_16_16
+    .import adc_8_8
 
     ; subtract
-    .import sub16
-    .import sub8
+    .import sub_16_16
+    .import sub_8_8
 
     ; subtract with borrow
-    .import sbb16
-    .import sbb8
+    .import sbb_16_16
+    .import sbb_8_8
 
     ; unsigned multiplication
-    .import mul16
-    .import mul8
+    .import mul_16_16
+    .import mul_8_8
 
     ; unsigned division
-    .import div16
-    .import div8
+    .import div_32_16
+    .import div_16_8
+
+    .import aam_8_8
 
     ; signed multiplication
-    .import imul16
-    .import imul8
+    .import imul_16_16
+    .import imul_8_8
 
     ; signed division
-    .import idiv16
-    .import idiv8
+    .import idiv_32_16
+    .import idiv_16_8
 
     ; two's complement negation
-    .import neg16
-    .import neg8
+    .import neg_16
+    .import neg_8
 
     ; one's complement negation
-    .import not16
-    .import not8
+    .import not_16
+    .import not_8
 
     ; bitwise and
-    .import and16
-    .import and8
+    .import and_16_16
+    .import and_8_8
 
     ; bitwise inclusive or
-    .import or16
-    .import or8
+    .import or_16_16
+    .import or_8_8
 
     ; bitwise exclusive or
-    .import xor16
-    .import xor8
+    .import xor_16_16
+    .import xor_8_8
 
     ; shift left
-    .import shl16
-    .import shl8
+    .import shl_16_8
+    .import shl_8_8
 
     ; shift right
-    .import shr16
-    .import shr8
+    .import shr_16_8
+    .import shr_8_8
 
     ; shift right and preserve sign
-    .import sar16
-    .import sar8
+    .import sar_16_8
+    .import sar_8_8
 
     ; rotate left
-    .import rol16
-    .import rol8
+    .import rol_16_8
+    .import rol_8_8
 
     ; rotate right
-    .import ror16
-    .import ror8
+    .import ror_16_8
+    .import ror_8_8
 
     ; rotate left through carry
-    .import rcl16
-    .import rcl8
+    .import rcl_16_8
+    .import rcl_8_8
 
     ; rotate right through carry
-    .import rcr16
-    .import rcr8
-
-    ; extended ALU functions.
-
-    .import add16_ex
-    .import adc16_ex
-
-    .import add8_ex
-    .import adc8_ex
-
-    ; special-purpose ALU functions.
-
-
+    .import rcr_16_8
+    .import rcr_8_8
 
 .endscope
 

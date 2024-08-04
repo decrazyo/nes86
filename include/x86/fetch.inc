@@ -4,8 +4,11 @@ _X86_FETCH_ = 1
 
 .scope Fetch
 
+    BUFFER_LEN = 6
+
     .importzp zbPrefixSegment
-    .importzp zbPrefixOther
+    .importzp zbPrefixRepeat
+    .importzp zbPrefixLock
 
     .importzp zbInstrLen
     .importzp zbInstrBuffer

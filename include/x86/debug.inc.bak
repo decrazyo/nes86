@@ -1,0 +1,10 @@
+
+.ifndef _X86_DEBUG_
+_X86_DEBUG_ = 1
+
+.scope Debug
+    .import debug
+    .import update
+.endscope
+
+.endif

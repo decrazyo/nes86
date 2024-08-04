@@ -1,13 +1,14 @@
 
 .include "reset.inc"
 
+.include "mmc5.inc"
 .include "ppu.inc"
 .include "apu.inc"
 .include "main.inc"
 
 .export reset
 
-.segment "CODE"
+.segment "LOWCODE"
 
 .proc reset
     sei ; ignore IRQs.
@@ -53,6 +54,10 @@
     sta $700, x
     inx
     bne @clear_ram
+
+    ; TODO: move this to main
+    ;       run it after displaying a splash screen
+    jsr Mmc5::mmc5
 
 @vblank_wait2:
     bit Ppu::STATUS

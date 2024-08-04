@@ -3,6 +3,8 @@ NAME := nes86
 
 AS := ca65
 LD := ld65
+OBJDUMP := ia16-elf-objdump
+MESEN := ./tools/Mesen2/bin/linux-x64/Release/Mesen
 
 BIN_DIR := bin
 BUILD_DIR := build
@@ -26,12 +28,19 @@ BINCS := $(wildcard $(BINC_DIR)/*)
 ROM := $(BIN_DIR)/$(NAME).nes
 DBG := $(ROM:%.nes=%.dbg)
 
-AS_FLAGS := -I $(INC_DIR) --bin-include-dir $(BINC_DIR) --feature org_per_seg --feature string_escapes -D DEBUG --debug-info
+AS_FLAGS := -I $(INC_DIR)
+AS_FLAGS += --bin-include-dir $(BINC_DIR)
+AS_FLAGS += --feature string_escapes
+AS_FLAGS += --feature underline_in_numbers
+AS_FLAGS += -D DEBUG
+AS_FLAGS += --debug-info
+
 LD_FLAGS := -C $(LD_CONF) --dbgfile $(DBG)
 
 .PHONY: all
 all: $(TOOLS_DIR) $(DATA_DIR) $(ROM)
-	objdump -D -b binary -m i8086 -M intel $(BINC_DIR)/x86_code.com
+	# this is just here for development/debugging
+	$(OBJDUMP) -D -b binary -m i8086 -M intel $(BINC_DIR)/x86_code.com
 
 .PHONY: $(NAME)
 $(NAME):$(ROM)
@@ -39,14 +48,14 @@ $(NAME):$(ROM)
 .PHONY: clean
 clean:
 	$(MAKE) -C $(DATA_DIR) clean
-	$(MAKE) -C $(TOOLS_DIR) clean
-	-rm -rf $(BINC_DIR)
+	#$(MAKE) -C $(TOOLS_DIR) clean
+	#-rm -rf $(BINC_DIR)
 	-rm -rf $(BUILD_DIR)
 	-rm -rf $(BIN_DIR)
 
 .PHONY: $(TOOLS_DIR)
 $(TOOLS_DIR):
-	$(MAKE) -C $(TOOLS_DIR)
+	#$(MAKE) -C $(TOOLS_DIR)
 
 .PHONY: $(DATA_DIR)
 $(DATA_DIR): $(BINC_DIR)
@@ -56,7 +65,7 @@ $(DATA_DIR): $(BINC_DIR)
 
 .PHONY: mesen
 mesen: all
-	mono ~/.local/bin/Mesen.exe $(ROM) &
+	$(MESEN) $(ROM) &
 
 # link object and library files into a iNES file
 $(ROM): $(OBJS) $(LD_CONF) $(BIN_DIR)
@@ -64,7 +73,7 @@ $(ROM): $(OBJS) $(LD_CONF) $(BIN_DIR)
 
 # assemble source files into objects
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s $(INCS) $(BINCS) $(BINC_DIR) $(BUILD_DIR)
-	#python $(TOOLS_DIR)/linter.py $<
+	# python $(TOOLS_DIR)/linter.py $<
 	$(AS) $(AS_FLAGS) -o $@ $<
 
 $(BUILD_DIR):

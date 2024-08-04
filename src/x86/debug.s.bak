@@ -1,0 +1,220 @@
+
+.include "x86/reg.inc"
+.include "x86/fetch.inc"
+
+.include "chr.inc"
+.include "con.inc"
+.include "nmi.inc"
+.include "tmp.inc"
+.include "const.inc"
+
+.export debug
+.export update
+
+.segment "RODATA"
+
+
+raDbgLabel:
+.byte $20, $21, 2, "AX"
+.byte $20, $41, 2, "BX"
+.byte $20, $61, 2, "CX"
+.byte $20, $81, 2, "DX"
+.byte $20, $C1, 2, "SI"
+.byte $20, $E1, 2, "DI"
+.byte $21, $01, 2, "BP"
+.byte $21, $21, 2, "SP"
+.byte $20, $D1, 2, "CS"
+.byte $20, $F1, 2, "DS"
+.byte $21, $11, 2, "ES"
+.byte $21, $31, 2, "SS"
+.byte $21, $61, 2, "IP"
+.byte $22, $01, 2, "S0"
+.byte $22, $21, 2, "S1"
+.byte $22, $41, 2, "S2"
+.byte $22, $11, 2, "D0"
+.byte $22, $31, 2, "D1"
+.byte $22, $51, 2, "D2"
+.byte $21, $A1, 16, "----ODITSZ-A-P-C"
+raDbgLabelEnd:
+
+raDbgData:
+.byte $20, $25, 4, <Reg::zwAX+1, <Reg::zwAX+1, <Reg::zwAX, <Reg::zwAX
+.byte $20, $45, 4, <Reg::zwBX+1, <Reg::zwBX+1, <Reg::zwBX, <Reg::zwBX
+.byte $20, $65, 4, <Reg::zwCX+1, <Reg::zwCX+1, <Reg::zwCX, <Reg::zwCX
+.byte $20, $85, 4, <Reg::zwDX+1, <Reg::zwDX+1, <Reg::zwDX, <Reg::zwDX
+.byte $20, $C5, 4, <Reg::zwSI+1, <Reg::zwSI+1, <Reg::zwSI, <Reg::zwSI
+.byte $20, $E5, 4, <Reg::zwDI+1, <Reg::zwDI+1, <Reg::zwDI, <Reg::zwDI
+.byte $21, $05, 4, <Reg::zwBP+1, <Reg::zwBP+1, <Reg::zwBP, <Reg::zwBP
+.byte $21, $25, 4, <Reg::zwSP+1, <Reg::zwSP+1, <Reg::zwSP, <Reg::zwSP
+.byte $20, $D5, 4, <Reg::zwCS+1, <Reg::zwCS+1, <Reg::zwCS, <Reg::zwCS
+.byte $20, $F5, 4, <Reg::zwDS+1, <Reg::zwDS+1, <Reg::zwDS, <Reg::zwDS
+.byte $21, $15, 4, <Reg::zwES+1, <Reg::zwES+1, <Reg::zwES, <Reg::zwES
+.byte $21, $35, 4, <Reg::zwSS+1, <Reg::zwSS+1, <Reg::zwSS, <Reg::zwSS
+.byte $21, $65, 4, <Reg::zwIP+1, <Reg::zwIP+1, <Reg::zwIP, <Reg::zwIP
+.byte $22, $05, 4, <Reg::zwS0X+1, <Reg::zwS0X+1, <Reg::zwS0X, <Reg::zwS0X
+.byte $22, $25, 4, <Reg::zwS1X+1, <Reg::zwS1X+1, <Reg::zwS1X, <Reg::zwS1X
+.byte $22, $45, 4, <Reg::zwS2X+1, <Reg::zwS2X+1, <Reg::zwS2X, <Reg::zwS2X
+.byte $22, $15, 4, <Reg::zwD0X+1, <Reg::zwD0X+1, <Reg::zwD0X, <Reg::zwD0X
+.byte $22, $35, 4, <Reg::zwD1X+1, <Reg::zwD1X+1, <Reg::zwD1X, <Reg::zwD1X
+.byte $22, $55, 4, <Reg::zwD2X+1, <Reg::zwD2X+1, <Reg::zwD2X, <Reg::zwD2X
+.byte $21, $C1, 16 ; flags
+raDbgDataEnd:
+
+; ==============================================================================
+; public interface
+; ==============================================================================
+
+; TODO: move the "panic" code here.
+
+.segment "CODE"
+
+.proc debug
+    ldx #raDbgLabelEnd - raDbgLabel - 1
+loop:
+    lda raDbgLabel, x
+    sta Nmi::aNmiBuffer, x
+    dex
+    bpl loop
+
+    lda #raDbgLabelEnd - raDbgLabel
+    sta Nmi::zbBufferLen
+    jsr Nmi::wait
+    rts
+.endproc
+
+.proc update
+    ldx #0
+
+outer_loop:
+    ldy #3
+inner_loop:
+    lda raDbgData, x
+    sta Nmi::aNmiBuffer, x
+    inx
+    dey
+    bne inner_loop
+
+    cpx #(raDbgDataEnd - raDbgData)
+    beq exit_loop
+
+    ldy raDbgData, x
+    lda Const::ZERO_PAGE, y
+    and #$f0
+    lsr
+    lsr
+    lsr
+    lsr
+    sta Nmi::aNmiBuffer, x
+    inx
+
+    ldy raDbgData, x
+    lda Const::ZERO_PAGE, y
+    and #$0f
+    sta Nmi::aNmiBuffer, x
+    inx
+
+    ldy raDbgData, x
+    lda Const::ZERO_PAGE, y
+    and #$f0
+    lsr
+    lsr
+    lsr
+    lsr
+    sta Nmi::aNmiBuffer, x
+    inx
+
+    ldy raDbgData, x
+    lda Const::ZERO_PAGE, y
+    and #$0f
+    sta Nmi::aNmiBuffer, x
+    inx
+
+    jmp outer_loop
+
+exit_loop:
+
+    lda Reg::zbFlagsHi
+flags_hi_loop:
+    rol
+    tay
+    lda #0
+    adc #0
+    sta Nmi::aNmiBuffer, x
+    inx
+    tya
+    cpx #(raDbgDataEnd - raDbgData + 8)
+    bne flags_hi_loop
+
+    lda Reg::zbFlagsLo
+flags_lo_loop:
+    rol
+    tay
+    lda #0
+    adc #0
+    sta Nmi::aNmiBuffer, x
+    inx
+    tya
+    cpx #(raDbgDataEnd - raDbgData + 16)
+    bne flags_lo_loop
+
+    ; stx Nmi::zbBufferLen
+
+    BUFFER_ADDR = $2281
+
+    lda #>BUFFER_ADDR
+    sta Nmi::aNmiBuffer, x
+
+    inx
+    lda #<BUFFER_ADDR
+    sta Nmi::aNmiBuffer, x
+
+    inx
+    lda #(Fetch::BUFFER_LEN * 2)
+    sta Nmi::aNmiBuffer, x
+
+    ldy #0
+    cpy Fetch::zbInstrLen
+    beq clear_init
+
+buffer_loop:
+    inx
+    lda Fetch::zbInstrBuffer, y
+    and #$f0
+    lsr
+    lsr
+    lsr
+    lsr
+    sta Nmi::aNmiBuffer, x
+
+    inx
+    lda Fetch::zbInstrBuffer, y
+    and #$0f
+    sta Nmi::aNmiBuffer, x
+
+    iny
+    cpy Fetch::zbInstrLen
+    bcc buffer_loop
+
+clear_init:
+    cpy #Fetch::BUFFER_LEN
+    beq set_buffer_len
+
+    lda #Chr::BLANK_TILE
+clear_loop:
+
+    inx
+    sta Nmi::aNmiBuffer, x
+
+    inx
+    sta Nmi::aNmiBuffer, x
+
+    iny
+    cpy #Fetch::BUFFER_LEN
+    bne clear_loop
+
+set_buffer_len:
+    inx
+    stx Nmi::zbBufferLen
+
+    rts
+.endproc

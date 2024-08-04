@@ -3,7 +3,6 @@
 .include "x86.inc"
 
 .include "chr.inc"
-.include "con.inc"
 .include "tmp.inc"
 .include "nmi.inc"
 
@@ -123,11 +122,6 @@ zwSS: .res 3
 ; data segment register
 zwDS: .res 3
 
-; status register
-zwFlags:
-zbFlagsLo: .res 1
-zbFlagsHi: .res 1
-
 ; pseudo-registers:
 ; mainly used by the ALU.
 ; source registers
@@ -151,6 +145,11 @@ zwD2X:
 zbD2L: .res 1
 zbD2H: .res 1
 
+; status register
+zwFlags:
+zbFlagsLo: .res 1
+zbFlagsHi: .res 1
+
 ; register maps get copied here from ROM to save on access time
 rzbaRegMapsBegin:
 rzbaSegRegMap: .res 4
@@ -161,6 +160,10 @@ rzbaMem1Map: .res 4
 rzbaRegMapsEnd:
 
 .segment "RODATA"
+
+; NOTE: registers could be arranged to eliminate the need for some (all?) of these tables
+;       and that may save a few cycles.
+;       the tables make the code more readable imo so i'm keeping them for now.
 
 rbaRegMapsBegin:
 ; map register numbers to their emulated 16-bit segment register addresses.
@@ -196,10 +199,10 @@ rbaRegMapsEnd:
 ; public interface
 ; ==============================================================================
 
-; initialize the reg module
+; initialize the register module
 ; changes: A, X
 .proc reg
-    ; copy the register maps into zero-page
+    ; copy the register maps into zero-page so they can be accessed faster.
     ldx #((rbaRegMapsEnd - rbaRegMapsBegin) - 1)
 loop:
     lda rbaRegMapsBegin, x
@@ -207,20 +210,21 @@ loop:
     dex
     bpl loop
 
-    ; TODO: add an "init.inc" file.
-    ;       use that to store initial register values to load at boot.
-    ;       allow the values to be set on the command line at compile time too.
-
-    ; set the CS register to the first ROM-only address
-    lda #<$2000
+    ; the reset state of an 8086 sets CS to $ffff and all other registers to 0.
+    ; we should only need to explicitly initialize CS.
+    CS_RESET = $ffff
+    lda #<CS_RESET
     sta zwCS
-    lda #>$2000
+    lda #>CS_RESET
     sta zwCS+1
+
+    ; FLAGS_RESET = $f000
+    ; lda #>FLAGS_RESET
+    ; sta zwFlags+1
 
     rts
 .endproc
 
-; TODO: consider consolidating the set/clear flag functions
 
 ; set one or more bits in the low byte of the flag register.
 ; < A = bits to set
@@ -233,10 +237,9 @@ loop:
 
 
 ; clear one or more bits in the low byte of the flag register.
-; < A = bits to clear
+; < A = bitwise negation of bits to clear
 ; changes: A
 .proc clear_flag_lo
-    eor #$ff
     and zbFlagsLo
     sta zbFlagsLo
     rts
@@ -254,378 +257,10 @@ loop:
 
 
 ; clear one or more bits in the high byte of the flag register.
-; < A = bits to clear
+; < A = bitwise negation of bits to clear
 ; changes: A
 .proc clear_flag_hi
-    eor #$ff
     and zbFlagsHi
     sta zbFlagsHi
     rts
 .endproc
-
-; ==============================================================================
-; debugging
-; ==============================================================================
-
-.ifdef DEBUG
-.segment "RODATA"
-
-rsHeader:
-.byte "\t H L\n", 0
-
-rsAX:
-.byte "AX:\t", 0
-rsBX:
-.byte "BX:\t", 0
-rsCX:
-.byte "CX:\t", 0
-rsDX:
-.byte "DX:\t", 0
-
-rsSI:
-.byte "SI:\t", 0
-rsDI:
-.byte "DI:\t", 0
-rsBP:
-.byte "BP:\t", 0
-rsSP:
-.byte "SP:\t", 0
-
-rsIP:
-.byte "IP:\t", 0
-
-rsCS:
-.byte "CS:\t", 0
-rsDS:
-.byte "DS:\t", 0
-rsES:
-.byte "ES:\t", 0
-rsSS:
-.byte "SS:\t", 0
-
-rsFlags:
-.byte "\t\t----ODITSZ-A-P-C\n"
-.byte "flags:\t", 0
-
-rsS0:
-.byte "S0:\t\t", 0
-rsS1:
-.byte "S1:\t\t", 0
-rsS2:
-.byte "S2:\t\t", 0
-
-rsD0:
-.byte "D0:\t\t", 0
-rsD1:
-.byte "D1:\t\t", 0
-rsD2:
-.byte "D2:\t\t", 0
-
-.segment "CODE"
-
-.export debug_reg
-.proc debug_reg
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-    lda #<rsHeader
-    ldx #>rsHeader
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-
-    lda #<rsAX
-    ldx #>rsAX
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwAX
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    lda #<rsBX
-    ldx #>rsBX
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwBX
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    lda #<rsCX
-    ldx #>rsCX
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwCX
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    lda #<rsDX
-    ldx #>rsDX
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwDX
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    jsr Nmi::wait
-
-
-    lda #<rsSI
-    ldx #>rsSI
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwSI
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::TAB
-    jsr Con::print_chr
-
-    lda #<rsCS
-    ldx #>rsCS
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwCS
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    lda #<rsDI
-    ldx #>rsDI
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwDI
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::TAB
-    jsr Con::print_chr
-
-    lda #<rsDS
-    ldx #>rsDS
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwDS
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-    jsr Nmi::wait
-
-    lda #<rsBP
-    ldx #>rsBP
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwBP
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::TAB
-    jsr Con::print_chr
-
-    lda #<rsES
-    ldx #>rsES
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwES
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    lda #<rsSP
-    ldx #>rsSP
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwSP
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::TAB
-    jsr Con::print_chr
-
-    lda #<rsSS
-    ldx #>rsSS
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwSS
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-    jsr Nmi::wait
-
-    lda #<rsIP
-    ldx #>rsIP
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwIP
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::TAB
-    jsr Con::print_chr
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    lda #<rsFlags
-    ldx #>rsFlags
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda zbFlagsHi
-    jsr Con::print_bin
-    lda zbFlagsLo
-    jsr Con::print_bin
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-
-    jsr Nmi::wait
-
-
-    lda #<rsS0
-    ldx #>rsS0
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwS0X
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::TAB
-    jsr Con::print_chr
-
-    lda #<rsD0
-    ldx #>rsD0
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwD0X
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-    lda #<rsS1
-    ldx #>rsS1
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwS1X
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::TAB
-    jsr Con::print_chr
-
-    lda #<rsD1
-    ldx #>rsD1
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwD1X
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-    lda #<rsS2
-    ldx #>rsS2
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwS2X
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::TAB
-    jsr Con::print_chr
-
-    lda #<rsD2
-    ldx #>rsD2
-    jsr Tmp::set_ptr0
-    jsr Con::print_str
-
-    lda #<zwD2X
-    jsr Tmp::set_zp_ptr0
-    ldy #2
-    jsr Con::print_hex_arr_rev
-
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-    lda #Chr::NEW_LINE
-    jsr Con::print_chr
-
-    jsr Nmi::wait
-    rts
-.endproc
-.endif

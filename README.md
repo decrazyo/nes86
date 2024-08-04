@@ -1,58 +1,68 @@
 
+![NES86 logo](https://github.com/decrazyo/nes86/blob/main/img/nes86.jpg)
+
 # NES86
-An x86 emulation layer for the NES.  
-The ultimate goal of this project is to emulate an Intel 8086 processor (and supporting PC hardware)
-well enough to run an unmodified (or lightly modified) Linux kernel, Bourne shell, and GNU utilities.
-Currently targeting Embeddable Linux Kernel Subset (ELKS) since the NES with an MMC5 mapper should just barely be able to run it  
-The development strategy is to...
- 1. Emulate the entirety of an 8086 processor and MMU.
- 2. Patch in support for any necessary PC peripherals.
- 3. Run Linux and maybe some other fun stuff.
+NES86 is an IBM PC emulator for the NES.  
+The goal of this project is to emulate an Intel 8086 processor and supporting PC hardware
+well enough to run an unmodified Linux kernel, shell, and utilities.
+The emulator is currently capable of running the
+[Embeddable Linux Kernel Subset (ELKS)](https://github.com/ghaerr/elks).
+Limited RAM prevent ELKS from running more than the Stand-Alone Shell (sash)
+and builtin shell utilities.
+It should be possible to run other x86 software
+as long as it doesn't require more than a simple serial terminal.
+<!-- TODO: add a link to the youtube video when i make one -->
 
-## Variable Naming Convention
-Variable names should generally be nouns.
-`PascalCase` should be used for variable names.
-Variables should be prefixed according to the following table in the order they appear.
+## How to run NES86
+![Mesen2 running NES86](https://github.com/decrazyo/nes86/blob/main/img/mesen.jpg)
 
-| prefix | meaning     | description |
-|--------|-------------|-------------|
-| r      | read-only   | variable should be treated as read-only or is located in ROM |
-| z      | zero-page   | variable exists in zero page |
-| b      | byte        | variable is 1 byte in size or a pointer to such |
-| w      | word        | variable is 2 bytes in size or a pointer to such |
-| d      | double word | variable is 4 bytes in size or a pointer to such |
-| q      | quad word   | variable is 8 bytes in size or a pointer to such |
-| a      | array       | variable is an array or a pointer to such (mutually exclusive with "s") |
-| s      | string      | variable is a C string or a pointer to such (mutually exclusive with "a") |
-| p      | pointer     | variable is a data pointer |
+Download an NES ROM containing NES86 and ELKS from the releases page
+or build ELKS and NES86 from source.
+The only currently known way to run NES86 is with
+[my modified version of Mesen2](https://github.com/decrazyo/Mesen2).
+NES86 uses a mapper configuration that is theoretically valid
+but generally not supported by emulators nor flash cartridges.
+I've modified Mesen2 to support the mapper configuration that NES86 uses.
 
-Prefixes should appear in the same order as the the above table.  
-e.g. A 1 byte variable that is stored in zero page should be named like this.  
+## How to build NES86
+Before building NES86, we need to build some software for NES86 to run.
 
-    zbMyByte
-Arrays that store a base type (byte, word, double word, quad word) should indicate that with a prefix.  
-e.g. A word array should be named like this.  
+### Build ELKS
+The following steps will build an ELKS image that is compatible with NES86.
+These steps are provided for your convenience.
+See the
+[official ELKS build instructions](https://github.com/ghaerr/elks/blob/master/BUILD.md)
+for the most up-to-date info.
 
-    waMyWords
-If an array stores a more complex type then only the array prefix is needed.  
-e.g. An array of structs should be named like this.  
+ 1. Enter the `elks` directory.
+`cd data/elks/`
+ 2. Create a `cross` directory.
+`mkdir cross`
+ 3. Build the cross tool chain. This will take a while.
+`tools/build.sh`
+ 4. Setup your environment.
+`. ./env.sh`
+ 5. Copy the provided configuration file to the `elks` directory.
+`cp ../nes86-rom.config ./.config`
+ 6. Modify the configuration to your liking (optional).
+`make menuconfig`
+ 7. Build ELKS.
+`make all`
 
-    aMyStructs
-Pointers that point to a variety of types may omit the type specifier.  
-e.g. A pointer that may point to a byte or a word should be named like this.  
+### Build NES86
+By default, the NES86 build process will use the ELKS image that was built in the previous step.
+If you would like to run some other x86 software then you'll probably need to modify
+`data/Makefile`, `src/x86/rom.s`, and `conf/ld.cfg`
 
-    pMyPointer
+ 1. Install dependencies.
+`apt install make cc65 gcc-ia16-elf`
+ 2. Build NES86.
+`make all`
 
-## Function Naming Convention
-Function names should generally be a verb or verb-noun pair.
-`snake_case` should be used for function names.
+The resulting NES ROM can be found at `bin/nes86.nes`.
 
-## Modules
-Modules that export functions/variables must provide a header that imports said exports.
-Imports must be wrapped in a scope with a name that matches the module's name with the first letter capitalized.
-Public constants must be contained within the module's scope.
-Macros my be defined outside of the modules scope since they don't obey scopes anyway.
-All of the above also applied to header-only modules.
-
-
-TODO: re-write the docs once the emulator is working
+## Contributing to NES86
+Contributions and ports are welcome.
+See
+[STYLE.md](https://github.com/decrazyo/nes86/blob/main/STYLE.md)
+for the project's coding style guidelines.

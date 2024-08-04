@@ -5,6 +5,11 @@
 _APU_ = 1
 
 .scope Apu
+
+    .import apu
+    .import beep
+    .import click
+
     ; APU registers
 
     ; TODO: define square, triangle, and noise registers

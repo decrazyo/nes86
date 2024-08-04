@@ -77,6 +77,7 @@ _X86_REG_ = 1
     .import set_flag_lo
     .import clear_flag_lo
 
+
     ;          FEDCBA9876543210
     ;         %1000000000000000 ; RESERVED
     ;         %0100000000000000 ; RESERVED
@@ -88,6 +89,8 @@ _X86_REG_ = 1
     FLAG_TF = %0000000100000000 ; trap flag
     .import set_flag_hi
     .import clear_flag_hi
+
+    FLAGS_MASK = FLAG_OF | FLAG_DF | FLAG_IF | FLAG_TF | FLAG_SF | FLAG_ZF | FLAG_AF | FLAG_PF | FLAG_CF
 
     .enum Seg
         ES

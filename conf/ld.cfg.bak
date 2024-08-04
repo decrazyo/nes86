@@ -1,0 +1,45 @@
+
+# TODO: add BIOS
+# TODO: add PRG RAM
+
+MEMORY {
+    # System RAM
+    ZEROPAGE: file = "", start = $0000, size = $0100, type = rw;
+    STACK:    file = "", start = $0100, size = $0100, type = rw;
+    SYS_RAM:  file = "", start = $0200, size = $0600, type = rw;
+    # Cartridge RAM
+    X86_RAM:  file = "", start = $6000, size = $20000, type = rw;
+    # iNES/NES 2.0 file header
+    HEADER:   file = %O, start = $0000, size = $0010, type = ro, fill = yes;
+    # Program ROM
+    # X86_ROM:  file = %O, start = $8000, size = $FC000, type = ro, fill = yes;
+    X86_ROM:  file = %O, start = $0000, size = $FC000, type = ro, fill = yes;
+    # X86_ROM:  file = %O, start = $0000, size = $E0000, type = ro, fill = yes;
+    PRG_ROM:  file = %O, start = $C000, size = $3FFA, type = ro, fill = yes;
+    # Interrupt vectors
+    VECTORS:  file = %O, start = $FFFA, size = $0006, type = ro, fill = yes;
+    # Character ROM
+    CHR_ROM:  file = %O, start = $0000, size = $2000, type = ro, fill = yes;
+}
+
+SEGMENTS {
+    # RAM
+    TEMP:      load = ZEROPAGE, type = zp,  define = yes;
+    ZEROPAGE:  load = ZEROPAGE, type = zp,  define = yes;
+    STACK:     load = STACK,    type = bss, define = yes, optional = true;
+    OAM:       load = SYS_RAM,  type = bss, define = yes, optional = true;
+    BSS:       load = SYS_RAM,  type = bss, define = yes;
+    X86_RAM:   load = X86_RAM,  type = bss, define = yes, optional = true;
+
+    HEADER:    load = HEADER,   type = ro;
+    # X86_ROM:   load = X86_ROM,  type = ro,  define = yes;
+    # $20000 has been subtracted from the start addresses
+    # this is to account for the 128K of RAM at the low end of the x86 address space.
+    ROMFS:     load = X86_ROM,  type = ro,  define = yes, start=$60000;
+    BOOT:      load = X86_ROM,  type = ro,  define = yes, start=$C0000;
+    RODATA:    load = PRG_ROM,  type = ro,  define = yes;
+    CODE:      load = PRG_ROM,  type = ro,  define = yes;
+    LOWCODE:   load = PRG_ROM,  type = ro,  define = yes, start=$E000;
+    VECTORS:   load = VECTORS,  type = ro,  define = yes;
+    CHR:       load = CHR_ROM,  type = ro;
+}

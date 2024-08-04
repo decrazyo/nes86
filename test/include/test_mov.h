@@ -1,0 +1,2 @@
+
+.global test_mov

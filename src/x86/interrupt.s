@@ -21,7 +21,7 @@
 .include "x86/reg.inc"
 .include "x86/execute.inc"
 .include "tmp.inc"
-
+.include "mmc5.inc"
 
 ; this flag may be set to trigger a non-maskable interrupt.
 ; the flag will be cleared once the interrupt has been acknowledged.
@@ -44,8 +44,8 @@ zbFiloIndex: .res 1
 .segment "BSS"
 ; it's probably completely overkill to allocate a full page to each FILO.
 ; we've got plenty of RAM so why not?
-zbPrefixFilo: .res 256
-zbOpcodeFilo: .res 256
+baPrefixFilo: .res 256
+baOpcodeFilo: .res 256
 
 .segment "CODE"
 
@@ -100,7 +100,7 @@ interrupts_disabled:
 ; handle trap interrupts if TF was set.
 .proc interrupt_trap
     ; "call_isr" will handle clearing the trap flag.
-    lda Interrupt::SINGLE_STEP
+    lda #Interrupt::eType::SINGLE_STEP
     jmp call_isr
     ; [tail_jump]
 .endproc
@@ -117,14 +117,15 @@ interrupts_disabled:
     ; [tail_jump]
 .endproc
 
+
 ; handle NMI interrupts.
 .proc interrupt_nmi
     ; clear the non-maskable interrupt flag
     ldx #0
     stx zbNmiFlag
 
-    lda Interrupt::NMI
-    ; [fall_though]
+    lda #Interrupt::eType::NMI
+    ; [fall_through]
 .endproc
 
 ; handle external interrupts if IF was set.
@@ -132,7 +133,7 @@ interrupts_disabled:
     ; clear the halt flag.
     ldx #0
     stx X86::zbHalt
-    ; [fall_though]
+    ; [fall_through]
 .endproc
 
 ; setup a call to an interrupt service routine (ISR)
@@ -174,9 +175,9 @@ interrupts_disabled:
     ; this will allow us to correctly restore execution when IRET is executed.
     ldx zbFiloIndex
     lda Fetch::zbPrefixRepeat
-    sta zbPrefixFilo, x
+    sta baPrefixFilo, x
     lda Fetch::zbInstrOpcode
-    sta zbOpcodeFilo, x
+    sta baOpcodeFilo, x
     inc zbFiloIndex
 
     ; calculate the address of the IDT in the NES's address space.
@@ -220,6 +221,7 @@ interrupts_disabled:
 
     ; handle additional interrupts if there are any.
     jmp interrupt::next
+    ; [tail_jump]
 .endproc
 
 
@@ -244,8 +246,8 @@ interrupts_disabled:
     dec zbFiloIndex
     ldx zbFiloIndex
 
-    ldy zbOpcodeFilo, x
-    lda zbPrefixFilo, x
+    ldy baOpcodeFilo, x
+    lda baPrefixFilo, x
 
     sta Fetch::zbPrefixRepeat
     beq no_rep

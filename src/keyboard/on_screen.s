@@ -29,7 +29,6 @@ rsRow3:
 rsRow4:
 .asciiz " ctrl   alt   space   alt   ctrl"
 
-
 rsCapsRow1:
 .asciiz " tab Q W E R T Y U I O P [ ] \\"
 
@@ -38,7 +37,6 @@ rsCapsRow2:
 
 rsCapsRow3:
 .asciiz " shift Z X C V B N M , . / shift"
-
 
 rsShiftRow0:
 .asciiz "  ~ ! @ # $ % ^ & * ( ) _ + bksp"
@@ -134,7 +132,6 @@ rbaShiftKeyMap:
 .byte SHIFT, "Z",  "X",  "C",  "V",  "B",  "N",  "M",  "<",  ">",  "?",  $00,  $00,  SHIFT
 .byte CTRL,  $00,  ALT,  $00,  $00,  " ",  $00,  $00,  $00,  ALT,  $00,  $00,  $00,  CTRL
 
-
 rbaKeyboardScrollY:
 .byte $00, $40, $80, $80
 
@@ -194,7 +191,6 @@ copy_pallets:
 
     jsr Ppu::finalize_write
 
-
     ; draw the keyboard(s) to nametable 1
     ldy #0
 copy_all_strings:
@@ -232,7 +228,6 @@ copy_string:
     cpy #<(rwaStringPositionEnd - rwaStringPosition)
     bne copy_all_strings
 
-
     ; set the initial position of the on-screen keyboard
     ; x offset centers the keyboard.
     lda #4
@@ -240,7 +235,6 @@ copy_string:
     ; y offset 0 selects the normal keyboard graphics.
     lda #0
     sta Ram::OnScreen::zbKeyboardScrollY
-
 
     ; use 7 sprites to mask off the right edge of the screen beside the keyboard.
     ; otherwise fragments of the terminal will appear on screen there.
@@ -251,7 +245,6 @@ setup_cover_sprites:
     sta Ppu::aOamBuffer + Ppu::SPRITE_57, x
     dex
     bpl setup_cover_sprites
-
 
     ; setup the cursor sprites.
     ; the cursor only uses tile 0.
@@ -279,14 +272,12 @@ setup_cover_sprites:
 
     jsr update_cursor
 
-
     ; configure a scanline interrupt to occur after displaying the keyboard
     lda #OnScreen::KEYBOARD_HEIGHT - 2
     sta Mmc5::IRQ_COMPARE
 
     ; enable CPU interrupt handling.
     cli
-
 
     ; install our "scan" routine.
     ldx #<scan
@@ -300,7 +291,7 @@ setup_cover_sprites:
 .proc scan
     lda Ram::OnScreen::zbKeyboardEnabled
     beq keyboard_disabled
-    ; [fall_through]
+    ; [tail_branch]
 .endproc
 
 ; =============================================================================
@@ -527,6 +518,7 @@ loop:
 done:
     rts
 .endproc
+
 
 .proc move_cursor_right
     ldx Ram::OnScreen::zbCursorX

@@ -44,8 +44,6 @@ loop:
     jsr X86::step
     jmp loop
 
-
-
 main_loop:
     jsr read_joypad
 
@@ -71,12 +69,10 @@ main_loop:
 
     bne no_wait
 
-
     ; "A" executes a single instruction
     lda zbJoypadDown
     and #Const::JOYPAD_A
     beq main_loop
-
 
 no_wait:
 ;     ; break out of the halt state with an interrupt
@@ -85,7 +81,6 @@ no_wait:
 ;     bne @no_hlt
 ;     inc zbIntCount
 ; @no_hlt:
-
 
 ;     lda zbIntCount
 ;     beq @no_int
@@ -103,6 +98,7 @@ no_debug:
     jmp main_loop
     ; [tail_jump]
 .endproc
+
 
 ; At the same time that we strobe bit 0, we initialize the ring counter
 ; so we're hitting two birds with one stone here

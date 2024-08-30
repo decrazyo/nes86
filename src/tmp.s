@@ -40,7 +40,6 @@ zb3: .res 1
     ; [tail_branch]
 .endproc
 
-
 ; copy a zero-page pointer into the 1st temp word.
 ; < A = address low byte
 ; changes: X
@@ -49,7 +48,6 @@ zb3: .res 1
     beq set_ptr1 ; branch always
     ; [tail_branch]
 .endproc
-
 
 ; copy a pointer into the 0th temp word.
 ; < A = address low byte

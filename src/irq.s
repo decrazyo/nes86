@@ -57,9 +57,6 @@ continue:
     ora zwTemp
     sta zwTemp
 
-
-
-
     ; yyy NN YYYYY XXXXX
     ; ||| || ||||| +++++-- coarse X scroll
     ; ||| || +++++-------- coarse Y scroll
@@ -78,7 +75,6 @@ continue:
     ; write nametable number << 2
     ldx $00
     stx Ppu::ADDR
-
 
     ; ### NN ##### XXXXX
     ; ||| || ||||| +++++-- coarse X scroll
@@ -110,14 +106,11 @@ continue:
     lda zwTemp
     sta Ppu::ADDR
 
-
     lda Ppu::zbCtrl
     and #%11111100
     sta Ppu::zbCtrl
     sta Ppu::CTRL
 
-
-    
     ; clear the IRQ pending flag.
     lda Mmc5::IRQ_STATUS
     ; disable scanline interrupts.
@@ -133,7 +126,7 @@ continue:
     pla ; restore Y register
     tay
     pla ; restore X register
-    tax 
+    tax
     pla ; restore A register
 
     rti

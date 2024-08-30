@@ -1,15 +1,17 @@
 
 .ifndef _KEYBOARD_
-_KEYBOARD_ = 1
+    _KEYBOARD_ = 1
 
-.scope Keyboard
+    .scope Keyboard
 
-    .importzp zpScanFunc
+        .importzp zpScanFunc
 
-    .import keyboard
-    .import scan
-    .import get_key
-    .import put_key
-.endscope
+        .import keyboard
+        .import scan
+        .import get_key
+        .import put_key
+        .import buffer_status
+
+    .endscope
 
 .endif

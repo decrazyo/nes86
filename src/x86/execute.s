@@ -5,28 +5,25 @@
 ; temporary registers and the flags register.
 ; This module may simply move values between temporary registers to facilitate
 ; code reuse in the "decode" and "write" stages.
-;
-; changes:
-;   Reg::zbFlags
-;   Reg::zbS0
-;   Reg::zbS1
-;   Reg::zbD0
 
-.include "x86/execute.inc"
-.include "x86/fetch.inc"
-.include "x86/decode.inc"
-.include "x86/write.inc"
-.include "x86/mem.inc"
-.include "x86/reg.inc"
-.include "x86/alu.inc"
-.include "x86/util.inc"
-.include "x86/io.inc"
-.include "x86/interrupt.inc"
-.include "x86.inc"
-.include "mmc5.inc"
+.linecont +
 
 .include "const.inc"
+.include "list.inc"
+.include "mmc5.inc"
 .include "tmp.inc"
+.include "x86.inc"
+.include "x86/alu.inc"
+.include "x86/decode.inc"
+.include "x86/execute.inc"
+.include "x86/fetch.inc"
+.include "x86/interrupt.inc"
+.include "x86/io.inc"
+.include "x86/mem.inc"
+.include "x86/opcode.inc"
+.include "x86/reg.inc"
+.include "x86/util.inc"
+.include "x86/write.inc"
 
 .export execute
 
@@ -66,322 +63,392 @@
 .export set_overflow_flag
 .export clear_overflow_flag
 
-
 .segment "RODATA"
 
-; map instruction types to their execution functions.
+.define EXECUTE_FUNCS \
+execute_nop, \
+execute_mov_8, \
+execute_mov_16, \
+execute_push, \
+execute_pop, \
+execute_xchg_8, \
+execute_xchg_16, \
+execute_in_8, \
+execute_in_16, \
+execute_out_8, \
+execute_out_16, \
+execute_mov_32, \
+execute_add_8_8, \
+execute_add_16_16, \
+execute_adc_8_8, \
+execute_adc_16_16, \
+execute_inc_8, \
+execute_inc_16, \
+execute_aaa, \
+execute_daa, \
+execute_sub_8_8, \
+execute_sub_16_16, \
+execute_sbb_8_8, \
+execute_sbb_16_16, \
+execute_dec_8, \
+execute_dec_16, \
+execute_aas, \
+execute_das, \
+execute_aam, \
+execute_aad, \
+execute_cbw, \
+execute_cwd, \
+execute_and_8_8, \
+execute_and_16_16, \
+execute_or_8_8, \
+execute_or_16_16, \
+execute_xor_8_8, \
+execute_xor_16_16, \
+execute_rep_repnz, \
+execute_repz_repnz, \
+execute_call_rel_near, \
+execute_call_far, \
+execute_jmp_short, \
+execute_jmp_rel_near, \
+execute_jmp_far, \
+execute_ret_near, \
+execute_ret_far, \
+execute_ret_near_adjust_sp, \
+execute_ret_far_adjust_sp, \
+execute_jz, \
+execute_jl, \
+execute_jng, \
+execute_jb, \
+execute_jna, \
+execute_jpe, \
+execute_jo, \
+execute_js, \
+execute_jnz, \
+execute_jnl, \
+execute_jg, \
+execute_jae, \
+execute_ja, \
+execute_jpo, \
+execute_jno, \
+execute_jns, \
+execute_loop, \
+execute_loopz, \
+execute_loopnz, \
+execute_jcxz, \
+execute_int, \
+execute_int3, \
+execute_into, \
+execute_iret, \
+execute_clc, \
+execute_cmc, \
+execute_stc, \
+execute_cld, \
+execute_std, \
+execute_cli, \
+execute_sti, \
+execute_hlt, \
+execute_wait, \
+execute_esc, \
+execute_nop, \
+execute_group1a, \
+execute_group1b, \
+execute_group2a, \
+execute_group2b, \
+execute_group3a, \
+execute_group3b, \
+execute_group4a, \
+execute_group4b, \
+execute_bad
+
+; execute function jump table
 rbaExecuteFuncLo:
-.byte <(execute_nop-1)
-.byte <(execute_mov_8-1)
-.byte <(execute_mov_16-1)
-.byte <(execute_push-1)
-.byte <(execute_pop-1)
-.byte <(execute_xchg_8-1)
-.byte <(execute_xchg_16-1)
-.byte <(execute_in_8-1)
-.byte <(execute_in_16-1)
-.byte <(execute_out_8-1)
-.byte <(execute_out_16-1)
-.byte <(execute_mov_32-1)
-.byte <(execute_add_8_8-1)
-.byte <(execute_add_16_16-1)
-.byte <(execute_adc_8_8-1)
-.byte <(execute_adc_16_16-1)
-.byte <(execute_inc_8-1)
-.byte <(execute_inc_16-1)
-.byte <(execute_aaa-1)
-.byte <(execute_daa-1)
-.byte <(execute_sub_8_8-1)
-.byte <(execute_sub_16_16-1)
-.byte <(execute_sbb_8_8-1)
-.byte <(execute_sbb_16_16-1)
-.byte <(execute_dec_8-1)
-.byte <(execute_dec_16-1)
-.byte <(execute_aas-1)
-.byte <(execute_das-1)
-.byte <(execute_aam-1)
-.byte <(execute_aad-1)
-.byte <(execute_cbw-1)
-.byte <(execute_cwd-1)
-.byte <(execute_and_8_8-1)
-.byte <(execute_and_16_16-1)
-.byte <(execute_or_8_8-1)
-.byte <(execute_or_16_16-1)
-.byte <(execute_xor_8_8-1)
-.byte <(execute_xor_16_16-1)
-.byte <(execute_rep_repnz-1)
-.byte <(execute_repz_repnz-1)
-.byte <(execute_call_rel_near-1)
-.byte <(execute_call_far-1)
-.byte <(execute_jmp_short-1)
-.byte <(execute_jmp_rel_near-1)
-.byte <(execute_jmp_far-1)
-.byte <(execute_ret_near-1)
-.byte <(execute_ret_far-1)
-.byte <(execute_ret_near_adjust_sp-1)
-.byte <(execute_ret_far_adjust_sp-1)
-.byte <(execute_jz-1)
-.byte <(execute_jl-1)
-.byte <(execute_jng-1)
-.byte <(execute_jb-1)
-.byte <(execute_jna-1)
-.byte <(execute_jpe-1)
-.byte <(execute_jo-1)
-.byte <(execute_js-1)
-.byte <(execute_jnz-1)
-.byte <(execute_jnl-1)
-.byte <(execute_jg-1)
-.byte <(execute_jae-1)
-.byte <(execute_ja-1)
-.byte <(execute_jpo-1)
-.byte <(execute_jno-1)
-.byte <(execute_jns-1)
-.byte <(execute_loop-1)
-.byte <(execute_loopz-1)
-.byte <(execute_loopnz-1)
-.byte <(execute_jcxz-1)
-.byte <(execute_int-1)
-.byte <(execute_int3-1)
-.byte <(execute_into-1)
-.byte <(execute_iret-1)
-.byte <(execute_clc-1)
-.byte <(execute_cmc-1)
-.byte <(execute_stc-1)
-.byte <(execute_cld-1)
-.byte <(execute_std-1)
-.byte <(execute_cli-1)
-.byte <(execute_sti-1)
-.byte <(execute_hlt-1)
-.byte <(execute_wait-1)
-.byte <(execute_esc-1)
-.byte <(execute_nop-1)
-.byte <(execute_group1a-1)
-.byte <(execute_group1b-1)
-.byte <(execute_group2a-1)
-.byte <(execute_group2b-1)
-.byte <(execute_group3a-1)
-.byte <(execute_group3b-1)
-.byte <(execute_group4a-1)
-.byte <(execute_group4b-1)
-.byte <(execute_bad-1)
+lo_return_bytes {EXECUTE_FUNCS}
 rbaExecuteFuncHi:
-.byte >(execute_nop-1)
-.byte >(execute_mov_8-1)
-.byte >(execute_mov_16-1)
-.byte >(execute_push-1)
-.byte >(execute_pop-1)
-.byte >(execute_xchg_8-1)
-.byte >(execute_xchg_16-1)
-.byte >(execute_in_8-1)
-.byte >(execute_in_16-1)
-.byte >(execute_out_8-1)
-.byte >(execute_out_16-1)
-.byte >(execute_mov_32-1)
-.byte >(execute_add_8_8-1)
-.byte >(execute_add_16_16-1)
-.byte >(execute_adc_8_8-1)
-.byte >(execute_adc_16_16-1)
-.byte >(execute_inc_8-1)
-.byte >(execute_inc_16-1)
-.byte >(execute_aaa-1)
-.byte >(execute_daa-1)
-.byte >(execute_sub_8_8-1)
-.byte >(execute_sub_16_16-1)
-.byte >(execute_sbb_8_8-1)
-.byte >(execute_sbb_16_16-1)
-.byte >(execute_dec_8-1)
-.byte >(execute_dec_16-1)
-.byte >(execute_aas-1)
-.byte >(execute_das-1)
-.byte >(execute_aam-1)
-.byte >(execute_aad-1)
-.byte >(execute_cbw-1)
-.byte >(execute_cwd-1)
-.byte >(execute_and_8_8-1)
-.byte >(execute_and_16_16-1)
-.byte >(execute_or_8_8-1)
-.byte >(execute_or_16_16-1)
-.byte >(execute_xor_8_8-1)
-.byte >(execute_xor_16_16-1)
-.byte >(execute_rep_repnz-1)
-.byte >(execute_repz_repnz-1)
-.byte >(execute_call_rel_near-1)
-.byte >(execute_call_far-1)
-.byte >(execute_jmp_short-1)
-.byte >(execute_jmp_rel_near-1)
-.byte >(execute_jmp_far-1)
-.byte >(execute_ret_near-1)
-.byte >(execute_ret_far-1)
-.byte >(execute_ret_near_adjust_sp-1)
-.byte >(execute_ret_far_adjust_sp-1)
-.byte >(execute_jz-1)
-.byte >(execute_jl-1)
-.byte >(execute_jng-1)
-.byte >(execute_jb-1)
-.byte >(execute_jna-1)
-.byte >(execute_jpe-1)
-.byte >(execute_jo-1)
-.byte >(execute_js-1)
-.byte >(execute_jnz-1)
-.byte >(execute_jnl-1)
-.byte >(execute_jg-1)
-.byte >(execute_jae-1)
-.byte >(execute_ja-1)
-.byte >(execute_jpo-1)
-.byte >(execute_jno-1)
-.byte >(execute_jns-1)
-.byte >(execute_loop-1)
-.byte >(execute_loopz-1)
-.byte >(execute_loopnz-1)
-.byte >(execute_jcxz-1)
-.byte >(execute_int-1)
-.byte >(execute_int3-1)
-.byte >(execute_into-1)
-.byte >(execute_iret-1)
-.byte >(execute_clc-1)
-.byte >(execute_cmc-1)
-.byte >(execute_stc-1)
-.byte >(execute_cld-1)
-.byte >(execute_std-1)
-.byte >(execute_cli-1)
-.byte >(execute_sti-1)
-.byte >(execute_hlt-1)
-.byte >(execute_wait-1)
-.byte >(execute_esc-1)
-.byte >(execute_nop-1)
-.byte >(execute_group1a-1)
-.byte >(execute_group1b-1)
-.byte >(execute_group2a-1)
-.byte >(execute_group2b-1)
-.byte >(execute_group3a-1)
-.byte >(execute_group3b-1)
-.byte >(execute_group4a-1)
-.byte >(execute_group4b-1)
-.byte >(execute_bad-1)
-rbaExecuteFuncEnd:
+hi_return_bytes {EXECUTE_FUNCS}
 
-.assert (rbaExecuteFuncHi - rbaExecuteFuncLo) = (rbaExecuteFuncEnd - rbaExecuteFuncHi), error, "incomplete execute function"
+; map opcodes to jump table indices
+size .set 0
+rbaExecuteFuncIndex:
+index_byte_at size, Opcode::ADD_Eb_Gb,  {EXECUTE_FUNCS}, execute_add_8_8
+index_byte_at size, Opcode::ADD_Ev_Gv,  {EXECUTE_FUNCS}, execute_add_16_16
+index_byte_at size, Opcode::ADD_Gb_Eb,  {EXECUTE_FUNCS}, execute_add_8_8
+index_byte_at size, Opcode::ADD_Gv_Ev,  {EXECUTE_FUNCS}, execute_add_16_16
+index_byte_at size, Opcode::ADD_AL_Ib,  {EXECUTE_FUNCS}, execute_add_8_8
+index_byte_at size, Opcode::ADD_AX_Iv,  {EXECUTE_FUNCS}, execute_add_16_16
+index_byte_at size, Opcode::PUSH_ES,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::POP_ES,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::OR_Eb_Gb,   {EXECUTE_FUNCS}, execute_or_8_8
+index_byte_at size, Opcode::OR_Ev_Gv,   {EXECUTE_FUNCS}, execute_or_16_16
+index_byte_at size, Opcode::OR_Gb_Eb,   {EXECUTE_FUNCS}, execute_or_8_8
+index_byte_at size, Opcode::OR_Gv_Ev,   {EXECUTE_FUNCS}, execute_or_16_16
+index_byte_at size, Opcode::OR_AL_Ib,   {EXECUTE_FUNCS}, execute_or_8_8
+index_byte_at size, Opcode::OR_AX_Iv,   {EXECUTE_FUNCS}, execute_or_16_16
+index_byte_at size, Opcode::PUSH_CS,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::NONE_0Fh,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::ADC_Eb_Gb,  {EXECUTE_FUNCS}, execute_adc_8_8
+index_byte_at size, Opcode::ADC_Ev_Gv,  {EXECUTE_FUNCS}, execute_adc_16_16
+index_byte_at size, Opcode::ADC_Gb_Eb,  {EXECUTE_FUNCS}, execute_adc_8_8
+index_byte_at size, Opcode::ADC_Gv_Ev,  {EXECUTE_FUNCS}, execute_adc_16_16
+index_byte_at size, Opcode::ADC_AL_Ib,  {EXECUTE_FUNCS}, execute_adc_8_8
+index_byte_at size, Opcode::ADC_AX_Iv,  {EXECUTE_FUNCS}, execute_adc_16_16
+index_byte_at size, Opcode::PUSH_SS,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::POP_SS,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::SBB_Eb_Gb,  {EXECUTE_FUNCS}, execute_sbb_8_8
+index_byte_at size, Opcode::SBB_Ev_Gv,  {EXECUTE_FUNCS}, execute_sbb_16_16
+index_byte_at size, Opcode::SBB_Gb_Eb,  {EXECUTE_FUNCS}, execute_sbb_8_8
+index_byte_at size, Opcode::SBB_Gv_Ev,  {EXECUTE_FUNCS}, execute_sbb_16_16
+index_byte_at size, Opcode::SBB_AL_Ib,  {EXECUTE_FUNCS}, execute_sbb_8_8
+index_byte_at size, Opcode::SBB_AX_Iv,  {EXECUTE_FUNCS}, execute_sbb_16_16
+index_byte_at size, Opcode::PUSH_DS,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::POP_DS,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::AND_Eb_Gb,  {EXECUTE_FUNCS}, execute_and_8_8
+index_byte_at size, Opcode::AND_Ev_Gv,  {EXECUTE_FUNCS}, execute_and_16_16
+index_byte_at size, Opcode::AND_Gb_Eb,  {EXECUTE_FUNCS}, execute_and_8_8
+index_byte_at size, Opcode::AND_Gv_Ev,  {EXECUTE_FUNCS}, execute_and_16_16
+index_byte_at size, Opcode::AND_AL_Ib,  {EXECUTE_FUNCS}, execute_and_8_8
+index_byte_at size, Opcode::AND_AX_Iv,  {EXECUTE_FUNCS}, execute_and_16_16
+index_byte_at size, Opcode::ES,         {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::DAA,        {EXECUTE_FUNCS}, execute_daa
+index_byte_at size, Opcode::SUB_Eb_Gb,  {EXECUTE_FUNCS}, execute_sub_8_8
+index_byte_at size, Opcode::SUB_Ev_Gv,  {EXECUTE_FUNCS}, execute_sub_16_16
+index_byte_at size, Opcode::SUB_Gb_Eb,  {EXECUTE_FUNCS}, execute_sub_8_8
+index_byte_at size, Opcode::SUB_Gv_Ev,  {EXECUTE_FUNCS}, execute_sub_16_16
+index_byte_at size, Opcode::SUB_AL_Ib,  {EXECUTE_FUNCS}, execute_sub_8_8
+index_byte_at size, Opcode::SUB_AX_Iv,  {EXECUTE_FUNCS}, execute_sub_16_16
+index_byte_at size, Opcode::CS,         {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::DAS,        {EXECUTE_FUNCS}, execute_das
+index_byte_at size, Opcode::XOR_Eb_Gb,  {EXECUTE_FUNCS}, execute_xor_8_8
+index_byte_at size, Opcode::XOR_Ev_Gv,  {EXECUTE_FUNCS}, execute_xor_16_16
+index_byte_at size, Opcode::XOR_Gb_Eb,  {EXECUTE_FUNCS}, execute_xor_8_8
+index_byte_at size, Opcode::XOR_Gv_Ev,  {EXECUTE_FUNCS}, execute_xor_16_16
+index_byte_at size, Opcode::XOR_AL_Ib,  {EXECUTE_FUNCS}, execute_xor_8_8
+index_byte_at size, Opcode::XOR_AX_Iv,  {EXECUTE_FUNCS}, execute_xor_16_16
+index_byte_at size, Opcode::SS,         {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::AAA,        {EXECUTE_FUNCS}, execute_aaa
+index_byte_at size, Opcode::CMP_Eb_Gb,  {EXECUTE_FUNCS}, execute_sub_8_8
+index_byte_at size, Opcode::CMP_Ev_Gv,  {EXECUTE_FUNCS}, execute_sub_16_16
+index_byte_at size, Opcode::CMP_Gb_Eb,  {EXECUTE_FUNCS}, execute_sub_8_8
+index_byte_at size, Opcode::CMP_Gv_Ev,  {EXECUTE_FUNCS}, execute_sub_16_16
+index_byte_at size, Opcode::CMP_AL_Ib,  {EXECUTE_FUNCS}, execute_sub_8_8
+index_byte_at size, Opcode::CMP_AX_Iv,  {EXECUTE_FUNCS}, execute_sub_16_16
+index_byte_at size, Opcode::DS,         {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::AAS,        {EXECUTE_FUNCS}, execute_aas
+index_byte_at size, Opcode::INC_AX,     {EXECUTE_FUNCS}, execute_inc_16
+index_byte_at size, Opcode::INC_CX,     {EXECUTE_FUNCS}, execute_inc_16
+index_byte_at size, Opcode::INC_DX,     {EXECUTE_FUNCS}, execute_inc_16
+index_byte_at size, Opcode::INC_BX,     {EXECUTE_FUNCS}, execute_inc_16
+index_byte_at size, Opcode::INC_SP,     {EXECUTE_FUNCS}, execute_inc_16
+index_byte_at size, Opcode::INC_BP,     {EXECUTE_FUNCS}, execute_inc_16
+index_byte_at size, Opcode::INC_SI,     {EXECUTE_FUNCS}, execute_inc_16
+index_byte_at size, Opcode::INC_DI,     {EXECUTE_FUNCS}, execute_inc_16
+index_byte_at size, Opcode::DEC_AX,     {EXECUTE_FUNCS}, execute_dec_16
+index_byte_at size, Opcode::DEC_CX,     {EXECUTE_FUNCS}, execute_dec_16
+index_byte_at size, Opcode::DEC_DX,     {EXECUTE_FUNCS}, execute_dec_16
+index_byte_at size, Opcode::DEC_BX,     {EXECUTE_FUNCS}, execute_dec_16
+index_byte_at size, Opcode::DEC_SP,     {EXECUTE_FUNCS}, execute_dec_16
+index_byte_at size, Opcode::DEC_BP,     {EXECUTE_FUNCS}, execute_dec_16
+index_byte_at size, Opcode::DEC_SI,     {EXECUTE_FUNCS}, execute_dec_16
+index_byte_at size, Opcode::DEC_DI,     {EXECUTE_FUNCS}, execute_dec_16
+index_byte_at size, Opcode::PUSH_AX,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::PUSH_CX,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::PUSH_DX,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::PUSH_BX,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::PUSH_SP,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::PUSH_BP,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::PUSH_SI,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::PUSH_DI,    {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::POP_AX,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::POP_CX,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::POP_DX,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::POP_BX,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::POP_SP,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::POP_BP,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::POP_SI,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::POP_DI,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::NONE_60h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_61h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_62h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_63h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_64h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_65h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_66h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_67h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_68h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_69h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_6Ah,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_6Bh,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_6Ch,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_6Dh,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_6Eh,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_6Fh,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::JO_Jb,      {EXECUTE_FUNCS}, execute_jo
+index_byte_at size, Opcode::JNO_Jb,     {EXECUTE_FUNCS}, execute_jno
+index_byte_at size, Opcode::JB_Jb,      {EXECUTE_FUNCS}, execute_jb
+index_byte_at size, Opcode::JAE_Jb,     {EXECUTE_FUNCS}, execute_jae
+index_byte_at size, Opcode::JZ_Jb,      {EXECUTE_FUNCS}, execute_jz
+index_byte_at size, Opcode::JNZ_Jb,     {EXECUTE_FUNCS}, execute_jnz
+index_byte_at size, Opcode::JNA_Jb,     {EXECUTE_FUNCS}, execute_jna
+index_byte_at size, Opcode::JA_Jb,      {EXECUTE_FUNCS}, execute_ja
+index_byte_at size, Opcode::JS_Jb,      {EXECUTE_FUNCS}, execute_js
+index_byte_at size, Opcode::JNS_Jb,     {EXECUTE_FUNCS}, execute_jns
+index_byte_at size, Opcode::JPE_Jb,     {EXECUTE_FUNCS}, execute_jpe
+index_byte_at size, Opcode::JPO_Jb,     {EXECUTE_FUNCS}, execute_jpo
+index_byte_at size, Opcode::JL_Jb,      {EXECUTE_FUNCS}, execute_jl
+index_byte_at size, Opcode::JNL_Jb,     {EXECUTE_FUNCS}, execute_jnl
+index_byte_at size, Opcode::JNG_Jb,     {EXECUTE_FUNCS}, execute_jng
+index_byte_at size, Opcode::JG_Jb,      {EXECUTE_FUNCS}, execute_jg
+index_byte_at size, Opcode::GRP1_Eb_Ib, {EXECUTE_FUNCS}, execute_group1a
+index_byte_at size, Opcode::GRP1_Ev_Iv, {EXECUTE_FUNCS}, execute_group1b
+index_byte_at size, Opcode::GRP1_82h,   {EXECUTE_FUNCS}, execute_group1a
+index_byte_at size, Opcode::GRP1_Ev_Ib, {EXECUTE_FUNCS}, execute_group1b
+index_byte_at size, Opcode::TEST_Gb_Eb, {EXECUTE_FUNCS}, execute_and_8_8
+index_byte_at size, Opcode::TEST_Gv_Ev, {EXECUTE_FUNCS}, execute_and_16_16
+index_byte_at size, Opcode::XCHG_Gb_Eb, {EXECUTE_FUNCS}, execute_xchg_8
+index_byte_at size, Opcode::XCHG_Gv_Ev, {EXECUTE_FUNCS}, execute_xchg_16
+index_byte_at size, Opcode::MOV_Eb_Gb,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_Ev_Gv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_Gb_Eb,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_Gv_Ev,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_Ew_Sw,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::LEA_Gv_M,   {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_Sw_Ew,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::POP_Ev,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::NOP,        {EXECUTE_FUNCS}, execute_nop
+index_byte_at size, Opcode::XCHG_CX_AX, {EXECUTE_FUNCS}, execute_xchg_16
+index_byte_at size, Opcode::XCHG_DX_AX, {EXECUTE_FUNCS}, execute_xchg_16
+index_byte_at size, Opcode::XCHG_BX_AX, {EXECUTE_FUNCS}, execute_xchg_16
+index_byte_at size, Opcode::XCHG_SP_AX, {EXECUTE_FUNCS}, execute_xchg_16
+index_byte_at size, Opcode::XCHG_BP_AX, {EXECUTE_FUNCS}, execute_xchg_16
+index_byte_at size, Opcode::XCHG_SI_AX, {EXECUTE_FUNCS}, execute_xchg_16
+index_byte_at size, Opcode::XCHG_DI_AX, {EXECUTE_FUNCS}, execute_xchg_16
+index_byte_at size, Opcode::CBW,        {EXECUTE_FUNCS}, execute_cbw
+index_byte_at size, Opcode::CWD,        {EXECUTE_FUNCS}, execute_cwd
+index_byte_at size, Opcode::CALL_Ap,    {EXECUTE_FUNCS}, execute_call_far
+index_byte_at size, Opcode::WAIT,       {EXECUTE_FUNCS}, execute_wait
+index_byte_at size, Opcode::PUSHF,      {EXECUTE_FUNCS}, execute_push
+index_byte_at size, Opcode::POPF,       {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::SAHF,       {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::LAHF,       {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_AL_Ob,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_AX_Ov,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_Ob_AL,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_Ov_AX,  {EXECUTE_FUNCS}, execute_mov_16
+; string instructions may or may not have a repeat prefix.
+; the prefix handler will call the appropriate string instruction handler.
+; see also: rbaExecuteStrFuncIndex
+index_byte_at size, Opcode::MOVSB,      {EXECUTE_FUNCS}, execute_rep_repnz
+index_byte_at size, Opcode::MOVSW,      {EXECUTE_FUNCS}, execute_rep_repnz
+index_byte_at size, Opcode::CMPSB,      {EXECUTE_FUNCS}, execute_repz_repnz
+index_byte_at size, Opcode::CMPSW,      {EXECUTE_FUNCS}, execute_repz_repnz
+index_byte_at size, Opcode::TEST_AL_Ib, {EXECUTE_FUNCS}, execute_and_8_8
+index_byte_at size, Opcode::TEST_AX_Iv, {EXECUTE_FUNCS}, execute_and_16_16
+index_byte_at size, Opcode::STOSB,      {EXECUTE_FUNCS}, execute_rep_repnz
+index_byte_at size, Opcode::STOSW,      {EXECUTE_FUNCS}, execute_rep_repnz
+index_byte_at size, Opcode::LODSB,      {EXECUTE_FUNCS}, execute_rep_repnz
+index_byte_at size, Opcode::LODSW,      {EXECUTE_FUNCS}, execute_rep_repnz
+index_byte_at size, Opcode::SCASB,      {EXECUTE_FUNCS}, execute_repz_repnz
+index_byte_at size, Opcode::SCASW,      {EXECUTE_FUNCS}, execute_repz_repnz
+index_byte_at size, Opcode::MOV_AL_Ib,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_CL_Ib,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_DL_Ib,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_BL_Ib,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_AH_Ib,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_CH_Ib,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_DH_Ib,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_BH_Ib,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_AX_Iv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_CX_Iv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_DX_Iv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_BX_Iv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_SP_Iv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_BP_Iv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_SI_Iv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::MOV_DI_Iv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::NONE_C0h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_C1h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::RET_Iw,     {EXECUTE_FUNCS}, execute_ret_near_adjust_sp
+index_byte_at size, Opcode::RET,        {EXECUTE_FUNCS}, execute_ret_near
+index_byte_at size, Opcode::LES_Gv_Mp,  {EXECUTE_FUNCS}, execute_mov_32
+index_byte_at size, Opcode::LDS_Gv_Mp,  {EXECUTE_FUNCS}, execute_mov_32
+index_byte_at size, Opcode::MOV_Eb_Ib,  {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOV_Ev_Iv,  {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::NONE_C8h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_C9h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::RETF_Iw,    {EXECUTE_FUNCS}, execute_ret_far_adjust_sp
+index_byte_at size, Opcode::RETF,       {EXECUTE_FUNCS}, execute_ret_far
+index_byte_at size, Opcode::INT3,       {EXECUTE_FUNCS}, execute_int3
+index_byte_at size, Opcode::INT_Ib,     {EXECUTE_FUNCS}, execute_int
+index_byte_at size, Opcode::INTO,       {EXECUTE_FUNCS}, execute_into
+index_byte_at size, Opcode::IRET,       {EXECUTE_FUNCS}, execute_iret
+index_byte_at size, Opcode::GRP2_Eb_1,  {EXECUTE_FUNCS}, execute_group2a
+index_byte_at size, Opcode::GRP2_Ev_1,  {EXECUTE_FUNCS}, execute_group2b
+index_byte_at size, Opcode::GRP2_Eb_CL, {EXECUTE_FUNCS}, execute_group2a
+index_byte_at size, Opcode::GRP2_Ev_CL, {EXECUTE_FUNCS}, execute_group2b
+index_byte_at size, Opcode::AAM_I0,     {EXECUTE_FUNCS}, execute_aam
+index_byte_at size, Opcode::AAD_I0,     {EXECUTE_FUNCS}, execute_aad
+index_byte_at size, Opcode::NONE_D6h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::XLAT,       {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::NONE_D8h,   {EXECUTE_FUNCS}, execute_esc
+index_byte_at size, Opcode::NONE_D9h,   {EXECUTE_FUNCS}, execute_esc
+index_byte_at size, Opcode::NONE_DAh,   {EXECUTE_FUNCS}, execute_esc
+index_byte_at size, Opcode::NONE_DBh,   {EXECUTE_FUNCS}, execute_esc
+index_byte_at size, Opcode::NONE_DCh,   {EXECUTE_FUNCS}, execute_esc
+index_byte_at size, Opcode::NONE_DDh,   {EXECUTE_FUNCS}, execute_esc
+index_byte_at size, Opcode::NONE_DEh,   {EXECUTE_FUNCS}, execute_esc
+index_byte_at size, Opcode::NONE_DFh,   {EXECUTE_FUNCS}, execute_esc
+index_byte_at size, Opcode::LOOPNZ_Jb,  {EXECUTE_FUNCS}, execute_loopnz
+index_byte_at size, Opcode::LOOPZ_Jb,   {EXECUTE_FUNCS}, execute_loopz
+index_byte_at size, Opcode::LOOP_Jb,    {EXECUTE_FUNCS}, execute_loop
+index_byte_at size, Opcode::JCXZ_Jb,    {EXECUTE_FUNCS}, execute_jcxz
+index_byte_at size, Opcode::IN_AL_Ib,   {EXECUTE_FUNCS}, execute_in_8
+index_byte_at size, Opcode::IN_AX_Ib,   {EXECUTE_FUNCS}, execute_in_16
+index_byte_at size, Opcode::OUT_Ib_AL,  {EXECUTE_FUNCS}, execute_out_8
+index_byte_at size, Opcode::OUT_Ib_AX,  {EXECUTE_FUNCS}, execute_out_16
+index_byte_at size, Opcode::CALL_Jv,    {EXECUTE_FUNCS}, execute_call_rel_near
+index_byte_at size, Opcode::JMP_Jv,     {EXECUTE_FUNCS}, execute_jmp_rel_near
+index_byte_at size, Opcode::JMP_Ap,     {EXECUTE_FUNCS}, execute_jmp_far
+index_byte_at size, Opcode::JMP_Jb,     {EXECUTE_FUNCS}, execute_jmp_short
+index_byte_at size, Opcode::IN_AL_DX,   {EXECUTE_FUNCS}, execute_in_8
+index_byte_at size, Opcode::IN_AX_DX,   {EXECUTE_FUNCS}, execute_in_16
+index_byte_at size, Opcode::OUT_DX_AL,  {EXECUTE_FUNCS}, execute_out_8
+index_byte_at size, Opcode::OUT_DX_AX,  {EXECUTE_FUNCS}, execute_out_16
+index_byte_at size, Opcode::LOCK,       {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_F1h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::REPNZ,      {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::REPZ,       {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::HLT,        {EXECUTE_FUNCS}, execute_hlt
+index_byte_at size, Opcode::CMC,        {EXECUTE_FUNCS}, execute_cmc
+index_byte_at size, Opcode::GRP3_Eb,    {EXECUTE_FUNCS}, execute_group3a
+index_byte_at size, Opcode::GRP3_Ev,    {EXECUTE_FUNCS}, execute_group3b
+index_byte_at size, Opcode::CLC,        {EXECUTE_FUNCS}, execute_clc
+index_byte_at size, Opcode::STC,        {EXECUTE_FUNCS}, execute_stc
+index_byte_at size, Opcode::CLI,        {EXECUTE_FUNCS}, execute_cli
+index_byte_at size, Opcode::STI,        {EXECUTE_FUNCS}, execute_sti
+index_byte_at size, Opcode::CLD,        {EXECUTE_FUNCS}, execute_cld
+index_byte_at size, Opcode::STD,        {EXECUTE_FUNCS}, execute_std
+index_byte_at size, Opcode::GRP4_Eb,    {EXECUTE_FUNCS}, execute_group4a
+index_byte_at size, Opcode::GRP4_Ev,    {EXECUTE_FUNCS}, execute_group4b
+.assert size = 256, error, "incorrect table size"
 
-; instruction types
-.enum
-    E00 ; execute_nop
-    E01 ; execute_mov_8
-    E02 ; execute_mov_16
-    E03 ; execute_push
-    E04 ; execute_pop
-    E05 ; execute_xchg_8
-    E06 ; execute_xchg_16
-    E07 ; execute_in_8
-    E08 ; execute_in_16
-    E09 ; execute_out_8
-    E10 ; execute_out_16
-    E11 ; execute_mov_32
-    E12 ; execute_add_8_8
-    E13 ; execute_add_16_16
-    E14 ; execute_adc_8_8
-    E15 ; execute_adc_16_16
-    E16 ; execute_inc_8
-    E17 ; execute_inc_16
-    E18 ; execute_aaa
-    E19 ; execute_daa
-    E20 ; execute_sub_8_8
-    E21 ; execute_sub_16_16
-    E22 ; execute_sbb_8_8
-    E23 ; execute_sbb_16_16
-    E24 ; execute_dec_8
-    E25 ; execute_dec_16
-    E26 ; execute_aas
-    E27 ; execute_das
-    E28 ; execute_aam
-    E29 ; execute_aad
-    E30 ; execute_cbw
-    E31 ; execute_cwd
-    E32 ; execute_and_8_8
-    E33 ; execute_and_16_16
-    E34 ; execute_or_8_8
-    E35 ; execute_or_16_16
-    E36 ; execute_xor_8_8
-    E37 ; execute_xor_16_16
-    E38 ; execute_rep_repnz
-    E39 ; execute_repz_repnz
-    E40 ; execute_call_rel_near
-    E41 ; execute_call_far
-    E42 ; execute_jmp_short
-    E43 ; execute_jmp_rel_near
-    E44 ; execute_jmp_far
-    E45 ; execute_ret_near
-    E46 ; execute_ret_far
-    E47 ; execute_ret_near_adjust_sp
-    E48 ; execute_ret_far_adjust_sp
-    E49 ; execute_jz
-    E50 ; execute_jl
-    E51 ; execute_jng
-    E52 ; execute_jb
-    E53 ; execute_jna
-    E54 ; execute_jpe
-    E55 ; execute_jo
-    E56 ; execute_js
-    E57 ; execute_jnz
-    E58 ; execute_jnl
-    E59 ; execute_jg
-    E60 ; execute_jae
-    E61 ; execute_ja
-    E62 ; execute_jpo
-    E63 ; execute_jno
-    E64 ; execute_jns
-    E65 ; execute_loop
-    E66 ; execute_loopz
-    E67 ; execute_loopnz
-    E68 ; execute_jcxz
-    E69 ; execute_int
-    E70 ; execute_int3
-    E71 ; execute_into
-    E72 ; execute_iret
-    E73 ; execute_clc
-    E74 ; execute_cmc
-    E75 ; execute_stc
-    E76 ; execute_cld
-    E77 ; execute_std
-    E78 ; execute_cli
-    E79 ; execute_sti
-    E80 ; execute_hlt
-    E81 ; execute_wait
-    E82 ; execute_esc
-    E83 ; execute_nop
-    E84 ; execute_group1a
-    E85 ; execute_group1b
-    E86 ; execute_group2a
-    E87 ; execute_group2b
-    E88 ; execute_group3a
-    E89 ; execute_group3b
-    E90 ; execute_group4a
-    E91 ; execute_group4b
-
-    BAD ; used for unimplemented or non-existent instructions
-    FUNC_COUNT ; used to check function table size at compile-time
-.endenum
-
-.assert (rbaExecuteFuncHi - rbaExecuteFuncLo) = FUNC_COUNT, error, "execute function count"
-
-; map opcodes to instruction types.
-rbaInstrExecute:
-;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte E12,E13,E12,E13,E12,E13,E03,E04,E34,E35,E34,E35,E34,E35,E03,BAD ; 0_
-.byte E14,E15,E14,E15,E14,E15,E03,E04,E22,E23,E22,E23,E22,E23,E03,E04 ; 1_
-.byte E32,E33,E32,E33,E32,E33,BAD,E19,E20,E21,E20,E21,E20,E21,BAD,E27 ; 2_
-.byte E36,E37,E36,E37,E36,E37,BAD,E18,E20,E21,E20,E21,E20,E21,BAD,E26 ; 3_
-.byte E17,E17,E17,E17,E17,E17,E17,E17,E25,E25,E25,E25,E25,E25,E25,E25 ; 4_
-.byte E03,E03,E03,E03,E03,E03,E03,E03,E04,E04,E04,E04,E04,E04,E04,E04 ; 5_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
-.byte E55,E63,E52,E60,E49,E57,E53,E61,E56,E64,E54,E62,E50,E58,E51,E59 ; 7_
-.byte E84,E85,BAD,E85,E32,E33,E05,E06,E01,E02,E01,E02,E02,E02,E02,E04 ; 8_
-.byte E83,E06,E06,E06,E06,E06,E06,E06,E30,E31,E41,E81,E03,E04,E01,E01 ; 9_
-.byte E01,E02,E01,E02,E38,E38,E39,E39,E32,E33,E38,E38,E38,E38,E39,E39 ; A_
-.byte E01,E01,E01,E01,E01,E01,E01,E01,E02,E02,E02,E02,E02,E02,E02,E02 ; B_
-.byte BAD,BAD,E47,E45,E11,E11,E01,E02,BAD,BAD,E48,E46,E70,E69,E71,E72 ; C_
-.byte E86,E87,E86,E87,E28,E29,BAD,E01,E82,E82,E82,E82,E82,E82,E82,E82 ; D_
-.byte E67,E66,E65,E68,E07,E08,E09,E10,E40,E43,E44,E42,E07,E08,E09,E10 ; E_
-.byte BAD,BAD,BAD,BAD,E80,E74,E88,E89,E73,E75,E78,E79,E76,E77,E90,E91 ; F_
+; map string instruction opcodes to jump table indices
+; this is used by repeat prefix handlers.
+size .set Opcode::MOVSB ; first string instruction
+rbaExecuteStrFuncIndex:
+index_byte_at size, Opcode::MOVSB,      {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::MOVSW,      {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::CMPSB,      {EXECUTE_FUNCS}, execute_sub_8_8
+index_byte_at size, Opcode::CMPSW,      {EXECUTE_FUNCS}, execute_sub_16_16
+; these test instructions should never be called from a repeat prefix handler.
+; they are just here to fill out the table and avoid conditional logic.
+index_byte_at size, Opcode::TEST_AL_Ib, {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::TEST_AX_Iv, {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::STOSB,      {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::STOSW,      {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::LODSB,      {EXECUTE_FUNCS}, execute_mov_8
+index_byte_at size, Opcode::LODSW,      {EXECUTE_FUNCS}, execute_mov_16
+index_byte_at size, Opcode::SCASB,      {EXECUTE_FUNCS}, execute_sub_8_8
+index_byte_at size, Opcode::SCASW,      {EXECUTE_FUNCS}, execute_sub_16_16
+.assert size = Opcode::MOVSB + 12, error, "incorrect table size"
 
 .segment "CODE"
 
@@ -394,7 +461,7 @@ rbaInstrExecute:
 ; execute the current instruction.
 .proc execute
     ldx Fetch::zbInstrOpcode
-    ldy rbaInstrExecute, x
+    ldy rbaExecuteFuncIndex, x
 
 skip_lookup:
     lda rbaExecuteFuncHi, y
@@ -404,6 +471,7 @@ skip_lookup:
     rts
 .endproc
 
+
 ; ==============================================================================
 ; extended instruction handlers
 ; ==============================================================================
@@ -412,31 +480,22 @@ skip_lookup:
 ;       we would just need to properly arranging the main function table.
 ;       that doesn't seem necessary unless we run out of ROM space.
 
-; TODO: fill out the tables with panics so invalid code doesn't crash the emulator.
-
 .segment "RODATA"
 
-rbaGroup1aFuncLo:
-.byte <(execute_add_8_8-1)
-.byte <(execute_or_8_8-1)
-.byte <(execute_adc_8_8-1)
-.byte <(execute_sbb_8_8-1)
-.byte <(execute_and_8_8-1)
-.byte <(execute_sub_8_8-1)
-.byte <(execute_xor_8_8-1)
-.byte <(execute_sub_8_8-1) ; CMP
-rbaGroup1aFuncHi:
-.byte >(execute_add_8_8-1)
-.byte >(execute_or_8_8-1)
-.byte >(execute_adc_8_8-1)
-.byte >(execute_sbb_8_8-1)
-.byte >(execute_and_8_8-1)
-.byte >(execute_sub_8_8-1)
-.byte >(execute_xor_8_8-1)
-.byte >(execute_sub_8_8-1) ; CMP
-rbaGroup1aFuncEnd:
+.define GROUP1A_FUNCS \
+execute_add_8_8, \
+execute_or_8_8, \
+execute_adc_8_8, \
+execute_sbb_8_8, \
+execute_and_8_8, \
+execute_sub_8_8, \
+execute_xor_8_8, \
+execute_sub_8_8
 
-.assert (rbaGroup1aFuncHi - rbaGroup1aFuncLo) = (rbaGroup1aFuncEnd - rbaGroup1aFuncHi), error, "incomplete group 1a address function"
+rbaGroup1aFuncLo:
+lo_return_bytes {GROUP1A_FUNCS}
+rbaGroup1aFuncHi:
+hi_return_bytes {GROUP1A_FUNCS}
 
 .segment "CODE"
 
@@ -450,29 +509,23 @@ rbaGroup1aFuncEnd:
     rts
 .endproc
 
+
 .segment "RODATA"
 
-rbaGroup1bFuncLo:
-.byte <(execute_add_16_16-1)
-.byte <(execute_or_16_16-1)
-.byte <(execute_adc_16_16-1)
-.byte <(execute_sbb_16_16-1)
-.byte <(execute_and_16_16-1)
-.byte <(execute_sub_16_16-1)
-.byte <(execute_xor_16_16-1)
-.byte <(execute_sub_16_16-1) ; CMP
-rbaGroup1bFuncHi:
-.byte >(execute_add_16_16-1)
-.byte >(execute_or_16_16-1)
-.byte >(execute_adc_16_16-1)
-.byte >(execute_sbb_16_16-1)
-.byte >(execute_and_16_16-1)
-.byte >(execute_sub_16_16-1)
-.byte >(execute_xor_16_16-1)
-.byte >(execute_sub_16_16-1) ; CMP
-rbaGroup1bFuncEnd:
+.define GROUP1B_FUNCS \
+execute_add_16_16, \
+execute_or_16_16, \
+execute_adc_16_16, \
+execute_sbb_16_16, \
+execute_and_16_16, \
+execute_sub_16_16, \
+execute_xor_16_16, \
+execute_sub_16_16
 
-.assert (rbaGroup1bFuncHi - rbaGroup1bFuncLo) = (rbaGroup1bFuncEnd - rbaGroup1bFuncHi), error, "incomplete group 1b address function"
+rbaGroup1bFuncLo:
+lo_return_bytes {GROUP1B_FUNCS}
+rbaGroup1bFuncHi:
+hi_return_bytes {GROUP1B_FUNCS}
 
 .segment "CODE"
 
@@ -486,29 +539,23 @@ rbaGroup1bFuncEnd:
     rts
 .endproc
 
+
 .segment "RODATA"
 
-rbaGroup2aFuncLo:
-.byte <(execute_rol_8_8-1)
-.byte <(execute_ror_8_8-1)
-.byte <(execute_rcl_8_8-1)
-.byte <(execute_rcr_8_8-1)
-.byte <(execute_shl_8_8-1)
-.byte <(execute_shr_8_8-1)
-.byte <(execute_bad-1)
-.byte <(execute_sar_8_8-1)
-rbaGroup2aFuncHi:
-.byte >(execute_rol_8_8-1)
-.byte >(execute_ror_8_8-1)
-.byte >(execute_rcl_8_8-1)
-.byte >(execute_rcr_8_8-1)
-.byte >(execute_shl_8_8-1)
-.byte >(execute_shr_8_8-1)
-.byte >(execute_bad-1)
-.byte >(execute_sar_8_8-1)
-rbaGroup2aFuncEnd:
+.define GROUP2A_FUNCS \
+execute_rol_8_8, \
+execute_ror_8_8, \
+execute_rcl_8_8, \
+execute_rcr_8_8, \
+execute_shl_8_8, \
+execute_shr_8_8, \
+execute_bad, \
+execute_sar_8_8
 
-.assert (rbaGroup2aFuncHi - rbaGroup2aFuncLo) = (rbaGroup2aFuncEnd - rbaGroup2aFuncHi), error, "incomplete group 2a address function"
+rbaGroup2aFuncLo:
+lo_return_bytes {GROUP2A_FUNCS}
+rbaGroup2aFuncHi:
+hi_return_bytes {GROUP2A_FUNCS}
 
 .segment "CODE"
 
@@ -522,29 +569,23 @@ rbaGroup2aFuncEnd:
     rts
 .endproc
 
+
 .segment "RODATA"
 
-rbaGroup2bFuncLo:
-.byte <(execute_rol_16_8-1)
-.byte <(execute_ror_16_8-1)
-.byte <(execute_rcl_16_8-1)
-.byte <(execute_rcr_16_8-1)
-.byte <(execute_shl_16_8-1)
-.byte <(execute_shr_16_8-1)
-.byte <(execute_bad-1)
-.byte <(execute_sar_16_8-1)
-rbaGroup2bFuncHi:
-.byte >(execute_rol_16_8-1)
-.byte >(execute_ror_16_8-1)
-.byte >(execute_rcl_16_8-1)
-.byte >(execute_rcr_16_8-1)
-.byte >(execute_shl_16_8-1)
-.byte >(execute_shr_16_8-1)
-.byte >(execute_bad-1)
-.byte >(execute_sar_16_8-1)
-rbaGroup2bFuncEnd:
+.define GROUP2B_FUNCS \
+execute_rol_16_8, \
+execute_ror_16_8, \
+execute_rcl_16_8, \
+execute_rcr_16_8, \
+execute_shl_16_8, \
+execute_shr_16_8, \
+execute_bad, \
+execute_sar_16_8
 
-.assert (rbaGroup2bFuncHi - rbaGroup2bFuncLo) = (rbaGroup2bFuncEnd - rbaGroup2bFuncHi), error, "incomplete group 2b address function"
+rbaGroup2bFuncLo:
+lo_return_bytes {GROUP2B_FUNCS}
+rbaGroup2bFuncHi:
+hi_return_bytes {GROUP2B_FUNCS}
 
 .segment "CODE"
 
@@ -558,29 +599,23 @@ rbaGroup2bFuncEnd:
     rts
 .endproc
 
+
 .segment "RODATA"
 
-rbaGroup3aFuncLo:
-.byte <(execute_and_8_8-1) ; TEST
-.byte <(execute_bad-1)
-.byte <(execute_not_8-1)
-.byte <(execute_neg_8-1)
-.byte <(execute_mul_8_8-1)
-.byte <(execute_imul_8_8-1)
-.byte <(execute_div_16_8-1)
-.byte <(execute_idiv_16_8-1)
-rbaGroup3aFuncHi:
-.byte >(execute_and_8_8-1) ; TEST
-.byte >(execute_bad-1)
-.byte >(execute_not_8-1)
-.byte >(execute_neg_8-1)
-.byte >(execute_mul_8_8-1)
-.byte >(execute_imul_8_8-1)
-.byte >(execute_div_16_8-1)
-.byte >(execute_idiv_16_8-1)
-rbaGroup3aFuncEnd:
+.define GROUP3A_FUNCS \
+execute_and_8_8, \
+execute_bad, \
+execute_not_8, \
+execute_neg_8, \
+execute_mul_8_8, \
+execute_imul_8_8, \
+execute_div_16_8, \
+execute_idiv_16_8
 
-.assert (rbaGroup3aFuncHi - rbaGroup3aFuncLo) = (rbaGroup3aFuncEnd - rbaGroup3aFuncHi), error, "incomplete group 3a address function"
+rbaGroup3aFuncLo:
+lo_return_bytes {GROUP3A_FUNCS}
+rbaGroup3aFuncHi:
+hi_return_bytes {GROUP3A_FUNCS}
 
 .segment "CODE"
 
@@ -594,29 +629,23 @@ rbaGroup3aFuncEnd:
     rts
 .endproc
 
+
 .segment "RODATA"
 
-rbaGroup3bFuncLo:
-.byte <(execute_and_16_16-1) ; TEST
-.byte <(execute_bad-1)
-.byte <(execute_not_16-1)
-.byte <(execute_neg_16-1)
-.byte <(execute_mul_16_16-1)
-.byte <(execute_imul_16_16-1)
-.byte <(execute_div_32_16-1)
-.byte <(execute_idiv_32_16-1)
-rbaGroup3bFuncHi:
-.byte >(execute_and_16_16-1) ; TEST
-.byte >(execute_bad-1)
-.byte >(execute_not_16-1)
-.byte >(execute_neg_16-1)
-.byte >(execute_mul_16_16-1)
-.byte >(execute_imul_16_16-1)
-.byte >(execute_div_32_16-1)
-.byte >(execute_idiv_32_16-1)
-rbaGroup3bFuncEnd:
+.define GROUP3B_FUNCS \
+execute_and_16_16, \
+execute_bad, \
+execute_not_16, \
+execute_neg_16, \
+execute_mul_16_16, \
+execute_imul_16_16, \
+execute_div_32_16, \
+execute_idiv_32_16
 
-.assert (rbaGroup3bFuncHi - rbaGroup3bFuncLo) = (rbaGroup3bFuncEnd - rbaGroup3bFuncHi), error, "incomplete group 3b address function"
+rbaGroup3bFuncLo:
+lo_return_bytes {GROUP3B_FUNCS}
+rbaGroup3bFuncHi:
+hi_return_bytes {GROUP3B_FUNCS}
 
 .segment "CODE"
 
@@ -630,29 +659,23 @@ rbaGroup3bFuncEnd:
     rts
 .endproc
 
+
 .segment "RODATA"
 
-rbaGroup4aFuncLo:
-.byte <(execute_inc_8-1)
-.byte <(execute_dec_8-1)
-; .byte <(execute_bad-1)
-; .byte <(execute_bad-1)
-; .byte <(execute_bad-1)
-; .byte <(execute_bad-1)
-; .byte <(execute_bad-1)
-; .byte <(execute_bad-1)
-rbaGroup4aFuncHi:
-.byte >(execute_inc_8-1)
-.byte >(execute_dec_8-1)
-; .byte >(execute_bad-1)
-; .byte >(execute_bad-1)
-; .byte >(execute_bad-1)
-; .byte >(execute_bad-1)
-; .byte >(execute_bad-1)
-; .byte >(execute_bad-1)
-rbaGroup4aFuncEnd:
+.define GROUP4A_FUNCS \
+execute_inc_8, \
+execute_dec_8, \
+execute_bad, \
+execute_bad, \
+execute_bad, \
+execute_bad, \
+execute_bad, \
+execute_bad
 
-.assert (rbaGroup4aFuncHi - rbaGroup4aFuncLo) = (rbaGroup4aFuncEnd - rbaGroup4aFuncHi), error, "incomplete group 4a address function"
+rbaGroup4aFuncLo:
+lo_return_bytes {GROUP4A_FUNCS}
+rbaGroup4aFuncHi:
+hi_return_bytes {GROUP4A_FUNCS}
 
 .segment "CODE"
 
@@ -666,29 +689,23 @@ rbaGroup4aFuncEnd:
     rts
 .endproc
 
+
 .segment "RODATA"
 
-rbaGroup4bFuncLo:
-.byte <(execute_inc_16-1)
-.byte <(execute_dec_16-1)
-.byte <(execute_call_abs_near-1)
-.byte <(execute_call_far-1)
-.byte <(execute_jmp_abs_near-1)
-.byte <(execute_jmp_far-1)
-.byte <(execute_push-1)
-.byte <(execute_bad-1)
-rbaGroup4bFuncHi:
-.byte >(execute_inc_16-1)
-.byte >(execute_dec_16-1)
-.byte >(execute_call_abs_near-1)
-.byte >(execute_call_far-1)
-.byte >(execute_jmp_abs_near-1)
-.byte >(execute_jmp_far-1)
-.byte >(execute_push-1)
-.byte >(execute_bad-1)
-rbaGroup4bFuncEnd:
+.define GROUP4B_FUNCS \
+execute_inc_16, \
+execute_dec_16, \
+execute_call_abs_near, \
+execute_call_far, \
+execute_jmp_abs_near, \
+execute_jmp_far, \
+execute_push, \
+execute_bad
 
-.assert (rbaGroup4bFuncHi - rbaGroup4bFuncLo) = (rbaGroup4bFuncEnd - rbaGroup4bFuncHi), error, "incomplete group 4b address function"
+rbaGroup4bFuncLo:
+lo_return_bytes {GROUP4B_FUNCS}
+rbaGroup4bFuncHi:
+hi_return_bytes {GROUP4B_FUNCS}
 
 .segment "CODE"
 
@@ -707,33 +724,23 @@ rbaGroup4bFuncEnd:
 ; repeat handlers
 ; ==============================================================================
 
-.segment "RODATA"
-
-; this gives us an index for "execute" to use
-rbaStrInstrExecute:
-;      _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte E01,E02,E20,E21,BAD,BAD,E01,E02,E01,E02,E20,E21 ; A_
-
 .segment "CODE"
-
-STR_INSTR_OFFSET = $A4
-REPNZ_PREFIX = $F2
 
 ; execute MOVS/STOS/LODS with or without a repeat prefix
 .proc execute_rep_repnz
     ; lookup the handler function index for this instruction
     ; X still holds the instruction opcode
-    ldy rbaStrInstrExecute - STR_INSTR_OFFSET, x
+    ldy rbaExecuteStrFuncIndex - Opcode::MOVSB, x
 
     ; check if the instruction has a prefix.
     lda Fetch::zbPrefixRepeat
     beq execute::skip_lookup ; branch if there is no prefix.
 
     ; check which prefix is being used.
-    cmp #REPNZ_PREFIX
+    cmp #Opcode::REPNZ
     beq execute_repnz ; branch if the prefix is REPNZ
     ; assume prefix is REP
-    ; [fall_through]
+    ; [tail_branch]
 .endproc
 
 ; repeat string instruction as long as CX != 0
@@ -753,17 +760,17 @@ REPNZ_PREFIX = $F2
 .proc execute_repz_repnz
     ; lookup the handler function index for this instruction
     ; X still holds the instruction opcode
-    ldy rbaStrInstrExecute - STR_INSTR_OFFSET, x
+    ldy rbaExecuteStrFuncIndex - Opcode::MOVSB, x
 
     ; check if the instruction has a prefix.
     lda Fetch::zbPrefixRepeat
     beq execute::skip_lookup ; branch if there is no prefix.
 
     ; check which prefix is being used.
-    cmp #REPNZ_PREFIX
+    cmp #Opcode::REPNZ
     beq execute_repnz ; branch if the prefix is REPNZ
     ; assume prefix is REPZ
-    ; [fall_through]
+    ; [tail_branch]
 .endproc
 
 ; repeat string instruction as long as CX != 0 and ZF == 1.
@@ -806,7 +813,6 @@ REPNZ_PREFIX = $F2
 .endproc
 
 
-
 ; ==============================================================================
 ; extended execution handlers
 ; ==============================================================================
@@ -814,6 +820,7 @@ REPNZ_PREFIX = $F2
 .proc execute_ext
     rts
 .endproc
+
 
 ; ==============================================================================
 ; execution handlers
@@ -873,6 +880,8 @@ REPNZ_PREFIX = $F2
 
 
 .segment "ZEROPAGE"
+
+; TODO: refactor mem.s to fix this.
 
 fuckup: .res 3
 
@@ -936,29 +945,36 @@ fuckup: .res 3
     rts
 .endproc
 
+
 ; TODO: implement IN and OUT instructions.
 ;       we'll do this once it's needed.
 
 .proc execute_in_16
-    jsr Io::in
-    sta Reg::zbD0L
-    rts
-.endproc
-
-.proc execute_in_8
     jsr Io::in
     sta Reg::zwD0X
     stx Reg::zwD0X+1
     rts
 .endproc
 
+
+.proc execute_in_8
+    jsr Io::in
+    sta Reg::zbD0L
+    rts
+.endproc
+
+
 .proc execute_out_16
     jmp Io::out
+    ; [tail_jump]
 .endproc
+
 
 .proc execute_out_8
     jmp Io::out
+    ; [tail_jump]
 .endproc
+
 
 ; ----------------------------------------
 ; arithmetic handlers
@@ -1085,7 +1101,6 @@ fuckup: .res 3
 
     jsr clear_carry_flag
     jmp clear_auxiliary_flag
-    ; [tail_jump]
 
 do_adjust:
     AAA_ADJUST = $0106
@@ -1344,6 +1359,7 @@ do_adjust:
     ; [tail_jump]
 .endproc
 
+
 ; decimal adjust after subtraction.
 ; adjusts the difference of two packed BCD values to create a packed BCD result.
 ; i'm not 100% sure if that this implementation is correct but it should be close.
@@ -1507,6 +1523,7 @@ calc_flags:
     ; [tail_jump]
 .endproc
 
+
 ; NOTE: the division functions are full of exceptions to the normal rules of the emulator.
 
 .proc execute_div_32_16
@@ -1522,7 +1539,7 @@ calc_flags:
 
     jsr Alu::div_32_16
     bcc success
-    lda #Interrupt::DIVIDE_ERROR
+    lda #Interrupt::eType::DIVIDE_ERROR
     jmp Interrupt::int
 success:
 
@@ -1538,6 +1555,7 @@ success:
     rts
 .endproc
 
+
 .proc execute_div_16_8
     lda Reg::zwAX
     sta Reg::zwD0X
@@ -1546,7 +1564,7 @@ success:
 
     jsr Alu::div_16_8
     bcc success
-    lda #Interrupt::DIVIDE_ERROR
+    lda #Interrupt::eType::DIVIDE_ERROR
     jmp Interrupt::int
 success:
 
@@ -1556,6 +1574,7 @@ success:
     sta Reg::zbAH
     rts
 .endproc
+
 
 .proc execute_idiv_32_16
     lda Reg::zwAX
@@ -1570,7 +1589,7 @@ success:
 
     jsr Alu::idiv_32_16
     bcc success
-    lda #Interrupt::DIVIDE_ERROR
+    lda #Interrupt::eType::DIVIDE_ERROR
     jmp Interrupt::int
 success:
 
@@ -1586,6 +1605,7 @@ success:
     rts
 .endproc
 
+
 .proc execute_idiv_16_8
     lda Reg::zwAX
     sta Reg::zwD0X
@@ -1594,7 +1614,7 @@ success:
 
     jsr Alu::idiv_16_8
     bcc success
-    lda #Interrupt::DIVIDE_ERROR
+    lda #Interrupt::eType::DIVIDE_ERROR
     jmp Interrupt::int
 success:
 
@@ -1662,6 +1682,7 @@ success:
     sta Reg::zwD1X+1
     rts
 .endproc
+
 
 ; ----------------------------------------
 ; logic handlers
@@ -1994,6 +2015,7 @@ success:
     ; [tail_jump]
 .endproc
 
+
 ; ----------------------------------------
 ; string manipulation handlers
 ; ----------------------------------------
@@ -2096,6 +2118,7 @@ success:
     rts
 .endproc
 
+
 .proc execute_ret_near
     ldx #Reg::zwSS
     jsr Mem::use_segment
@@ -2105,6 +2128,7 @@ success:
     stx Reg::zwIP+1
     rts
 .endproc
+
 
 .proc execute_ret_far_adjust_sp
     jsr execute_ret_far
@@ -2123,6 +2147,7 @@ success:
     sta Reg::zwSP+1
     rts
 .endproc
+
 
 .proc execute_ret_near_adjust_sp
     jsr execute_ret_near
@@ -2162,7 +2187,6 @@ SF_ZF_OF_MASK = <Reg::FLAG_SF | <Reg::FLAG_ZF | >Reg::FLAG_OF
     bne execute_jmp_short ; branch if the zero flag is set
     rts
 .endproc
-
 
 
 ; jump if less (JL)
@@ -2205,6 +2229,7 @@ no_jump:
     rts
 .endproc
 
+
 ; jump if not above (JNA)
 ; jump if below or equal (JBE)
 ; jump if (ZF | CF) == 1
@@ -2223,6 +2248,7 @@ no_jump:
     bne execute_jmp_short ; branch if the parity flag is set
     rts
 .endproc
+
 
 ; jump if overflow (JO)
 .proc execute_jo
@@ -2301,6 +2327,7 @@ no_jump:
     rts
 .endproc
 
+
 ; jump if above or equal (JAE)
 ; jump if not below (JNB)
 ; jump if not carry (JNC)
@@ -2309,6 +2336,7 @@ no_jump:
     beq execute_jmp_short ; branch if the carry flag is cleared
     rts
 .endproc
+
 
 ; jump if above (JA)
 ; jump if not below nor equal (JNBE)
@@ -2320,6 +2348,7 @@ no_jump:
     rts
 .endproc
 
+
 ; jump if not parity (JNP)
 ; jump if parity odd (JPO)
 .proc execute_jpo
@@ -2328,12 +2357,14 @@ no_jump:
     rts
 .endproc
 
+
 ; jump if not overflow (JNO)
 .proc execute_jno
     jsr get_overflow_flag
     beq execute_jmp_short ; branch if the overflow flag is cleared
     rts
 .endproc
+
 
 ; jump if not sign (JNS)
 .proc execute_jns
@@ -2353,6 +2384,7 @@ no_jump:
     bne execute_jmp_short ; branch if CX != 0
     rts
 .endproc
+
 
 ; decrement CX
 ; jump if CX is not 0 and ZF is set
@@ -2399,23 +2431,25 @@ done:
 
 
 .proc execute_int3
-    lda #Interrupt::BREAKPOINT
+    lda #Interrupt::eType::BREAKPOINT
     jmp Interrupt::int
     ; [tail_jump]
 .endproc
 
 
 .proc execute_into
-    lda #Interrupt::OVERFLOW
+    lda #Interrupt::eType::OVERFLOW
     jmp Interrupt::int
     ; [tail_jump]
 .endproc
+
 
 ; TODO: call Interrupt::iret directly
 .proc execute_iret
     jmp Interrupt::iret
     ; [tail_jump]
 .endproc
+
 
 ; ----------------------------------------
 ; processor control handlers
@@ -2428,6 +2462,7 @@ done:
     ; [tail_jump]
 .endproc
 
+
 .proc execute_cmc
     jsr get_carry_flag
     eor #<Reg::FLAG_CF
@@ -2435,31 +2470,37 @@ done:
     ; [tail_jump]
 .endproc
 
+
 .proc execute_stc
     jmp set_carry_flag
     ; [tail_jump]
 .endproc
+
 
 .proc execute_cld
     jmp clear_direction_flag
     ; [tail_jump]
 .endproc
 
+
 .proc execute_std
     jmp set_direction_flag
     ; [tail_jump]
 .endproc
+
 
 .proc execute_cli
     jmp clear_interrupt_flag
     ; [tail_jump]
 .endproc
 
+
 .proc execute_sti
     jsr set_interrupt_flag
     jmp Interrupt::skip
     ; [tail_jump]
 .endproc
+
 
 ; halt the processor until an interrupt or reset brings us out of the halt state.
 ; in the halt state, the fetch, decode, execute, and write stages will be bypassed.
@@ -2469,12 +2510,14 @@ done:
     rts
 .endproc
 
+
 ; WAIT causes the CPU to enter the wait state while the /TEST line is not active.
 ; i don't think we need to emulate this behavior for anything.
 ; we'll just return immediately as if the /TEST line is active.
 .proc execute_wait
     rts
 .endproc
+
 
 ; ESC provides a way to send instructions to an external co-processor,
 ; such as a floating point unit (FPU). we don't have any such co-processor.
@@ -2484,6 +2527,7 @@ done:
 .proc execute_esc
     rts
 .endproc
+
 
 ; ----------------------------------------
 ; other handlers
@@ -2496,10 +2540,11 @@ done:
 
 
 .proc execute_bad
-    lda #X86::Err::EXECUTE_FUNC
+    lda #X86::eErr::EXECUTE_FUNC
     jmp X86::panic
     ; [tail_jump]
 .endproc
+
 
 ; ==============================================================================
 ; utility functions
@@ -2516,6 +2561,7 @@ done:
     rts
 .endproc
 
+
 ; decrement CX and then check if it is zero.
 ; > Z = 1 if CX == 0
 ;   Z = 0 if CX != 0
@@ -2530,6 +2576,7 @@ done:
     ora Reg::zwCX
     rts
 .endproc
+
 
 ; ----------------------------------------
 ; flag functions
@@ -2560,6 +2607,7 @@ done:
 .proc set_carry_flag
     lda #<Reg::FLAG_CF
     jmp Reg::set_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2587,6 +2635,7 @@ done:
 .proc clear_carry_flag
     lda #<(~Reg::FLAG_CF)
     jmp Reg::clear_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2622,6 +2671,7 @@ loop_end:
 .proc set_parity_flag
     lda #<Reg::FLAG_PF
     jmp Reg::set_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2630,6 +2680,7 @@ loop_end:
 .proc clear_parity_flag
     lda #<(~Reg::FLAG_PF)
     jmp Reg::clear_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2652,6 +2703,7 @@ loop_end:
 .proc set_auxiliary_flag
     lda #<Reg::FLAG_AF
     jmp Reg::set_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2660,6 +2712,7 @@ loop_end:
 .proc clear_auxiliary_flag
     lda #<(~Reg::FLAG_AF)
     jmp Reg::clear_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2686,6 +2739,7 @@ loop_end:
 .proc set_zero_flag
     lda #<Reg::FLAG_ZF
     jmp Reg::set_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2704,6 +2758,7 @@ loop_end:
 .proc clear_zero_flag
     lda #<(~Reg::FLAG_ZF)
     jmp Reg::clear_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2721,6 +2776,7 @@ loop_end:
 .proc set_sign_flag
     lda #<Reg::FLAG_SF
     jmp Reg::set_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2738,6 +2794,7 @@ loop_end:
 .proc clear_sign_flag
     lda #<(~Reg::FLAG_SF)
     jmp Reg::clear_flag_lo
+    ; [tail_jump]
 .endproc
 
 
@@ -2755,7 +2812,6 @@ loop_end:
     ; [tail_branch]
 .endproc
 
-
 ; calculate the new state of the overflow flag (OF) after 16-bit negation.
 ; this is the same as setting OF after subtraction but operand 0 is assumed to be 0.
 ; OF is set if 0 == S0L.15 and 1 == D0L.15.
@@ -2769,7 +2825,6 @@ loop_end:
     bpl clear_overflow_flag
     ; [tail_branch]
 .endproc
-
 
 ; calculate the new state of the overflow flag (OF) after 8-bit increment.
 ; this is the same as setting OF after addition but operand 1 is assumed to be 1.
@@ -2785,7 +2840,6 @@ loop_end:
     ; [tail_branch]
 .endproc
 
-
 ; calculate the new state of the overflow flag (OF) after 16-bit increment.
 ; this is the same as setting OF after addition but operand 1 is assumed to be 1.
 ; OF is set if 0 == S0X.15 and 1 == D0X.15.
@@ -2799,7 +2853,6 @@ loop_end:
     bmi set_overflow_flag
     ; [tail_branch]
 .endproc
-
 
 ; calculate the new state of the overflow flag (OF) after 8-bit subtraction.
 ; this is the same as setting OF after subtraction but operand 1 is assumed to be 1.
@@ -2815,7 +2868,6 @@ loop_end:
     ; [tail_branch]
 .endproc
 
-
 ; calculate the new state of the overflow flag (OF) after 16-bit subtraction.
 ; this is the same as setting OF after subtraction but operand 1 is assumed to be 1.
 ; OF is set if 1 == S0L.15 and 1 == D0L.15.
@@ -2829,7 +2881,6 @@ loop_end:
     bpl clear_overflow_flag
     ; [tail_branch]
 .endproc
-
 
 ; calculate the new state of the overflow flag (OF) after 8-bit addition.
 ; OF is set if S0L.7 == S1L.7 and S0L.7 != D0L.7.
@@ -2846,7 +2897,6 @@ loop_end:
     ; [tail_branch]
 .endproc
 
-
 ; calculate the new state of the overflow flag (OF) after 16-bit addition.
 ; OF is set if S0L.15 == S1L.15 and S0L.15 != D0L.15.
 ; otherwise, OF is cleared.
@@ -2862,7 +2912,6 @@ loop_end:
     ; [tail_branch]
 .endproc
 
-
 ; calculate the new state of the overflow flag (OF) after 8-bit subtraction.
 ; OF is set if S0L.7 != S1L.7 and S0L.7 != D0L.7.
 ; otherwise, OF is cleared.
@@ -2877,7 +2926,6 @@ loop_end:
     bmi set_overflow_flag
     ; [tail_branch]
 .endproc
-
 
 ; calculate the new state of the overflow flag (OF) after 16-bit subtraction.
 ; OF is set if S0L.15 != S1L.15 and S0L.15 != D0L.15.
@@ -2899,6 +2947,7 @@ loop_end:
 .proc set_overflow_flag
     lda #>Reg::FLAG_OF
     jmp Reg::set_flag_hi
+    ; [tail_jump]
 .endproc
 
 
@@ -2922,6 +2971,7 @@ loop_end:
 .proc clear_overflow_flag
     lda #>(~Reg::FLAG_OF)
     jmp Reg::clear_flag_hi
+    ; [tail_jump]
 .endproc
 
 
@@ -2941,7 +2991,6 @@ loop_end:
     ; [tail_branch]
 .endproc
 
-
 ; calculate the new state of the overflow flag (OF) after signed 8-bit multiplication.
 ; OF is set if all bits of D0H == D0L.7
 ; otherwise, OF is cleared.
@@ -2956,7 +3005,6 @@ loop_end:
     bcc clear_overflow_flag
     ; [tail_branch]
 .endproc
-
 
 ; calculate the new state of the overflow flag (OF) after signed 16-bit multiplication.
 ; OF is set if all bits of D1X == D0X.15
@@ -2980,7 +3028,6 @@ loop_end:
     ; [tail_branch]
 .endproc
 
-
 ; calculate the new state of the overflow flag (OF) after a 16-bit shift.
 ; OF is set if the sign bit changed.
 ; otherwise, OF is cleared.
@@ -2991,7 +3038,6 @@ loop_end:
     bmi set_overflow_flag
     ; [tail_branch]
 .endproc
-
 
 ; calculate the new state of the overflow flag (OF) after a 16-bit shift.
 ; OF is set if the sign bit changed.
@@ -3004,12 +3050,12 @@ loop_end:
     ; [tail_branch]
 .endproc
 
-
 ; set the trap flag (TF) to 1
 ; changes: A
 .proc set_trap_flag
     lda #>Reg::FLAG_TF
     jmp Reg::set_flag_hi
+    ; [tail_jump]
 .endproc
 
 
@@ -3018,6 +3064,7 @@ loop_end:
 .proc clear_trap_flag
     lda #>(~Reg::FLAG_TF)
     jmp Reg::clear_flag_hi
+    ; [tail_jump]
 .endproc
 
 
@@ -3026,6 +3073,7 @@ loop_end:
 .proc set_interrupt_flag
     lda #>Reg::FLAG_IF
     jmp Reg::set_flag_hi
+    ; [tail_jump]
 .endproc
 
 
@@ -3034,6 +3082,7 @@ loop_end:
 .proc clear_interrupt_flag
     lda #>(~Reg::FLAG_IF)
     jmp Reg::clear_flag_hi
+    ; [tail_jump]
 .endproc
 
 
@@ -3042,6 +3091,7 @@ loop_end:
 .proc set_direction_flag
     lda #>Reg::FLAG_DF
     jmp Reg::set_flag_hi
+    ; [tail_jump]
 .endproc
 
 
@@ -3050,6 +3100,7 @@ loop_end:
 .proc clear_direction_flag
     lda #>(~Reg::FLAG_DF)
     jmp Reg::clear_flag_hi
+    ; [tail_jump]
 .endproc
 
 

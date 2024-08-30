@@ -36,7 +36,7 @@ zbNmiCount: .res 1
     pla ; restore Y register
     tay
     pla ; restore X register
-    tax 
+    tax
     pla ; restore A register
 
     rti

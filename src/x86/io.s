@@ -75,6 +75,7 @@
     rts
 .endproc
 
+
 ; =============================================================================
 ; private interface
 ; =============================================================================
@@ -146,16 +147,24 @@ BANK_MASK = %11000000_00000000
 ; then we can decide to emulate the device or let "io_none" handle it.
 ; this is mostly for debugging.
 .proc io_bad
-    lda #X86::Err::IO_FUNC
+    lda #X86::eErr::IO_FUNC
     jmp X86::panic
     ; [tail_jump]
 .endproc
 
-.proc read_keybaord
-    jsr Keyboard::get_key
-    bcs read_keybaord
-    rts
-.endproc
+
+; read a key from the keyboard.
+; this function will block until a key is pressed.
+; > A = ASCII code
+; changes: A, X
+; .proc read_keybaord
+;     jsr Keyboard::get_key
+;     ; bcs read_keybaord
+;     bcc done
+;     lda #0
+; done:
+;     rts
+; .endproc
 
 
 ; =============================================================================
@@ -179,75 +188,79 @@ TABLE_SIZE = 256
     COM1_MSR
     COM1_SR
     KB_DATA
+    KB_STATUS
     FUNC_COUNT
 .endenum
 
 ; handlers that send data from I/O devices to the CPU.
-.define IoInFunc \
-    io_bad-1, \
-    io_in_none-1, \
-    Uart::get_rbr-1, \
-    Uart::get_ier-1, \
-    Uart::get_iir-1, \
-    Uart::get_lcr-1, \
-    io_bad-1, \
-    Uart::get_lsr-1, \
-    Uart::get_msr-1, \
-    Uart::get_sr-1, \
-    read_keybaord-1
+.define IO_IN_FUNCS \
+io_bad-1, \
+io_in_none-1, \
+Uart::get_rbr-1, \
+Uart::get_ier-1, \
+Uart::get_iir-1, \
+Uart::get_lcr-1, \
+io_bad-1, \
+Uart::get_lsr-1, \
+Uart::get_msr-1, \
+Uart::get_sr-1, \
+Keyboard::get_key-1, \
+Keyboard::buffer_status-1
 
 ; handlers that send data from the CPU to I/O devices.
-.define IoOutFunc \
-    io_bad-1, \
-    io_out_none-1, \
-    Uart::set_thr-1, \
-    Uart::set_ier-1, \
-    Uart::set_fcr-1, \
-    Uart::set_lcr-1, \
-    Uart::set_mcr-1, \
-    io_bad-1, \
-    io_bad-1, \
-    Uart::set_sr-1, \
-    io_out_none-1
-
+.define IO_OUT_FUNCS \
+io_bad-1, \
+io_out_none-1, \
+Uart::set_thr-1, \
+Uart::set_ier-1, \
+Uart::set_fcr-1, \
+Uart::set_lcr-1, \
+Uart::set_mcr-1, \
+io_bad-1, \
+io_bad-1, \
+Uart::set_sr-1, \
+io_out_none-1, \
+io_out_none-1
 
 ; build function pointer tables.
 ; tables are filled to capacity with io_bad pointers.
 ; this is done to ensure proper execution even if we get an invalid function index.
 
+; I/O IN function tables
 rbaIoInFuncLo:
-    .lobytes IoInFunc
+.lobytes IO_IN_FUNCS
+
 rbaIoInFuncLoMid:
-    .assert rbaIoInFuncLoMid - rbaIoInFuncLo <= TABLE_SIZE, error, "too many IN handlers"
-    .repeat TABLE_SIZE - (rbaIoInFuncLoMid - rbaIoInFuncLo)
-        .byte <(io_bad-1)
-    .endrepeat
+.assert rbaIoInFuncLoMid - rbaIoInFuncLo <= TABLE_SIZE, error, "too many IN handlers"
+.repeat TABLE_SIZE - (rbaIoInFuncLoMid - rbaIoInFuncLo)
+    .byte <(io_bad-1)
+.endrepeat
 rbaIoInFuncLoEnd:
 
 rbaIoInFuncHi:
-    .hibytes IoInFunc
+.hibytes IO_IN_FUNCS
 rbaIoInFuncHiMid:
-    .repeat TABLE_SIZE - (rbaIoInFuncHiMid - rbaIoInFuncHi)
-        .byte <(io_bad-1)
-    .endrepeat
+.repeat TABLE_SIZE - (rbaIoInFuncHiMid - rbaIoInFuncHi)
+    .byte <(io_bad-1)
+.endrepeat
 rbaIoInFuncHiEnd:
 
-
+; I/O OUT function tables
 rbaIoOutFuncLo:
-    .lobytes IoOutFunc
+.lobytes IO_OUT_FUNCS
 rbaIoOutFuncLoMid:
-    .assert rbaIoOutFuncLoMid - rbaIoOutFuncLo <= TABLE_SIZE, error, "too many OUT handlers"
-    .repeat TABLE_SIZE - (rbaIoOutFuncLoMid - rbaIoOutFuncLo)
-        .byte <(io_bad-1)
-    .endrepeat
+.assert rbaIoOutFuncLoMid - rbaIoOutFuncLo <= TABLE_SIZE, error, "too many OUT handlers"
+.repeat TABLE_SIZE - (rbaIoOutFuncLoMid - rbaIoOutFuncLo)
+    .byte <(io_bad-1)
+.endrepeat
 rbaIoOutFuncLoEnd:
 
 rbaIoOutFuncHi:
-    .hibytes IoOutFunc
+.hibytes IO_OUT_FUNCS
 rbaIoOutFuncHiMid:
-    .repeat TABLE_SIZE - (rbaIoOutFuncHiMid - rbaIoOutFuncHi)
-        .byte <(io_bad-1)
-    .endrepeat
+.repeat TABLE_SIZE - (rbaIoOutFuncHiMid - rbaIoOutFuncHi)
+    .byte <(io_bad-1)
+.endrepeat
 rbaIoOutFuncHiEnd:
 
 ; check that we have the same number of input and output handlers.
@@ -290,47 +303,47 @@ current_port .set 0
     current_port .set port + 1
 .endmacro
 
-
 ; map functions to I/O ports.
 rbaIoFuncIndex:
-    map_port $0020, eIoFunc::NONE ; TODO: PIC Interrupt Command Register
-    map_port $0021, eIoFunc::NONE ; TODO: PIC Interrupt Mask Register
+map_port $0020, eIoFunc::NONE ; TODO: PIC Interrupt Command Register
+map_port $0021, eIoFunc::NONE ; TODO: PIC Interrupt Mask Register
 
-    map_port $0040, eIoFunc::NONE ; TODO: PIT Counter 0 Data Port
-    map_port $0043, eIoFunc::NONE ; TODO: PIT Control Word Register
+map_port $0040, eIoFunc::NONE ; TODO: PIT Counter 0 Data Port
+map_port $0043, eIoFunc::NONE ; TODO: PIT Control Word Register
 
-    map_port $0060, eIoFunc::KB_DATA ; read keyboard data
+map_port $0060, eIoFunc::KB_DATA ; read keyboard data
+map_port $0064, eIoFunc::KB_STATUS ; read keyboard status
 
-    map_port $0080, eIoFunc::NONE ; delay
+map_port $0080, eIoFunc::NONE ; delay
 
-    ; COM4
-    map_port $02e9, eIoFunc::NONE ; COM4_IER
+; COM4
+map_port $02e9, eIoFunc::NONE ; COM4_IER
 
-    ; COM2
-    map_port $02f9, eIoFunc::NONE ; COM2_IER
+; COM2
+map_port $02f9, eIoFunc::NONE ; COM2_IER
 
-    ; COM3
-    map_port $03e9, eIoFunc::NONE ; COM3_IER
+; COM3
+map_port $03e9, eIoFunc::NONE ; COM3_IER
 
-    ; COM1
-    map_port $03f8, eIoFunc::COM1_DATA
-    ; map_port $03f9, eIoFunc::COM1_IER
-    map_port $03f9, eIoFunc::NONE ; COM3_IER
-    ; map_port $03fa, eIoFunc::COM1_IIR_FCR
-    ; map_port $03fb, eIoFunc::COM1_LCR
-    ; map_port $03fc, eIoFunc::COM1_MCR
-    ; map_port $03fd, eIoFunc::COM1_LSR
-    map_port $03fd, eIoFunc::NONE ; COM1_LSR
-    ; map_port $03fe, eIoFunc::COM1_MSR
-    ; map_port $03ff, eIoFunc::COM1_SR
+; COM1
+map_port $03f8, eIoFunc::COM1_DATA
+; map_port $03f9, eIoFunc::COM1_IER
+map_port $03f9, eIoFunc::NONE ; COM3_IER
+; map_port $03fa, eIoFunc::COM1_IIR_FCR
+; map_port $03fb, eIoFunc::COM1_LCR
+; map_port $03fc, eIoFunc::COM1_MCR
+; map_port $03fd, eIoFunc::COM1_LSR
+map_port $03fd, eIoFunc::NONE ; COM1_LSR
+; map_port $03fe, eIoFunc::COM1_MSR
+; map_port $03ff, eIoFunc::COM1_SR
 
-    ; not sure what these are used for but ELKS accesses them.
-    map_port $0510, eIoFunc::NONE
-    map_port $0511, eIoFunc::NONE
+; not sure what these are used for but ELKS accesses them.
+map_port $0510, eIoFunc::NONE
+map_port $0511, eIoFunc::NONE
 
-    ; the linker should fill the rest of the table with zeros.
-    ; i.e. eIoFunc::BAD
-    ; this is faster than using .repeat to fill the table
+; the linker should fill the rest of the table with zeros.
+; i.e. eIoFunc::BAD
+; this is faster than using .repeat to fill the table
 rbaIoFuncIndexEnd:
 
 ; NOTE: don't put anything else in this segment!

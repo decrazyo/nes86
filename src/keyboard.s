@@ -12,6 +12,7 @@
 .export scan
 .export get_key
 .export put_key
+.export buffer_status
 
 .segment "ZEROPAGE"
 
@@ -63,6 +64,7 @@ done:
 ;   C = 1 no keys pressed. ignore A.
 ; changes: A, X
 .proc get_key
+    lda #0
     ldx zbReadIndex
     cpx zbWriteIndex
     beq done ; branch if the buffer is empty.
@@ -83,5 +85,19 @@ done:
     inc zbWriteIndex
     ; TODO: check if the buffer is full.
     ;       if so, decrement the write index.
+    rts
+.endproc
+
+
+; check if there is a key available to be read from the key buffer.
+; < A = 0 if the key buffer is empty
+;   A = 1 if the key buffer is not empty
+.proc buffer_status
+    sec
+    lda zbReadIndex
+    sbc zbWriteIndex
+    beq done
+    lda #1
+done:
     rts
 .endproc

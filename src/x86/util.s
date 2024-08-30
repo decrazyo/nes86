@@ -1,3 +1,4 @@
+
 ; utility functions that don't neatly fit into other parts of the emulator.
 
 .include "x86/util.inc"

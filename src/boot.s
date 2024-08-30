@@ -25,8 +25,6 @@ rsNes86Upper:
 rsNes86Lower:
 .byte $03, $04, $05, $00
 
-
-
 ; pallet attributes
 ; .byte (bottomright << 6) | (bottomleft << 4) | (topright << 2) | (topleft << 0)
 
@@ -41,14 +39,12 @@ rsEnergyAttr0:
 .byte (2 << 6) | (2 << 4) | (0 << 2) | (0 << 0)
 .byte $00
 
-
 rsEnergyAttr1:
 .byte (3 << 6) | (0 << 4) | (2 << 2) | (0 << 0)
 .byte (3 << 6) | (3 << 4) | (2 << 2) | (2 << 0)
 .byte (3 << 6) | (3 << 4) | (2 << 2) | (2 << 0)
 .byte (0 << 6) | (3 << 4) | (0 << 2) | (2 << 0)
 .byte $00
-
 
 rsEnergy0:
 .byte      $01, $02, $20, $20, $03, $04, $05, $06, $07, $08, $00
@@ -58,13 +54,6 @@ rsEnergy2:
 .byte $14, $15, $16, $17, $18, $20, $19, $1a, $1b, $1c, $00
 rsEnergy3:
 .byte                               $1d, $20, $1e, $00
-
-
-
-
-
-
-
 
 rsInefficient:
 .asciiz "INEFFICIENT"
@@ -112,7 +101,6 @@ rwaStringPosition:
 .word $23c4, rsEnergyAttr0
 .word $23cc, rsEnergyAttr1
 
-
 .word $2042, rsNes86Upper
 .word $2064, rsNes86Lower
 
@@ -122,7 +110,6 @@ rwaStringPosition:
 .word $20b9, rsEnergy3
 
 .word $20d3, rsInefficient
-
 
 .word $2102, rsVersion
 
@@ -159,7 +146,6 @@ rwaStringPositionEnd:
     ENERGY_3
     INEFFICIENT
 
-
     VERSION
 
     COPYLEFT
@@ -181,7 +167,6 @@ rwaStringPositionEnd:
     BOOT
 .endenum
 
-
 ; rbaPallets:
 ; ; we're using pink ($24) to indicate unused colors
 ; .byte $0f, $0f, $30, $38 ; black background with white text
@@ -201,7 +186,6 @@ rbaPallets:
 ; "inefficient" text should appear green
 .byte Ppu::eColor::BLACK, Ppu::eColor::BLACK, Ppu::eColor::LIGHT_GREEN, Ppu::eColor::MAGENTA
 rbaPalletsEnd:
-
 
 ; boot the nes86 emulator and render the boot screen
 .proc boot
@@ -224,7 +208,6 @@ loop:
 
     ; TODO: update attributes so that tiles display correctly
 
-
     ; position sprites for nes86 logo and energy start logo
     ; enable sprites
 
@@ -236,7 +219,6 @@ loop:
 
     ldy #eRomString::ENERGY_ATTR_1 * 4
     jsr buffer_rom_string
-
 
     ldy #eRomString::NES_86_UPPER * 4
     jsr buffer_rom_string
@@ -288,7 +270,6 @@ ram_pass:
 print_ram_result:
     jsr buffer_rom_string
 
-
     ldy #eRomString::ROM * 4
     jsr buffer_rom_string
 
@@ -304,10 +285,8 @@ rom_pass:
 print_rom_result:
     jsr buffer_rom_string
 
-
     ldy #eRomString::KEYBOARD * 4
     jsr buffer_rom_string
-
 
     jsr Keyboard::keyboard
     bcs family_basic
@@ -321,12 +300,10 @@ family_basic:
 print_keyboard_driver:
     jsr buffer_rom_string
 
-
     ldy #eRomString::BOOT * 4
     jsr buffer_rom_string
 
     jsr Apu::beep
-
 
     ldy #'5'
 count_down:
@@ -356,7 +333,6 @@ no_key_pressed:
 
 exit_loop:
     ; jmp exit_loop
-
 
     jsr Terminal::terminal
 
@@ -424,4 +400,3 @@ copy_string:
     jsr Nmi::wait
     rts
 .endproc
-

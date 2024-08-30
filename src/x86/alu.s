@@ -833,7 +833,6 @@ div_error:
 .endproc
 
 
-
 ; 16-bit two's complement negation. D0X = 0 - S0X
 ; < S0X
 ; > D0X

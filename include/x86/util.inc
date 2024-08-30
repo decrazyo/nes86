@@ -1,11 +1,11 @@
 
 .ifndef _X86_UTIL_
-_X86_UTIL_ = 1
+    _X86_UTIL_ = 1
 
-.scope Util
+    .scope Util
 
-    .import get_extend_sign
+        .import get_extend_sign
 
-.endscope
+    .endscope
 
 .endif

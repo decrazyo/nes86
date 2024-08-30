@@ -68,20 +68,24 @@ zwPpuAddr: .res 2
     ; leaving at 0
     ; sta zbLineStatus
     ; sta zbModemStatus
-
+    rts
 .endproc
 
 
 ; Receiver Buffer Register
 .proc get_rbr
-    lda #$ff ; for testing, act like nothing is connected
+    ; lda #$ff ; for testing, act like nothing is connected
+    lda #$04 ; for testing, act like nothing is connected
     rts
 .endproc
+
 
 ; Transmitter Holding Register
 .proc set_thr
     jmp Terminal::put_char
+    ; [tail_jump]
 .endproc
+
 
 ; =============================================================================
 
@@ -91,11 +95,13 @@ zwPpuAddr: .res 2
     rts
 .endproc
 
+
 ; Interrupt Enable Register
 .proc set_ier
     sta zbInterruptEnable
     rts
 .endproc
+
 
 ; =============================================================================
 
@@ -105,11 +111,13 @@ zwPpuAddr: .res 2
     rts
 .endproc
 
+
 ; FIFO Control Register
 .proc set_fcr
     sta zbFifoControl
     rts
 .endproc
+
 
 ; =============================================================================
 
@@ -119,11 +127,13 @@ zwPpuAddr: .res 2
     rts
 .endproc
 
+
 ; Line Control Register
 .proc set_lcr
     sta zbLineControl
     rts
 .endproc
+
 
 ; =============================================================================
 
@@ -132,6 +142,7 @@ zwPpuAddr: .res 2
     sta zbModemControl
     rts
 .endproc
+
 
 ; =============================================================================
 
@@ -142,6 +153,7 @@ zwPpuAddr: .res 2
     rts
 .endproc
 
+
 ; =============================================================================
 
 ; Modem Status Register
@@ -149,6 +161,7 @@ zwPpuAddr: .res 2
     lda zbModemStatus
     rts
 .endproc
+
 
 ; =============================================================================
 
@@ -158,10 +171,12 @@ zwPpuAddr: .res 2
     rts
 .endproc
 
+
 .proc set_sr
     sta zbScratch
     rts
 .endproc
+
 
 ; =============================================================================
 

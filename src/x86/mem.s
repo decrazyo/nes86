@@ -43,8 +43,6 @@
 
 .segment "ZEROPAGE"
 
-
-
 ; adjusted segment
 zaSegment: .res 3
 ; pointer supplied by use_ptr
@@ -104,6 +102,7 @@ zbBank: .res 1
     rts
 .endproc
 
+
 ; ------------------------------------
 ; instruction pointer memory access
 ; ------------------------------------
@@ -120,6 +119,7 @@ zbBank: .res 1
     rts
 .endproc
 
+
 ; ------------------------------------
 ; stack memory access
 ; ------------------------------------
@@ -128,7 +128,6 @@ zbBank: .res 1
     ; initialize offsets
     ldx #Reg::zwSP
     ldy #0
-
 
     ; pop the low byte
     jsr set_address
@@ -170,6 +169,7 @@ zbBank: .res 1
     rts
 .endproc
 
+
 ; ------------------------------------
 ; string memory access
 ; ------------------------------------
@@ -180,7 +180,6 @@ zbBank: .res 1
     bne get_str_byte ; branch always
     ; [tail_branch]
 .endproc
-
 
 .proc get_di_byte
     ; initialize offset
@@ -206,7 +205,6 @@ zbBank: .res 1
     bne get_str_word ; branch always
     ; [tail_branch]
 .endproc
-
 
 .proc get_di_word
     ; initialize offset
@@ -316,6 +314,7 @@ backward:
     rts
 .endproc
 
+
 ; ------------------------------------
 ; general memory access
 ; ------------------------------------
@@ -353,7 +352,7 @@ backward:
 .endproc
 
 
-get_word_fast:
+get_word_fast: ; [code_label]
 .proc get_dword_lo
     ; initialize offsets
     ldx #zwPointer
@@ -434,6 +433,7 @@ get_word_fast:
     sta (zpAddress), y
     rts
 .endproc
+
 
 ; =============================================================================
 ; low level memory access and utility functions

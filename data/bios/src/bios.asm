@@ -47,8 +47,6 @@ int_10:
     cmp ah, 0x1a
     je vga_config
 
-    // crash because we don't know what to do
-    .byte 0xff, 0xff
     popf
     iret
 
@@ -111,18 +109,25 @@ int_16:
     // unknown request
     iret
 
-// block until a key is pressed
-// don't actually block
+// read a key from the keyboard
 keyboard_read:
     in al, 0x60 // ascii code
-    mov ah, 0 // scan code
+    mov ah, 0 // scan code (none)
     iret
 
-// read a key if one is pressed
+// read the keyboard status
+// if the key buffer is empty
+// then AL = 0 and ZF is set
+// else AL = 1 and ZF is cleared
 keyboard_status:
-    // if a key is pressed then return it
-    // otherwise, set ZF and return
-    // ZF is already set
+    // our caller expects us to change the return value of ZF
+    // so we'll have to change the FLAGS value on the stack.
+    add sp, 4
+    popf
+    in al, 0x64
+    or al, al
+    pushf
+    sub sp, 4
     iret
 
 // read modifier keys

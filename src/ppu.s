@@ -73,7 +73,6 @@ aPpuBuffer: .res 256
     ; we'll enable it when we're ready.
     sta Ppu::CTRL
 
-
     ; zero out nametable and attribute VRAM
     lda #>Ppu::NAMETABLE_0
     sta Ppu::ADDR
@@ -95,7 +94,6 @@ clear_vram:
     dex
     bne clear_vram
 
-
     ; move all sprites off screen so they aren't visible if/when sprites are enabled.
     ; we'll do this be setting all sprite y positions to be below the screen.
     lda #<(Const::SCREEN_PIXEL_HEIGHT + Const::TILE_HEIGHT)
@@ -107,7 +105,6 @@ hide_sprites:
     dex
     sta aOamBuffer, x ; set y position
     bne hide_sprites
-
 
     ; configure the PPU with the following settings.
     ;   NMI generation enabled
@@ -216,6 +213,7 @@ done:
     sta Ppu::OAM_DMA
     rts
 .endproc
+
 
 ; ----------------------------------------
 ; data buffer functions
@@ -338,6 +336,7 @@ done:
     rts
 .endproc
 
+
 ; move the current data block from the write buffer to the read buffer.
 ; if the write buffer doesn't contain a data block then this has no effect.
 ; changes: X
@@ -346,6 +345,7 @@ done:
     stx zbBufferSep
     rts
 .endproc
+
 
 ; =============================================================================
 ; private functions

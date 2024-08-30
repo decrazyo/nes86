@@ -1,14 +1,14 @@
 
 .ifndef _X86_IO_
-_X86_IO_ = 1
+    _X86_IO_ = 1
 
-.scope Io
+    .scope Io
 
-    .import io
+        .import io
 
-    .import in
-    .import out
+        .import in
+        .import out
 
-.endscope
+    .endscope
 
 .endif

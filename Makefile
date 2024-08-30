@@ -28,6 +28,8 @@ BINCS := $(wildcard $(BINC_DIR)/*)
 ROM := $(BIN_DIR)/$(NAME).nes
 DBG := $(ROM:%.nes=%.dbg)
 
+# TODO: use "--feature line_continuations" and remove ".linecont +" from source files.
+#       at the moment, the cc65 package provided for my Linux distro doesn't support that.
 AS_FLAGS := -I $(INC_DIR)
 AS_FLAGS += --bin-include-dir $(BINC_DIR)
 AS_FLAGS += --feature string_escapes
@@ -37,10 +39,12 @@ AS_FLAGS += --debug-info
 
 LD_FLAGS := -C $(LD_CONF) --dbgfile $(DBG)
 
+# TODO: lint lint65.py with pylint
+
 .PHONY: all
 all: $(TOOLS_DIR) $(DATA_DIR) $(ROM)
 	# this is just here for development/debugging
-	$(OBJDUMP) -D -b binary -m i8086 -M intel $(BINC_DIR)/x86_code.com
+	$(OBJDUMP) -D -b binary -m i8086 -M intel $(BINC_DIR)/bios.bin
 
 .PHONY: $(NAME)
 $(NAME):$(ROM)
@@ -73,8 +77,8 @@ $(ROM): $(OBJS) $(LD_CONF) $(BIN_DIR)
 
 # assemble source files into objects
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s $(INCS) $(BINCS) $(BINC_DIR) $(BUILD_DIR)
-	# python $(TOOLS_DIR)/linter.py $<
 	$(AS) $(AS_FLAGS) -o $@ $<
+	-python $(TOOLS_DIR)/lint65.py $(LD_CONF) $<
 
 $(BUILD_DIR):
 	-mkdir $(BUILD_DIR)

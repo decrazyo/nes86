@@ -62,6 +62,7 @@ PROTECT2 = $5103
     rts
 .endproc
 
+
 .segment "CODE"
 
 ; zero out all of the MMC5's PRG RAM.
@@ -81,7 +82,6 @@ select_bank:
     ; set PRG RAM pointer high byte
     lda #>Mmc5::WINDOW_0
     sta Tmp::zw0+1
-
 
     ; zero out all of the PRG RAM visible in window 0.
     ; i.e. an 8k bank of PRG RAM.
@@ -136,7 +136,6 @@ write_loop:
     dex
     bpl write_loop
 
-
     ; read back the values we just wrote.
     lda #0
     ldx #<Mmc5::PRG_RAM_BANKS - 1
@@ -152,7 +151,6 @@ read_loop:
     sta Mmc5::WINDOW_0
     dex
     bpl read_loop
-
 
     ; check that we can write a PRG RAM byte through one window
     ; and read it back through another window.

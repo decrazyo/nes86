@@ -42,7 +42,6 @@ zbaRowState: .res 1
 zbaRowKeys: .res 1
 zbKeyIndex: .res 1
 
-
 ; TODO: merge these
 zbKeyboardScrollX: .res 1
 zbKeyboardScrollY: .res 1

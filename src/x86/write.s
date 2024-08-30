@@ -7,163 +7,321 @@
 ; to have already been configured for that write by the "decode" stage.
 ; If this module writes to "CS" or "IP" then it must flag the MMU's code address as dirty.
 ; If this module writes to "SS" or "SP" then it must flag the MMU's stack address as dirty.
-;
-; uses:
-;   Mmu::set_byte
-;   Mmu::inc_address
-;   Mmu::push_word
-;   Mmu::pop_word
-; changes:
-;   Mmu::zbStackDirty
-;   Mmu::zbCodeDirty
-;   Reg::zwAX
-;   Reg::zwBX
-;   Reg::zwCX
-;   Reg::zwDX
-;   Reg::zwSI
-;   Reg::zwDI
-;   Reg::zwBP
-;   Reg::zwSP
-;   Reg::zwIP
-;   Reg::zwES
-;   Reg::zwCS
-;   Reg::zwSS
-;   Reg::zwDS
 
-.include "x86/write.inc"
-.include "x86/fetch.inc"
-.include "x86/decode.inc"
-.include "x86/interrupt.inc"
-.include "x86/reg.inc"
-.include "x86/mem.inc"
-.include "x86.inc"
+.linecont +
 
-.include "tmp.inc"
 .include "const.inc"
+.include "list.inc"
+.include "tmp.inc"
+.include "x86.inc"
+.include "x86/decode.inc"
+.include "x86/fetch.inc"
+.include "x86/interrupt.inc"
+.include "x86/mem.inc"
+.include "x86/opcode.inc"
+.include "x86/reg.inc"
+.include "x86/write.inc"
 
 .export write
 
 .segment "RODATA"
 
-; map instruction encodings to their write functions.
+.define WRITE_FUNCS \
+write_nothing, \
+write_d0l_rm8, \
+write_d0x_rm16, \
+write_d0l_reg8, \
+write_d0x_reg16, \
+write_d0l_al, \
+write_d0x_ax, \
+write_d0l_mem8, \
+write_d0x_mem16, \
+write_d0x_seg16, \
+write_d0l_reg8_d1l_rm8, \
+write_d0x_reg16_d1x_rm16, \
+write_d0x_reg16_d1x_ax, \
+write_d0x_ds_d1x_reg16, \
+write_d0x_es_d1x_reg16, \
+write_d0l_ah, \
+write_d0l_flags_lo, \
+write_d0x_flags, \
+write_d0l_al_d1l_ah, \
+write_d0x_ax_d1x_dx, \
+write_d0l_mem8_di, \
+write_d0x_mem16_di, \
+write_group1a, \
+write_group1b, \
+write_group3a, \
+write_group3b, \
+write_group4b, \
+write_bad
+
+; write function jump table
 rbaWriteFuncLo:
-.byte <(write_nothing-1)
-.byte <(write_d0l_rm8-1)
-.byte <(write_d0x_rm16-1)
-.byte <(write_d0l_reg8-1)
-.byte <(write_d0x_reg16-1)
-.byte <(write_d0l_al-1)
-.byte <(write_d0x_ax-1)
-.byte <(write_d0l_mem8-1)
-.byte <(write_d0x_mem16-1)
-.byte <(write_d0x_seg16-1)
-.byte <(write_d0l_reg8_d1l_rm8-1)
-.byte <(write_d0x_reg16_d1x_rm16-1)
-.byte <(write_d0x_reg16_d1x_ax-1)
-.byte <(write_d0x_ds_d1x_reg16-1)
-.byte <(write_d0x_es_d1x_reg16-1)
-.byte <(write_d0l_ah-1)
-.byte <(write_d0l_flags_lo-1)
-.byte <(write_d0x_flags-1)
-.byte <(write_d0l_al_d1l_ah-1)
-.byte <(write_d0x_ax_d1x_dx-1)
-.byte <(write_d0l_mem8_di-1)
-.byte <(write_d0x_mem16_di-1)
-.byte <(write_group1a-1)
-.byte <(write_group1b-1)
-.byte <(write_group3a-1)
-.byte <(write_group3b-1)
-.byte <(write_group4b-1)
-.byte <(write_bad-1)
+lo_return_bytes {WRITE_FUNCS}
 rbaWriteFuncHi:
-.byte >(write_nothing-1)
-.byte >(write_d0l_rm8-1)
-.byte >(write_d0x_rm16-1)
-.byte >(write_d0l_reg8-1)
-.byte >(write_d0x_reg16-1)
-.byte >(write_d0l_al-1)
-.byte >(write_d0x_ax-1)
-.byte >(write_d0l_mem8-1)
-.byte >(write_d0x_mem16-1)
-.byte >(write_d0x_seg16-1)
-.byte >(write_d0l_reg8_d1l_rm8-1)
-.byte >(write_d0x_reg16_d1x_rm16-1)
-.byte >(write_d0x_reg16_d1x_ax-1)
-.byte >(write_d0x_ds_d1x_reg16-1)
-.byte >(write_d0x_es_d1x_reg16-1)
-.byte >(write_d0l_ah-1)
-.byte >(write_d0l_flags_lo-1)
-.byte >(write_d0x_flags-1)
-.byte >(write_d0l_al_d1l_ah-1)
-.byte >(write_d0x_ax_d1x_dx-1)
-.byte >(write_d0l_mem8_di-1)
-.byte >(write_d0x_mem16_di-1)
-.byte >(write_group1a-1)
-.byte >(write_group1b-1)
-.byte >(write_group3a-1)
-.byte >(write_group3b-1)
-.byte >(write_group4b-1)
-.byte >(write_bad-1)
-rbaWriteFuncEnd:
+hi_return_bytes {WRITE_FUNCS}
 
-.assert (rbaWriteFuncHi - rbaWriteFuncLo) = (rbaWriteFuncEnd - rbaWriteFuncHi), error, "incomplete write function"
-
-; instruction encodings
-.enum
-    W00 ; write_nothing
-    W01 ; write_d0l_rm8
-    W02 ; write_d0x_rm16
-    W03 ; write_d0l_reg8
-    W04 ; write_d0x_reg16
-    W05 ; write_d0l_al
-    W06 ; write_d0x_ax
-    W07 ; write_d0l_mem8
-    W08 ; write_d0x_mem16
-    W09 ; write_d0x_seg16
-    W10 ; write_d0l_reg8_d1l_rm8
-    W11 ; write_d0x_reg16_d1x_rm16
-    W12 ; write_d0x_reg16_d1x_ax
-    W13 ; write_d0x_ds_d1x_reg16
-    W14 ; write_d0x_es_d1x_reg16
-    W15 ; write_d0l_ah
-    W16 ; write_d0l_flags_lo
-    W17 ; write_d0x_flags
-    W18 ; write_d0l_al_d1l_ah
-    W19 ; write_d0x_ax_d1x_dx
-    W20 ; write_d0l_mem8_di
-    W21 ; write_d0x_mem16_di
-    W22 ; write_group1a
-    W23 ; write_group1b
-    W24 ; write_group3a
-    W25 ; write_group3b
-    W26 ; write_group4b
-
-    BAD ; used for unimplemented or non-existent instructions
-    FUNC_COUNT ; used to check function table size at compile-time
-.endenum
-
-.assert (rbaWriteFuncHi - rbaWriteFuncLo) = FUNC_COUNT, error, "write function count"
-
-; map opcodes to instruction encodings
-rbaInstrWrite:
-;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte W01,W02,W03,W04,W05,W06,W00,W09,W01,W02,W03,W04,W05,W06,W00,BAD ; 0_
-.byte W01,W02,W03,W04,W05,W06,W00,W09,W01,W02,W03,W04,W05,W06,W00,W09 ; 1_
-.byte W01,W02,W03,W04,W05,W06,BAD,W05,W01,W02,W03,W04,W05,W06,BAD,W05 ; 2_
-.byte W01,W02,W03,W04,W05,W06,BAD,W06,W00,W00,W00,W00,W00,W00,BAD,W06 ; 3_
-.byte W04,W04,W04,W04,W04,W04,W04,W04,W04,W04,W04,W04,W04,W04,W04,W04 ; 4_
-.byte W00,W00,W00,W00,W00,W00,W00,W00,W04,W04,W04,W04,W04,W04,W04,W04 ; 5_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
-.byte W00,W00,W00,W00,W00,W00,W00,W00,W00,W00,W00,W00,W00,W00,W00,W00 ; 7_
-.byte W22,W23,BAD,W23,W00,W00,W10,W11,W01,W02,W03,W04,W02,W04,W09,W02 ; 8_
-.byte W00,W12,W12,W12,W12,W12,W12,W12,W06,W19,W00,W00,W00,W17,W16,W15 ; 9_
-.byte W05,W06,W07,W08,W20,W21,W00,W00,W00,W00,W20,W21,W05,W06,W00,W00 ; A_
-.byte W03,W03,W03,W03,W03,W03,W03,W03,W04,W04,W04,W04,W04,W04,W04,W04 ; B_
-.byte BAD,BAD,W00,W00,W14,W13,W01,W02,BAD,BAD,W00,W00,W00,W00,W00,W00 ; C_
-.byte W01,W02,W01,W02,W18,W06,BAD,W05,W00,W00,W00,W00,W00,W00,W00,W00 ; D_
-.byte W00,W00,W00,W00,W05,W06,W00,W00,W00,W00,W00,W00,W05,W06,W00,W00 ; E_
-.byte BAD,BAD,BAD,BAD,W00,W00,W24,W25,W00,W00,W00,W00,W00,W00,W01,W26 ; F_
-
+; map opcodes to jump table indices
+size .set 0
+rbaWriteFuncIndex:
+index_byte_at size, Opcode::ADD_Eb_Gb,  {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::ADD_Ev_Gv,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::ADD_Gb_Eb,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::ADD_Gv_Ev,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::ADD_AL_Ib,  {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::ADD_AX_Iv,  {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::PUSH_ES,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::POP_ES,     {WRITE_FUNCS}, write_d0x_seg16
+index_byte_at size, Opcode::OR_Eb_Gb,   {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::OR_Ev_Gv,   {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::OR_Gb_Eb,   {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::OR_Gv_Ev,   {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::OR_AL_Ib,   {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::OR_AX_Iv,   {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::PUSH_CS,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::NONE_0Fh,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::ADC_Eb_Gb,  {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::ADC_Ev_Gv,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::ADC_Gb_Eb,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::ADC_Gv_Ev,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::ADC_AL_Ib,  {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::ADC_AX_Iv,  {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::PUSH_SS,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::POP_SS,     {WRITE_FUNCS}, write_d0x_seg16
+index_byte_at size, Opcode::SBB_Eb_Gb,  {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::SBB_Ev_Gv,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::SBB_Gb_Eb,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::SBB_Gv_Ev,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::SBB_AL_Ib,  {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::SBB_AX_Iv,  {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::PUSH_DS,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::POP_DS,     {WRITE_FUNCS}, write_d0x_seg16
+index_byte_at size, Opcode::AND_Eb_Gb,  {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::AND_Ev_Gv,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::AND_Gb_Eb,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::AND_Gv_Ev,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::AND_AL_Ib,  {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::AND_AX_Iv,  {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::ES,         {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::DAA,        {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::SUB_Eb_Gb,  {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::SUB_Ev_Gv,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::SUB_Gb_Eb,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::SUB_Gv_Ev,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::SUB_AL_Ib,  {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::SUB_AX_Iv,  {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::CS,         {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::DAS,        {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::XOR_Eb_Gb,  {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::XOR_Ev_Gv,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::XOR_Gb_Eb,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::XOR_Gv_Ev,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::XOR_AL_Ib,  {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::XOR_AX_Iv,  {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::SS,         {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::AAA,        {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::CMP_Eb_Gb,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CMP_Ev_Gv,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CMP_Gb_Eb,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CMP_Gv_Ev,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CMP_AL_Ib,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CMP_AX_Iv,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::DS,         {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::AAS,        {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::INC_AX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::INC_CX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::INC_DX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::INC_BX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::INC_SP,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::INC_BP,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::INC_SI,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::INC_DI,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::DEC_AX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::DEC_CX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::DEC_DX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::DEC_BX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::DEC_SP,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::DEC_BP,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::DEC_SI,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::DEC_DI,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::PUSH_AX,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::PUSH_CX,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::PUSH_DX,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::PUSH_BX,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::PUSH_SP,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::PUSH_BP,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::PUSH_SI,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::PUSH_DI,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::POP_AX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::POP_CX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::POP_DX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::POP_BX,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::POP_SP,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::POP_BP,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::POP_SI,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::POP_DI,     {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::NONE_60h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_61h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_62h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_63h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_64h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_65h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_66h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_67h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_68h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_69h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_6Ah,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_6Bh,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_6Ch,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_6Dh,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_6Eh,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_6Fh,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::JO_Jb,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JNO_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JB_Jb,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JAE_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JZ_Jb,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JNZ_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JNA_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JA_Jb,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JS_Jb,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JNS_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JPE_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JPO_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JL_Jb,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JNL_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JNG_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JG_Jb,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::GRP1_Eb_Ib, {WRITE_FUNCS}, write_group1a
+index_byte_at size, Opcode::GRP1_Ev_Iv, {WRITE_FUNCS}, write_group1b
+index_byte_at size, Opcode::GRP1_82h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::GRP1_Ev_Ib, {WRITE_FUNCS}, write_group1b
+index_byte_at size, Opcode::TEST_Gb_Eb, {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::TEST_Gv_Ev, {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::XCHG_Gb_Eb, {WRITE_FUNCS}, write_d0l_reg8_d1l_rm8
+index_byte_at size, Opcode::XCHG_Gv_Ev, {WRITE_FUNCS}, write_d0x_reg16_d1x_rm16
+index_byte_at size, Opcode::MOV_Eb_Gb,  {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::MOV_Ev_Gv,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::MOV_Gb_Eb,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::MOV_Gv_Ev,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::MOV_Ew_Sw,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::LEA_Gv_M,   {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::MOV_Sw_Ew,  {WRITE_FUNCS}, write_d0x_seg16
+index_byte_at size, Opcode::POP_Ev,     {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::NOP,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::XCHG_CX_AX, {WRITE_FUNCS}, write_d0x_reg16_d1x_ax
+index_byte_at size, Opcode::XCHG_DX_AX, {WRITE_FUNCS}, write_d0x_reg16_d1x_ax
+index_byte_at size, Opcode::XCHG_BX_AX, {WRITE_FUNCS}, write_d0x_reg16_d1x_ax
+index_byte_at size, Opcode::XCHG_SP_AX, {WRITE_FUNCS}, write_d0x_reg16_d1x_ax
+index_byte_at size, Opcode::XCHG_BP_AX, {WRITE_FUNCS}, write_d0x_reg16_d1x_ax
+index_byte_at size, Opcode::XCHG_SI_AX, {WRITE_FUNCS}, write_d0x_reg16_d1x_ax
+index_byte_at size, Opcode::XCHG_DI_AX, {WRITE_FUNCS}, write_d0x_reg16_d1x_ax
+index_byte_at size, Opcode::CBW,        {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::CWD,        {WRITE_FUNCS}, write_d0x_ax_d1x_dx
+index_byte_at size, Opcode::CALL_Ap,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::WAIT,       {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::PUSHF,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::POPF,       {WRITE_FUNCS}, write_d0x_flags
+index_byte_at size, Opcode::SAHF,       {WRITE_FUNCS}, write_d0l_flags_lo
+index_byte_at size, Opcode::LAHF,       {WRITE_FUNCS}, write_d0l_ah
+index_byte_at size, Opcode::MOV_AL_Ob,  {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::MOV_AX_Ov,  {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::MOV_Ob_AL,  {WRITE_FUNCS}, write_d0l_mem8
+index_byte_at size, Opcode::MOV_Ov_AX,  {WRITE_FUNCS}, write_d0x_mem16
+index_byte_at size, Opcode::MOVSB,      {WRITE_FUNCS}, write_d0l_mem8_di
+index_byte_at size, Opcode::MOVSW,      {WRITE_FUNCS}, write_d0x_mem16_di
+index_byte_at size, Opcode::CMPSB,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CMPSW,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::TEST_AL_Ib, {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::TEST_AX_Iv, {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::STOSB,      {WRITE_FUNCS}, write_d0l_mem8_di
+index_byte_at size, Opcode::STOSW,      {WRITE_FUNCS}, write_d0x_mem16_di
+index_byte_at size, Opcode::LODSB,      {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::LODSW,      {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::SCASB,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::SCASW,      {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::MOV_AL_Ib,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::MOV_CL_Ib,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::MOV_DL_Ib,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::MOV_BL_Ib,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::MOV_AH_Ib,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::MOV_CH_Ib,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::MOV_DH_Ib,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::MOV_BH_Ib,  {WRITE_FUNCS}, write_d0l_reg8
+index_byte_at size, Opcode::MOV_AX_Iv,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::MOV_CX_Iv,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::MOV_DX_Iv,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::MOV_BX_Iv,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::MOV_SP_Iv,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::MOV_BP_Iv,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::MOV_SI_Iv,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::MOV_DI_Iv,  {WRITE_FUNCS}, write_d0x_reg16
+index_byte_at size, Opcode::NONE_C0h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_C1h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::RET_Iw,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::RET,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::LES_Gv_Mp,  {WRITE_FUNCS}, write_d0x_es_d1x_reg16
+index_byte_at size, Opcode::LDS_Gv_Mp,  {WRITE_FUNCS}, write_d0x_ds_d1x_reg16
+index_byte_at size, Opcode::MOV_Eb_Ib,  {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::MOV_Ev_Iv,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::NONE_C8h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_C9h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::RETF_Iw,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::RETF,       {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::INT3,       {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::INT_Ib,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::INTO,       {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::IRET,       {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::GRP2_Eb_1,  {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::GRP2_Ev_1,  {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::GRP2_Eb_CL, {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::GRP2_Ev_CL, {WRITE_FUNCS}, write_d0x_rm16
+index_byte_at size, Opcode::AAM_I0,     {WRITE_FUNCS}, write_d0l_al_d1l_ah
+index_byte_at size, Opcode::AAD_I0,     {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::NONE_D6h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::XLAT,       {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::NONE_D8h,   {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::NONE_D9h,   {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::NONE_DAh,   {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::NONE_DBh,   {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::NONE_DCh,   {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::NONE_DDh,   {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::NONE_DEh,   {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::NONE_DFh,   {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::LOOPNZ_Jb,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::LOOPZ_Jb,   {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::LOOP_Jb,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JCXZ_Jb,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::IN_AL_Ib,   {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::IN_AX_Ib,   {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::OUT_Ib_AL,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::OUT_Ib_AX,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CALL_Jv,    {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JMP_Jv,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JMP_Ap,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::JMP_Jb,     {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::IN_AL_DX,   {WRITE_FUNCS}, write_d0l_al
+index_byte_at size, Opcode::IN_AX_DX,   {WRITE_FUNCS}, write_d0x_ax
+index_byte_at size, Opcode::OUT_DX_AL,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::OUT_DX_AX,  {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::LOCK,       {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::NONE_F1h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::REPNZ,      {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::REPZ,       {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::HLT,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CMC,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::GRP3_Eb,    {WRITE_FUNCS}, write_group3a
+index_byte_at size, Opcode::GRP3_Ev,    {WRITE_FUNCS}, write_group3b
+index_byte_at size, Opcode::CLC,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::STC,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CLI,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::STI,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::CLD,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::STD,        {WRITE_FUNCS}, write_nothing
+index_byte_at size, Opcode::GRP4_Eb,    {WRITE_FUNCS}, write_d0l_rm8
+index_byte_at size, Opcode::GRP4_Ev,    {WRITE_FUNCS}, write_group4b
+.assert size = 256, error, "incorrect table size"
 
 .segment "CODE"
 
@@ -174,13 +332,14 @@ rbaInstrWrite:
 ; write data back to memory or registers after execution.
 .proc write
     ldx Fetch::zbInstrOpcode
-    ldy rbaInstrWrite, x
+    ldy rbaWriteFuncIndex, x
     lda rbaWriteFuncHi, y
     pha
     lda rbaWriteFuncLo, y
     pha
     rts
 .endproc
+
 
 ; ==============================================================================
 ; write back handlers
@@ -201,6 +360,7 @@ rbaInstrWrite:
     rts
 .endproc
 
+
 .proc write_d0l_rm8
     lda Decode::zbMod
     cmp #Decode::MODRM_MOD_REGISTER
@@ -215,6 +375,7 @@ rbaInstrWrite:
     rts
 .endproc
 
+
 .proc write_d0x_reg16
     ldy Decode::zbReg
     ldx Reg::rzbaReg16Map, y
@@ -227,6 +388,7 @@ rbaInstrWrite:
     rts
 .endproc
 
+
 .proc write_d0l_reg8
     ldy Decode::zbReg
     ldx Reg::rzbaReg8Map, y
@@ -236,6 +398,7 @@ rbaInstrWrite:
 
     rts
 .endproc
+
 
 .proc write_d0x_ax
     lda Reg::zwD0X+1
@@ -249,6 +412,7 @@ rbaInstrWrite:
     rts
 .endproc
 
+
 .proc write_d0x_mem16
     lda Reg::zwD0X
     ldx Reg::zwD0X+1
@@ -256,11 +420,13 @@ rbaInstrWrite:
     ; [tail_jump]
 .endproc
 
+
 .proc write_d0l_mem8
     lda Reg::zbD0L
     jmp Mem::set_byte
     ; [tail_jump]
 .endproc
+
 
 .proc write_d0x_seg16
     ldy Decode::zbSeg
@@ -288,6 +454,7 @@ rbaInstrWrite:
     jmp write_d0l_reg8
     ; [tail_jump]
 .endproc
+
 
 .proc write_d0x_reg16_d1x_ax
     lda Reg::zwD1X
@@ -331,20 +498,21 @@ rbaInstrWrite:
 .endproc
 
 
-
 .proc write_d0x_flags
     lda Reg::zwD0X+1
-    and >Reg::FLAGS_MASK ; only set valid flags
+    and #>Reg::FLAGS_MASK ; only set valid flags
     sta Reg::zwFlags+1
     ; [fall_through]
 .endproc
 
 .proc write_d0l_flags_lo
     lda Reg::zbD0L
-    and <Reg::FLAGS_MASK ; only set valid flags
+    ; and <Reg::FLAGS_MASK ; only set valid flags
+    and #<(Reg::FLAG_SF | Reg::FLAG_ZF | Reg::FLAG_AF | Reg::FLAG_PF | Reg::FLAG_CF)
     sta Reg::zbFlagsLo
     rts
 .endproc
+
 
 .proc write_d0l_al_d1l_ah
     lda Reg::zbD0L
@@ -389,11 +557,13 @@ rbaInstrWrite:
     rts
 .endproc
 
+
 .proc write_bad
-    lda #X86::Err::WRITE_FUNC
+    lda #X86::eErr::WRITE_FUNC
     jmp X86::panic
     ; [tail_jump]
 .endproc
+
 
 ; ==============================================================================
 ; extended instruction write functions
@@ -408,6 +578,7 @@ done:
     rts
 .endproc
 
+
 .proc write_group1b
     lda Decode::zbExt
     cmp #7 ; CMP
@@ -416,6 +587,7 @@ done:
 done:
     rts
 .endproc
+
 
 .proc write_group3a
     lda Decode::zbExt
@@ -430,6 +602,7 @@ done:
 done:
     rts
 .endproc
+
 
 .proc write_group3b
     lda Decode::zbExt
@@ -456,6 +629,7 @@ done:
     rts
 .endproc
 
+
 ; ==============================================================================
 ; utility functions
 ; ==============================================================================
@@ -476,6 +650,7 @@ done:
     rts
 .endproc
 
+
 .proc write_d1l_rm8
     lda Decode::zbMod
     cmp #Decode::MODRM_MOD_REGISTER
@@ -490,6 +665,7 @@ done:
     rts
 .endproc
 
+
 .proc write_d1x_mem16
     lda Reg::zwD1X
     ldx Reg::zwD1X+1
@@ -497,11 +673,13 @@ done:
     ; [tail_jump]
 .endproc
 
+
 .proc write_d1l_mem8
     lda Reg::zbD1L
     jmp Mem::set_byte
     ; [tail_jump]
 .endproc
+
 
 .proc write_d1x_reg16
     ldy Decode::zbReg

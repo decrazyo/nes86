@@ -23,10 +23,24 @@ zbCursorY: .res 1
 zbScrollTileX: .res 1
 zbScrollTileY: .res 1
 
-zbEscapeIndex: .res 1
+.enum eEscapeState
+    NONE ; not currently processing an escape sequence.
+    ESC ; escape byte $1b
+    CSI ; control sequence introducer byte '['
+    PARAM ; CSI parameter byte(s) in the ASCII range ['0', '?']
+    INTER ; CSI intermediate byte(s) in the ASCII range [' ', '/']
+    FINAL ; CSI final byte in the ASCII range ['@', '~']
+.endenum
 
-; this should be big enough for escape sequences that we actually want to handle.
-zbaEscapeBuffer: .res 4
+zbEscapeState: .res 1
+zbEscapeIndex: .res 1
+zbInvertText: .res 1
+
+.segment "BSS"
+
+; we've plenty of RAM so we'll just use a whole page to store escape sequences.
+; this should be more than enough space for any sequence we're likely to receive.
+baEscapeBuffer: .res 256
 
 .segment "LOWCODE"
 
@@ -48,7 +62,6 @@ zbaEscapeBuffer: .res 4
 ;       this could give us limited support for ANSI color escapes.
 ;       we can't support full color.
 ;       maybe just light gray text and a dark grey background.
-
 
 ; we're using magenta to indicate unused colors.
 rbaPallets:
@@ -102,21 +115,161 @@ attr_loop:
 .endproc
 
 
+; < X = index of the next argument in baEscapeBuffer.
+; > A = retrieved argument
+; > X = index of the following argument in baEscapeBuffer.
+; > N = 0 if argument valid
+;   N = 1 if argument invalid
+.proc get_escape_arg
+    ; Y will count the number of argument bytes we push on the stack.
+    ldy #0
+    ; temp byte 3 is used as an error flag.
+    ; initialize it to indicate no error.
+    sty Tmp::zb3
+    ; start parsing the argument.
+    beq parse_arg ; branch always
+
+    INVALID_ARG = $80
+
+invalid_arg_byte:
+    lda #INVALID_ARG
+    sta Tmp::zb3
+
+    ; this will parse an entire argument and leave X pointing at the next argument.
+parse_arg:
+    ; get a byte that may or may not be part of the argument.
+    lda baEscapeBuffer, x
+    ; increment the buffer index.
+    inx
+
+    ; check if the byte is an intermediate byte.
+    cmp #'/' + 1
+    bcc end_of_last_arg ; branch if the byte is an intermediate byte. i.e. end of arguments.
+
+    ; check if the byte is the final byte.
+    cmp #'@'
+    bcs end_of_last_arg ; branch if the byte is the final byte of the sequence.
+
+    ; check if we've reached an argument boundary
+    cmp #';'
+    beq end_of_arg ; branch if we have reached the end of the current argument.
+
+    ; our caller will expect the argument to be in the range [0, 255]
+    ; if we have more than 3 digits then we will assume that the value is outside of that range.
+    ; this avoids needing to pop a bunch of extra data off the stack later
+    ; and it prevents a possible stack overflow caused by very large arguments.
+    cpy #3
+    beq invalid_arg_byte
+
+    ; if we get a byte that isn't an ASCII digit then we'll flag the argument as invalid.
+    ; we only want integer arguments.
+    cmp #'9' + 1
+    bcs invalid_arg_byte
+    cmp #'0'
+    bcc invalid_arg_byte
+
+    ; convert the ASCII digit to an integer.
+    ; C is necessarily set by the previous "cmp" instruction.
+    sbc #'0'
+    ; push it onto the stack for later processing.
+    pha
+    ; count the number of bytes we have pushed.
+    iny
+
+    bne parse_arg ; branch always
+
+    ; we've reached the end of the last argument.
+end_of_last_arg:
+    ; decrement the buffer index.
+    ; this enables the caller to call this function again and get the default argument.
+    dex
+
+    ; we've reached the end of an argument.
+end_of_arg:
+    ; check if we have received no argument bytes
+    cpy #0
+    beq use_default_arg ; branch if there are no argument bytes.
+
+    ; arguments are supplied as ASCII representations of base-10 numbers.
+    ; each digit has already been converted from ASCII to a integer.
+    ; now we need to combine the digits into a single integer.
+
+    ; get the 1s place digit.
+    pla
+
+    dey
+    beq done ; branch if there are no more digits
+
+    ; store the 1s place digit for later.
+    sta Tmp::zb2
+
+    ; multiply the 10s place digit by 10.
+    lda #10
+    sta Mmc5::MULT_LO
+    pla
+    sta Mmc5::MULT_HI
+
+    ; add the 10s place digit to the 1s place digit.
+    clc
+    lda Mmc5::MULT_LO
+    adc Tmp::zb2
+
+    dey
+    beq done ; branch if there are no more digits
+
+    ; store the combined 10s and 1s place digits for later.
+    sta Tmp::zb2
+
+    ; multiply the 100s digit by 100.
+    lda #100
+    sta Mmc5::MULT_LO
+    pla
+    sta Mmc5::MULT_HI
+
+    ; check if the 100s place digit alone is larger than a byte.
+    lda Mmc5::MULT_HI
+    bne arg_overflows_byte
+
+    ; add the 100s place digit to the 10s and 1s place digits.
+    lda Mmc5::MULT_LO
+    adc Tmp::zb2
+    bcc done ; branch if the result fits in a byte.
+
+arg_overflows_byte:
+    lda #INVALID_ARG
+    sta Tmp::zb3
+
+use_default_arg:
+    lda #0
+
+done:
+    ; clear or set N to indicate if the argument is valid or not
+    ldy Tmp::zb3
+    rts
+.endproc
+
+
+
 ; write a character to the terminal.
 ; the character will either be drawn to the screen
 ; or buffered until more characters are received.
 ; < A = character to write
 .proc put_char
-    ; TODO: check if we are in the middle of handling an escape sequence.
+    ; NOTE: this a hack to work around NULL bytes in escape sequences.
+    cmp #Chr::NUL
+    beq control
+
+    ; check if we are in the middle of handling an escape sequence.
+    ldx zbEscapeState
+    bne continue_escape
 
     ; check if this is a control character
     cmp #Chr::SPACE
     bcc control ; branch if control character [$00 - $1f]
     cmp #Chr::DEL
-    beq control ; branch if DEL ($7f)
-    ; the character is printable [$20 - $7e] or extended ASCII [$80 - $ff]
-    ; TODO: add extended ASCII to the tile set.
-    ; [fall_through]
+    bcs control ; branch if DEL ($7f) or extended ASCII [$80 - $ff]
+    ; the character is printable [$20 - $7e]
+    ; [tail_branch]
 .endproc
 
 ; =============================================================================
@@ -129,6 +282,14 @@ attr_loop:
 ; scroll the screen if needed
 ; < A
 .proc print
+    ldx zbInvertText
+    beq print_char
+
+    ; use color inverted tiles
+    clc
+    adc #$80
+
+print_char:
     jsr use_cursor_address
     jsr Ppu::write_byte
     lda #1
@@ -154,16 +315,6 @@ attr_loop:
     beq escape
 
     ; unhandled character.
-    ; maybe we should just print it?
-    ; jsr print
-    rts
-.endproc
-
-; start a new escape sequence
-; < A = $1b
-.proc escape
-    sta zbaEscapeBuffer
-    inc zbEscapeIndex
     rts
 .endproc
 
@@ -176,19 +327,23 @@ attr_loop:
     ; [tail_jump]
 .endproc
 
+
 .proc backspace
     rts
 .endproc
 
+
 .proc tab
     rts
 .endproc
+
 
 .proc line_feed
     lda #1
     jsr cursor_down_wrap
     rts
 .endproc
+
 
 .proc carage_return
     lda zbCursorY
@@ -199,14 +354,211 @@ attr_loop:
     rts
 .endproc
 
+
+; start a new escape sequence
+; < A = $1b
+.proc escape
+    ; escape sequences will always start at buffer index 0.
+    sta baEscapeBuffer
+
+    ; indicate that we have started an escape sequence.
+    ldx #eEscapeState::ESC
+    stx zbEscapeState
+
+    .assert eEscapeState::ESC = 1, error, "eEscapeState::ESC must equal 1"
+
+    ; the next byte of the sequence should be placed at index 1.
+    stx zbEscapeIndex
+
+    rts
+.endproc
+
+
+; continue an escape sequence.
+; < A = escape sequence byte
+; < X = escape sequence state
+.proc continue_escape
+    ldy zbEscapeIndex
+    sta baEscapeBuffer, y
+    ; the escape buffer is a full page of memory so we don't need to check array bounds.
+    ; we'll just let the index wrap around and overwrite the buffer.
+    ; this might cause incredibly long escape sequences to be misinterpreted.
+    ; that might cause some visual bugs but nothing that would crash the emulator.
+    inc zbEscapeIndex
+
+    ; the escape state shouldn't ever be NONE here. don't bother checking.
+
+    cpx #eEscapeState::ESC
+    beq continue_escape_esc ; branch if we are at the start of an escape sequence
+
+    cpx #eEscapeState::CSI
+    beq continue_escape_csi_param ; branch if we are at the start of a CSI sequence
+
+    cpx #eEscapeState::PARAM
+    beq continue_escape_csi_param ; branch if we have received CSI parameters
+
+    cpx #eEscapeState::INTER
+    beq continue_escape_csi_inter ; branch if we have received CSI intermediate bytes
+
+    ; we should never get here.
+    ; if we do then aborting the escape sequence seems like a good idea.
+    ; [tail_branch]
+.endproc
+
+.proc end_escape_sequence
+    ldx #eEscapeState::NONE
+    stx zbEscapeState
+    ; no need to change zbEscapeIndex.
+    ; that will be reset when we receive a new ESC char.
+    rts
+.endproc
+
+.proc continue_escape_esc
+    ; check what type of escape sequence we are receiving.
+    ; we're only supporting CSI sequences.
+    cmp #'['
+    bne end_escape_sequence ; branch if we are not receiving a CSI sequence.
+
+    ldx #eEscapeState::CSI
+    stx zbEscapeState
+
+    rts
+.endproc
+
+.proc continue_escape_csi_param
+    cmp #'0'
+    bcc continue_escape_csi_inter
+
+    cmp #'?' + 1
+    bcs continue_escape_final
+
+    ldx #eEscapeState::PARAM
+    stx zbEscapeState
+
+    rts
+.endproc
+
+
+.proc continue_escape_csi_inter
+    cmp #' '
+    bcc end_escape_sequence
+
+    cmp #'/' + 1
+    bcs continue_escape_final
+
+    ldx #eEscapeState::INTER
+    stx zbEscapeState
+
+    rts
+.endproc
+
+
+.proc continue_escape_final
+    cmp #'@'
+    bcc end_escape_sequence
+
+    cmp #'~' + 1
+    bcs end_escape_sequence
+
+    ; this is the end of the escape sequence.
+    jsr end_escape_sequence
+
+    ; check for each function that the terminal supports.
+    cmp #'H'
+    beq escape_cursor_position
+
+    cmp #'J'
+    beq escape_clear_screen
+
+    cmp #'m'
+    beq escape_sgr
+
+    rts
+.endproc
+
+
+.proc escape_cursor_position
+    ldx #2
+    jsr get_escape_arg
+    bmi done
+    pha
+
+    jsr get_escape_arg
+    bmi done
+
+    tax
+    pla
+    jmp cursor_position
+
+done:
+    rts
+.endproc
+
+
+.proc escape_clear_screen
+    ldx #2
+    jsr get_escape_arg
+    bmi done
+
+    ; if A == 0, clear from the cursor to the end of the screen.
+    ; if A == 1, clear from cursor the to the beginning of the screen.
+    ; if A == 2, clear the entire screen (and move the cursor to the upper left?)
+    ; if A == 3, clear the entire screen (and clear the scrollback buffer which we don't have)
+
+    ; only handle clearing the whole screen
+    cmp #2
+    bne done
+    jsr clear_screen
+    jmp cursor_home
+
+done:
+    rts
+.endproc
+
+
+; select graphic rendition
+.proc escape_sgr
+    ldx #2
+
+get_next_arg:
+    jsr get_escape_arg
+    bmi done
+
+    ; check if we need to reset attributes
+    cmp #0
+    beq store_flag
+
+    ; check if we need to set the foreground color
+    cmp #30
+    bcc check_if_done
+    cmp #37 + 1
+    bcc store_flag
+
+    ; check if we need to set the background color
+    cmp #40
+    bcc check_if_done
+    cmp #47 + 1
+    bcs check_if_done
+
+store_flag:
+    sta zbInvertText
+
+check_if_done:
+    lda baEscapeBuffer, x
+    cmp #'m'
+    bne get_next_arg
+
+done:
+    rts
+.endproc
+
+
+
+
 ; =============================================================================
 ; escape sequence handlers
 ; =============================================================================
 
-; control sequence introducer (CSI)
-.proc escape_csi
-    rts
-.endproc
 
 .proc cursor_home
     lda #0
@@ -246,6 +598,7 @@ store_cursor:
     rts
 .endproc
 
+
 .proc cursor_down_stop
     ; add to the current cursor x position
     clc
@@ -261,6 +614,7 @@ store_cursor:
     jsr Ppu::finalize_write
     rts
 .endproc
+
 
 ; move the cursor to the down.
 ; scroll at the bottom of the screen.
@@ -292,6 +646,7 @@ store_cursor:
     rts
 .endproc
 
+
 ; move the cursor to the left.
 ; stop at the edge of the screen.
 ; < A = number of characters to move left.
@@ -314,6 +669,7 @@ store_cursor:
     rts
 .endproc
 
+
 ; move the cursor to the right.
 ; stop at the edge of the screen.
 ; < A = number of characters to move right.
@@ -333,6 +689,7 @@ store_cursor:
     jsr Ppu::finalize_write
     rts
 .endproc
+
 
 ; move the cursor to the right.
 ; wrap to the next line at the edge of the screen.
@@ -428,6 +785,14 @@ done:
     jsr Ppu::finalize_write
     rts
 .endproc
+
+; =============================================================================
+; escape sequence handler functions
+; =============================================================================
+
+
+
+
 
 ; =============================================================================
 ; low level cursor position and PPU functions
@@ -546,4 +911,3 @@ done:
     lda Tmp::zw1
     rts
 .endproc
-

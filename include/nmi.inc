@@ -1,12 +1,12 @@
 
 .ifndef _NMI_
-_NMI_ = 1
+    _NMI_ = 1
 
-.scope Nmi
+    .scope Nmi
 
-    .import nmi
-    .import wait
+        .import nmi
+        .import wait
 
-.endscope
+    .endscope
 
 .endif

@@ -1,25 +1,22 @@
 
 .ifndef _X86_FETCH_
-_X86_FETCH_ = 1
+    _X86_FETCH_ = 1
 
-.scope Fetch
+    .scope Fetch
 
-    BUFFER_LEN = 6
+        BUFFER_LEN = 6
 
-    .importzp zbPrefixSegment
-    .importzp zbPrefixRepeat
-    .importzp zbPrefixLock
+        .importzp zbPrefixSegment
+        .importzp zbPrefixRepeat
+        .importzp zbPrefixLock
 
-    .importzp zbInstrLen
-    .importzp zbInstrBuffer
-    .importzp zbInstrOpcode
-    .importzp zaInstrOperands
+        .importzp zbInstrLen
+        .importzp zbInstrBuffer
+        .importzp zbInstrOpcode
+        .importzp zaInstrOperands
 
-    .import fetch
+        .import fetch
 
-    .ifdef DEBUG
-    .import debug_fetch
-    .endif
-.endscope
+    .endscope
 
 .endif

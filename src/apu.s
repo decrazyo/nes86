@@ -8,11 +8,11 @@
 .segment "RODATA"
 
 rbaRegInit:
-    .byte $30,$08,$00,$00
-    .byte $30,$08,$00,$00
-    .byte $80,$00,$00,$00
-    .byte $30,$00,$00,$00
-    .byte $00,$00,$00,$00
+.byte $30,$08,$00,$00
+.byte $30,$08,$00,$00
+.byte $80,$00,$00,$00
+.byte $30,$00,$00,$00
+.byte $00,$00,$00,$00
 
 .segment "CODE"
 
@@ -53,6 +53,7 @@ loop:
 
     rts
 .endproc
+
 
 .proc click
     ; TODO: make a better "click" sound effect.

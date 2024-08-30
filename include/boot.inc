@@ -1,11 +1,11 @@
 
 .ifndef _BOOT_
-_BOOT_ = 1
+    _BOOT_ = 1
 
-.scope Boot
+    .scope Boot
 
-    .import boot
+        .import boot
 
-.endscope
+    .endscope
 
 .endif

@@ -1,9 +1,11 @@
 
 .ifndef _IRQ_
-_IRQ_ = 1
+    _IRQ_ = 1
 
-.scope Irq
-    .global irq
-.endscope
+    .scope Irq
+
+        .global irq
+
+    .endscope
 
 .endif

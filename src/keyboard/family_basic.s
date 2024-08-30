@@ -33,7 +33,6 @@ rbaKeyTable:
 .byte $00,  $00,  "q",  $00,  $00,  $00,  "1",  "2"
 .byte $00,  $00,  $00,  $00,  $00,  " ",  $00,  $00
 
-
 JOYPAD1_R = %00000001 ; reset the keyboard to the first row.
 JOYPAD1_C = %00000010 ; select column, row is incremented if this bit goes from high to low.
 JOYPAD1_K = %00000100 ; enable keyboard matrix

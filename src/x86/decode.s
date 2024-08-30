@@ -1,6 +1,6 @@
 
 ; This module is responsible for copying values needed by x86 instructions
-; into temporary registers.
+; into temporary pseudo-registers.
 ; This module must only read the x86 address space though the
 ; Mem's general-purpose memory interface and dedicated stack interface.
 ; This module must not write to the x86 address space at all.
@@ -13,26 +13,19 @@
 ; pushed onto the stack and "CS" is not needed by the "execute" stage.
 ; If an instruction will write to the x86 address space during the "write" stage
 ; then this module must configure the Mem appropriately for that write.
-;
-; uses:
-;   Mem::set_address
-;   Mem::get_byte
-;   Mem::peek_next_byte
-;   Mem::pop_word
-; changes:
-;   Reg::zbS0
-;   Reg::zbS1
-;   Reg::zbD0
 
+.linecont +
+
+.include "const.inc"
+.include "list.inc"
+.include "tmp.inc"
+.include "x86.inc"
 .include "x86/decode.inc"
 .include "x86/fetch.inc"
-.include "x86/reg.inc"
 .include "x86/mem.inc"
+.include "x86/opcode.inc"
+.include "x86/reg.inc"
 .include "x86/util.inc"
-.include "x86.inc"
-
-.include "tmp.inc"
-.include "const.inc"
 
 .exportzp zbMod
 
@@ -60,255 +53,353 @@ zbRM: .res 1
 
 .segment "RODATA"
 
-; map instruction encodings to their decoding functions.
+.define DECODE_FUNCS \
+decode_nothing, \
+decode_s0l_modrm_reg8_d0l_modrm_rm8, \
+decode_s0x_modrm_reg16_d0x_modrm_rm16, \
+decode_s0l_modrm_rm8_d0l_modrm_reg8, \
+decode_s0x_modrm_rm16_d0x_modrm_reg16, \
+decode_s0l_imm8_d0l_modrm_rm8, \
+decode_s0x_imm16_d0x_modrm_rm16, \
+decode_s0l_imm8_d0l_embed_reg8, \
+decode_s0x_imm16_d0x_embed_reg16, \
+decode_s0l_mem8_imm16, \
+decode_s0x_mem16_imm16, \
+decode_s0l_al_d0l_mem8, \
+decode_s0x_ax_d0x_mem16, \
+decode_s0x_modrm_seg16_d0x_modrm_rm16, \
+decode_s0x_embed_reg16, \
+decode_s0x_embed_seg16, \
+decode_d0x_modrm_rm, \
+decode_d0x_embed_reg16, \
+decode_d0x_embed_seg16, \
+decode_s0l_modrm_reg8_s1l_modrm_rm8, \
+decode_s0x_modrm_reg16_s1x_modrm_rm16, \
+decode_s0x_embed_reg16_s1x_ax, \
+decode_s0x_imm8, \
+decode_s0x_dx, \
+decode_s0l_mem8_bx_al, \
+decode_s0x_modrm_m_addr, \
+decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi, \
+decode_s0l_flags_lo, \
+decode_s0l_ah, \
+decode_s0x_flags, \
+decode_s0l_modrm_rm8_s1l_modrm_reg8, \
+decode_s0x_modrm_rm16_s1x_modrm_reg16, \
+decode_s0l_al_s1l_imm8, \
+decode_s0x_ax_s1x_imm16, \
+decode_s0x_embed_reg16_d0x_embed_reg16, \
+decode_s0x_ax, \
+decode_s0l_al, \
+decode_s0l_al_s1l_ah_s2l_imm8, \
+decode_s0l_mem8_si, \
+decode_s0x_mem16_si, \
+decode_s0l_mem8_si_s1l_mem8_di, \
+decode_s0x_mem16_si_s1x_mem16_di, \
+decode_s0x_al_s1x_mem8_di, \
+decode_s0x_ax_s1x_mem16_di, \
+decode_s0l_imm8, \
+decode_s0x_imm16, \
+decode_s0x_imm16_s1x_imm16, \
+decode_s0l_modrm_rm8_s1l_imm8, \
+decode_s0x_modrm_rm16_s1x_imm16, \
+decode_s0x_modrm_rm16_s1x_imm8, \
+decode_s0l_modrm_rm8_s1l_1, \
+decode_s0x_modrm_rm16_s1l_1, \
+decode_s0l_modrm_rm8_s1l_cl, \
+decode_s0x_modrm_rm16_s1l_cl, \
+decode_s0l_modrm_rm8_opt_s1l_imm8, \
+decode_s0x_modrm_rm16_opt_s1x_imm16, \
+decode_s0l_modrm_rm8, \
+decode_s0x_modrm_rm16_or_s0x_modrm_m32_lo_s1x_modrm_m32_hi, \
+decode_s0l_al_d0l_mem8_di, \
+decode_s0x_ax_d0x_mem16_di, \
+decode_s0l_mem8_si_d0l_mem8_di, \
+decode_s0x_mem16_si_d0x_mem16_di, \
+decode_s0x_imm8_s1l_al, \
+decode_s0x_imm8_s1x_ax, \
+decode_s0x_dx_s1l_al, \
+decode_s0x_dx_s1x_ax, \
+decode_bad
+
+; decode function jump table
 rbaDecodeFuncLo:
-.byte <(decode_nothing-1)
-.byte <(decode_s0l_modrm_reg8_d0l_modrm_rm8-1)
-.byte <(decode_s0x_modrm_reg16_d0x_modrm_rm16-1)
-.byte <(decode_s0l_modrm_rm8_d0l_modrm_reg8-1)
-.byte <(decode_s0x_modrm_rm16_d0x_modrm_reg16-1)
-.byte <(decode_s0l_imm8_d0l_modrm_rm8-1)
-.byte <(decode_s0x_imm16_d0x_modrm_rm16-1)
-.byte <(decode_s0l_imm8_d0l_embed_reg8-1)
-.byte <(decode_s0x_imm16_d0x_embed_reg16-1)
-.byte <(decode_s0l_mem8_imm16-1)
-.byte <(decode_s0x_mem16_imm16-1)
-.byte <(decode_s0l_al_d0l_mem8-1)
-.byte <(decode_s0x_ax_d0x_mem16-1)
-.byte <(decode_s0x_modrm_seg16_d0x_modrm_rm16-1)
-.byte <(decode_s0x_embed_reg16-1)
-.byte <(decode_s0x_embed_seg16-1)
-.byte <(decode_d0x_modrm_rm-1)
-.byte <(decode_d0x_embed_reg16-1)
-.byte <(decode_d0x_embed_seg16-1)
-.byte <(decode_s0l_modrm_reg8_s1l_modrm_rm8-1)
-.byte <(decode_s0x_modrm_reg16_s1x_modrm_rm16-1)
-.byte <(decode_s0x_embed_reg16_s1x_ax-1)
-.byte <(decode_s0x_imm8-1)
-.byte <(decode_s0x_dx-1)
-.byte <(decode_s0l_mem8_bx_al-1)
-.byte <(decode_s0x_modrm_m_addr-1)
-.byte <(decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi-1)
-.byte <(decode_s0l_flags_lo-1)
-.byte <(decode_s0l_ah-1)
-.byte <(decode_s0x_flags-1)
-.byte <(decode_s0l_modrm_rm8_s1l_modrm_reg8-1)
-.byte <(decode_s0x_modrm_rm16_s1x_modrm_reg16-1)
-.byte <(decode_s0l_al_s1l_imm8-1)
-.byte <(decode_s0x_ax_s1x_imm16-1)
-.byte <(decode_s0x_embed_reg16_d0x_embed_reg16-1)
-.byte <(decode_s0x_ax-1)
-.byte <(decode_s0l_al-1)
-.byte <(decode_s0l_al_s1l_ah_s2l_imm8-1)
-.byte <(decode_s0l_mem8_si-1)
-.byte <(decode_s0x_mem16_si-1)
-.byte <(decode_s0l_mem8_si_s1l_mem8_di-1)
-.byte <(decode_s0x_mem16_si_s1x_mem16_di-1)
-.byte <(decode_s0x_al_s1x_mem8_di-1)
-.byte <(decode_s0x_ax_s1x_mem16_di-1)
-.byte <(decode_s0l_imm8-1)
-.byte <(decode_s0x_imm16-1)
-.byte <(decode_s0x_imm16_s1x_imm16-1)
-.byte <(decode_s0l_modrm_rm8_s1l_imm8-1)
-.byte <(decode_s0x_modrm_rm16_s1x_imm16-1)
-.byte <(decode_s0x_modrm_rm16_s1x_imm8-1)
-.byte <(decode_s0l_modrm_rm8_s1l_1-1)
-.byte <(decode_s0x_modrm_rm16_s1l_1-1)
-.byte <(decode_s0l_modrm_rm8_s1l_cl-1)
-.byte <(decode_s0x_modrm_rm16_s1l_cl-1)
-.byte <(decode_s0l_modrm_rm8_opt_s1l_imm8-1)
-.byte <(decode_s0x_modrm_rm16_opt_s1x_imm16-1)
-.byte <(decode_s0l_modrm_rm8-1)
-.byte <(decode_s0x_modrm_rm16_or_s0x_modrm_m32_lo_s1x_modrm_m32_hi-1)
-.byte <(decode_s0l_al_d0l_mem8_di-1)
-.byte <(decode_s0x_ax_d0x_mem16_di-1)
-.byte <(decode_s0l_mem8_si_d0l_mem8_di-1)
-.byte <(decode_s0x_mem16_si_d0x_mem16_di-1)
-.byte <(decode_s0x_imm8_s1l_al-1)
-.byte <(decode_s0x_imm8_s1x_ax-1)
-.byte <(decode_s0x_dx_s1l_al-1)
-.byte <(decode_s0x_dx_s1x_ax-1)
-.byte <(decode_bad-1)
+lo_return_bytes {DECODE_FUNCS}
 rbaDecodeFuncHi:
-.byte >(decode_nothing-1)
-.byte >(decode_s0l_modrm_reg8_d0l_modrm_rm8-1)
-.byte >(decode_s0x_modrm_reg16_d0x_modrm_rm16-1)
-.byte >(decode_s0l_modrm_rm8_d0l_modrm_reg8-1)
-.byte >(decode_s0x_modrm_rm16_d0x_modrm_reg16-1)
-.byte >(decode_s0l_imm8_d0l_modrm_rm8-1)
-.byte >(decode_s0x_imm16_d0x_modrm_rm16-1)
-.byte >(decode_s0l_imm8_d0l_embed_reg8-1)
-.byte >(decode_s0x_imm16_d0x_embed_reg16-1)
-.byte >(decode_s0l_mem8_imm16-1)
-.byte >(decode_s0x_mem16_imm16-1)
-.byte >(decode_s0l_al_d0l_mem8-1)
-.byte >(decode_s0x_ax_d0x_mem16-1)
-.byte >(decode_s0x_modrm_seg16_d0x_modrm_rm16-1)
-.byte >(decode_s0x_embed_reg16-1)
-.byte >(decode_s0x_embed_seg16-1)
-.byte >(decode_d0x_modrm_rm-1)
-.byte >(decode_d0x_embed_reg16-1)
-.byte >(decode_d0x_embed_seg16-1)
-.byte >(decode_s0l_modrm_reg8_s1l_modrm_rm8-1)
-.byte >(decode_s0x_modrm_reg16_s1x_modrm_rm16-1)
-.byte >(decode_s0x_embed_reg16_s1x_ax-1)
-.byte >(decode_s0x_imm8-1)
-.byte >(decode_s0x_dx-1)
-.byte >(decode_s0l_mem8_bx_al-1)
-.byte >(decode_s0x_modrm_m_addr-1)
-.byte >(decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi-1)
-.byte >(decode_s0l_flags_lo-1)
-.byte >(decode_s0l_ah-1)
-.byte >(decode_s0x_flags-1)
-.byte >(decode_s0l_modrm_rm8_s1l_modrm_reg8-1)
-.byte >(decode_s0x_modrm_rm16_s1x_modrm_reg16-1)
-.byte >(decode_s0l_al_s1l_imm8-1)
-.byte >(decode_s0x_ax_s1x_imm16-1)
-.byte >(decode_s0x_embed_reg16_d0x_embed_reg16-1)
-.byte >(decode_s0x_ax-1)
-.byte >(decode_s0l_al-1)
-.byte >(decode_s0l_al_s1l_ah_s2l_imm8-1)
-.byte >(decode_s0l_mem8_si-1)
-.byte >(decode_s0x_mem16_si-1)
-.byte >(decode_s0l_mem8_si_s1l_mem8_di-1)
-.byte >(decode_s0x_mem16_si_s1x_mem16_di-1)
-.byte >(decode_s0x_al_s1x_mem8_di-1)
-.byte >(decode_s0x_ax_s1x_mem16_di-1)
-.byte >(decode_s0l_imm8-1)
-.byte >(decode_s0x_imm16-1)
-.byte >(decode_s0x_imm16_s1x_imm16-1)
-.byte >(decode_s0l_modrm_rm8_s1l_imm8-1)
-.byte >(decode_s0x_modrm_rm16_s1x_imm16-1)
-.byte >(decode_s0x_modrm_rm16_s1x_imm8-1)
-.byte >(decode_s0l_modrm_rm8_s1l_1-1)
-.byte >(decode_s0x_modrm_rm16_s1l_1-1)
-.byte >(decode_s0l_modrm_rm8_s1l_cl-1)
-.byte >(decode_s0x_modrm_rm16_s1l_cl-1)
-.byte >(decode_s0l_modrm_rm8_opt_s1l_imm8-1)
-.byte >(decode_s0x_modrm_rm16_opt_s1x_imm16-1)
-.byte >(decode_s0l_modrm_rm8-1)
-.byte >(decode_s0x_modrm_rm16_or_s0x_modrm_m32_lo_s1x_modrm_m32_hi-1)
-.byte >(decode_s0l_al_d0l_mem8_di-1)
-.byte >(decode_s0x_ax_d0x_mem16_di-1)
-.byte >(decode_s0l_mem8_si_d0l_mem8_di-1)
-.byte >(decode_s0x_mem16_si_d0x_mem16_di-1)
-.byte >(decode_s0x_imm8_s1l_al-1)
-.byte >(decode_s0x_imm8_s1x_ax-1)
-.byte >(decode_s0x_dx_s1l_al-1)
-.byte >(decode_s0x_dx_s1x_ax-1)
-.byte >(decode_bad-1)
-rbaDecodeFuncEnd:
+hi_return_bytes {DECODE_FUNCS}
 
-.assert (rbaDecodeFuncHi - rbaDecodeFuncLo) = (rbaDecodeFuncEnd - rbaDecodeFuncHi), error, "incomplete decode function"
+; map opcodes to jump table indices
+size .set 0
+rbaDecodeFuncIndex:
+index_byte_at size, Opcode::ADD_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
+index_byte_at size, Opcode::ADD_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
+index_byte_at size, Opcode::ADD_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::ADD_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::ADD_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::ADD_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
+index_byte_at size, Opcode::PUSH_ES,    {DECODE_FUNCS}, decode_s0x_embed_seg16
+index_byte_at size, Opcode::POP_ES,     {DECODE_FUNCS}, decode_d0x_embed_seg16
+index_byte_at size, Opcode::OR_Eb_Gb,   {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
+index_byte_at size, Opcode::OR_Ev_Gv,   {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
+index_byte_at size, Opcode::OR_Gb_Eb,   {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::OR_Gv_Ev,   {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::OR_AL_Ib,   {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::OR_AX_Iv,   {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
+index_byte_at size, Opcode::PUSH_CS,    {DECODE_FUNCS}, decode_s0x_embed_seg16
+index_byte_at size, Opcode::NONE_0Fh,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::ADC_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
+index_byte_at size, Opcode::ADC_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
+index_byte_at size, Opcode::ADC_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::ADC_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::ADC_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::ADC_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
+index_byte_at size, Opcode::PUSH_SS,    {DECODE_FUNCS}, decode_s0x_embed_seg16
+index_byte_at size, Opcode::POP_SS,     {DECODE_FUNCS}, decode_d0x_embed_seg16
+index_byte_at size, Opcode::SBB_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
+index_byte_at size, Opcode::SBB_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
+index_byte_at size, Opcode::SBB_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::SBB_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::SBB_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::SBB_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
+index_byte_at size, Opcode::PUSH_DS,    {DECODE_FUNCS}, decode_s0x_embed_seg16
+index_byte_at size, Opcode::POP_DS,     {DECODE_FUNCS}, decode_d0x_embed_seg16
+index_byte_at size, Opcode::AND_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
+index_byte_at size, Opcode::AND_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
+index_byte_at size, Opcode::AND_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::AND_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::AND_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::AND_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
+index_byte_at size, Opcode::ES,         {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::DAA,        {DECODE_FUNCS}, decode_s0l_al
+index_byte_at size, Opcode::SUB_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
+index_byte_at size, Opcode::SUB_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
+index_byte_at size, Opcode::SUB_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::SUB_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::SUB_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::SUB_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
+index_byte_at size, Opcode::CS,         {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::DAS,        {DECODE_FUNCS}, decode_s0l_al
+index_byte_at size, Opcode::XOR_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
+index_byte_at size, Opcode::XOR_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
+index_byte_at size, Opcode::XOR_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::XOR_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::XOR_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::XOR_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
+index_byte_at size, Opcode::SS,         {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::AAA,        {DECODE_FUNCS}, decode_s0x_ax
+index_byte_at size, Opcode::CMP_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
+index_byte_at size, Opcode::CMP_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
+index_byte_at size, Opcode::CMP_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::CMP_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::CMP_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::CMP_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
+index_byte_at size, Opcode::DS,         {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::AAS,        {DECODE_FUNCS}, decode_s0x_ax
+index_byte_at size, Opcode::INC_AX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::INC_CX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::INC_DX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::INC_BX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::INC_SP,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::INC_BP,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::INC_SI,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::INC_DI,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::DEC_AX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::DEC_CX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::DEC_DX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::DEC_BX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::DEC_SP,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::DEC_BP,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::DEC_SI,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::DEC_DI,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
+index_byte_at size, Opcode::PUSH_AX,    {DECODE_FUNCS}, decode_s0x_embed_reg16
+index_byte_at size, Opcode::PUSH_CX,    {DECODE_FUNCS}, decode_s0x_embed_reg16
+index_byte_at size, Opcode::PUSH_DX,    {DECODE_FUNCS}, decode_s0x_embed_reg16
+index_byte_at size, Opcode::PUSH_BX,    {DECODE_FUNCS}, decode_s0x_embed_reg16
+index_byte_at size, Opcode::PUSH_SP,    {DECODE_FUNCS}, decode_s0x_embed_reg16
+index_byte_at size, Opcode::PUSH_BP,    {DECODE_FUNCS}, decode_s0x_embed_reg16
+index_byte_at size, Opcode::PUSH_SI,    {DECODE_FUNCS}, decode_s0x_embed_reg16
+index_byte_at size, Opcode::PUSH_DI,    {DECODE_FUNCS}, decode_s0x_embed_reg16
+index_byte_at size, Opcode::POP_AX,     {DECODE_FUNCS}, decode_d0x_embed_reg16
+index_byte_at size, Opcode::POP_CX,     {DECODE_FUNCS}, decode_d0x_embed_reg16
+index_byte_at size, Opcode::POP_DX,     {DECODE_FUNCS}, decode_d0x_embed_reg16
+index_byte_at size, Opcode::POP_BX,     {DECODE_FUNCS}, decode_d0x_embed_reg16
+index_byte_at size, Opcode::POP_SP,     {DECODE_FUNCS}, decode_d0x_embed_reg16
+index_byte_at size, Opcode::POP_BP,     {DECODE_FUNCS}, decode_d0x_embed_reg16
+index_byte_at size, Opcode::POP_SI,     {DECODE_FUNCS}, decode_d0x_embed_reg16
+index_byte_at size, Opcode::POP_DI,     {DECODE_FUNCS}, decode_d0x_embed_reg16
+index_byte_at size, Opcode::NONE_60h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_61h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_62h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_63h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_64h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_65h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_66h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_67h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_68h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_69h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_6Ah,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_6Bh,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_6Ch,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_6Dh,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_6Eh,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_6Fh,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::JO_Jb,      {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JNO_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JB_Jb,      {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JAE_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JZ_Jb,      {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JNZ_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JNA_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JA_Jb,      {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JS_Jb,      {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JNS_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JPE_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JPO_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JL_Jb,      {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JNL_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JNG_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JG_Jb,      {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::GRP1_Eb_Ib, {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_imm8
+index_byte_at size, Opcode::GRP1_Ev_Iv, {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_imm16
+index_byte_at size, Opcode::GRP1_82h,   {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_imm8
+index_byte_at size, Opcode::GRP1_Ev_Ib, {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_imm8
+index_byte_at size, Opcode::TEST_Gb_Eb, {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::TEST_Gv_Ev, {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::XCHG_Gb_Eb, {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
+index_byte_at size, Opcode::XCHG_Gv_Ev, {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
+index_byte_at size, Opcode::MOV_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_d0l_modrm_rm8
+index_byte_at size, Opcode::MOV_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_d0x_modrm_rm16
+index_byte_at size, Opcode::MOV_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_d0l_modrm_reg8
+index_byte_at size, Opcode::MOV_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_d0x_modrm_reg16
+index_byte_at size, Opcode::MOV_Ew_Sw,  {DECODE_FUNCS}, decode_s0x_modrm_seg16_d0x_modrm_rm16
+index_byte_at size, Opcode::LEA_Gv_M,   {DECODE_FUNCS}, decode_s0x_modrm_m_addr
+index_byte_at size, Opcode::MOV_Sw_Ew,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_d0x_modrm_reg16
+index_byte_at size, Opcode::POP_Ev,     {DECODE_FUNCS}, decode_d0x_modrm_rm
+index_byte_at size, Opcode::NOP,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::XCHG_CX_AX, {DECODE_FUNCS}, decode_s0x_embed_reg16_s1x_ax
+index_byte_at size, Opcode::XCHG_DX_AX, {DECODE_FUNCS}, decode_s0x_embed_reg16_s1x_ax
+index_byte_at size, Opcode::XCHG_BX_AX, {DECODE_FUNCS}, decode_s0x_embed_reg16_s1x_ax
+index_byte_at size, Opcode::XCHG_SP_AX, {DECODE_FUNCS}, decode_s0x_embed_reg16_s1x_ax
+index_byte_at size, Opcode::XCHG_BP_AX, {DECODE_FUNCS}, decode_s0x_embed_reg16_s1x_ax
+index_byte_at size, Opcode::XCHG_SI_AX, {DECODE_FUNCS}, decode_s0x_embed_reg16_s1x_ax
+index_byte_at size, Opcode::XCHG_DI_AX, {DECODE_FUNCS}, decode_s0x_embed_reg16_s1x_ax
+index_byte_at size, Opcode::CBW,        {DECODE_FUNCS}, decode_s0l_al
+index_byte_at size, Opcode::CWD,        {DECODE_FUNCS}, decode_s0x_ax
+index_byte_at size, Opcode::CALL_Ap,    {DECODE_FUNCS}, decode_s0x_imm16_s1x_imm16
+index_byte_at size, Opcode::WAIT,       {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::PUSHF,      {DECODE_FUNCS}, decode_s0x_flags
+index_byte_at size, Opcode::POPF,       {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::SAHF,       {DECODE_FUNCS}, decode_s0l_ah
+index_byte_at size, Opcode::LAHF,       {DECODE_FUNCS}, decode_s0l_flags_lo
+index_byte_at size, Opcode::MOV_AL_Ob,  {DECODE_FUNCS}, decode_s0l_mem8_imm16
+index_byte_at size, Opcode::MOV_AX_Ov,  {DECODE_FUNCS}, decode_s0x_mem16_imm16
+index_byte_at size, Opcode::MOV_Ob_AL,  {DECODE_FUNCS}, decode_s0l_al_d0l_mem8
+index_byte_at size, Opcode::MOV_Ov_AX,  {DECODE_FUNCS}, decode_s0x_ax_d0x_mem16
+index_byte_at size, Opcode::MOVSB,      {DECODE_FUNCS}, decode_s0l_mem8_si_d0l_mem8_di
+index_byte_at size, Opcode::MOVSW,      {DECODE_FUNCS}, decode_s0x_mem16_si_d0x_mem16_di
+index_byte_at size, Opcode::CMPSB,      {DECODE_FUNCS}, decode_s0l_mem8_si_s1l_mem8_di
+index_byte_at size, Opcode::CMPSW,      {DECODE_FUNCS}, decode_s0x_mem16_si_s1x_mem16_di
+index_byte_at size, Opcode::TEST_AL_Ib, {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::TEST_AX_Iv, {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
+index_byte_at size, Opcode::STOSB,      {DECODE_FUNCS}, decode_s0l_al_d0l_mem8_di
+index_byte_at size, Opcode::STOSW,      {DECODE_FUNCS}, decode_s0x_ax_d0x_mem16_di
+index_byte_at size, Opcode::LODSB,      {DECODE_FUNCS}, decode_s0l_mem8_si
+index_byte_at size, Opcode::LODSW,      {DECODE_FUNCS}, decode_s0x_mem16_si
+index_byte_at size, Opcode::SCASB,      {DECODE_FUNCS}, decode_s0x_al_s1x_mem8_di
+index_byte_at size, Opcode::SCASW,      {DECODE_FUNCS}, decode_s0x_ax_s1x_mem16_di
+index_byte_at size, Opcode::MOV_AL_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_embed_reg8
+index_byte_at size, Opcode::MOV_CL_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_embed_reg8
+index_byte_at size, Opcode::MOV_DL_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_embed_reg8
+index_byte_at size, Opcode::MOV_BL_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_embed_reg8
+index_byte_at size, Opcode::MOV_AH_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_embed_reg8
+index_byte_at size, Opcode::MOV_CH_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_embed_reg8
+index_byte_at size, Opcode::MOV_DH_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_embed_reg8
+index_byte_at size, Opcode::MOV_BH_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_embed_reg8
+index_byte_at size, Opcode::MOV_AX_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
+index_byte_at size, Opcode::MOV_CX_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
+index_byte_at size, Opcode::MOV_DX_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
+index_byte_at size, Opcode::MOV_BX_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
+index_byte_at size, Opcode::MOV_SP_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
+index_byte_at size, Opcode::MOV_BP_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
+index_byte_at size, Opcode::MOV_SI_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
+index_byte_at size, Opcode::MOV_DI_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
+index_byte_at size, Opcode::NONE_C0h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_C1h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::RET_Iw,     {DECODE_FUNCS}, decode_s0x_imm16
+index_byte_at size, Opcode::RET,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::LES_Gv_Mp,  {DECODE_FUNCS}, decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi
+index_byte_at size, Opcode::LDS_Gv_Mp,  {DECODE_FUNCS}, decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi
+index_byte_at size, Opcode::MOV_Eb_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_modrm_rm8
+index_byte_at size, Opcode::MOV_Ev_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_modrm_rm16
+index_byte_at size, Opcode::NONE_C8h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_C9h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::RETF_Iw,    {DECODE_FUNCS}, decode_s0x_imm16
+index_byte_at size, Opcode::RETF,       {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::INT3,       {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::INT_Ib,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::INTO,       {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::IRET,       {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::GRP2_Eb_1,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_1
+index_byte_at size, Opcode::GRP2_Ev_1,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1l_1
+index_byte_at size, Opcode::GRP2_Eb_CL, {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_cl
+index_byte_at size, Opcode::GRP2_Ev_CL, {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1l_cl
+index_byte_at size, Opcode::AAM_I0,     {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
+index_byte_at size, Opcode::AAD_I0,     {DECODE_FUNCS}, decode_s0l_al_s1l_ah_s2l_imm8
+index_byte_at size, Opcode::NONE_D6h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::XLAT,       {DECODE_FUNCS}, decode_s0l_mem8_bx_al
+index_byte_at size, Opcode::NONE_D8h,   {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::NONE_D9h,   {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::NONE_DAh,   {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::NONE_DBh,   {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::NONE_DCh,   {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::NONE_DDh,   {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::NONE_DEh,   {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::NONE_DFh,   {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::LOOPNZ_Jb,  {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::LOOPZ_Jb,   {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::LOOP_Jb,    {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::JCXZ_Jb,    {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::IN_AL_Ib,   {DECODE_FUNCS}, decode_s0x_imm8
+index_byte_at size, Opcode::IN_AX_Ib,   {DECODE_FUNCS}, decode_s0x_imm8
+index_byte_at size, Opcode::OUT_Ib_AL,  {DECODE_FUNCS}, decode_s0x_imm8_s1l_al
+index_byte_at size, Opcode::OUT_Ib_AX,  {DECODE_FUNCS}, decode_s0x_imm8_s1x_ax
+index_byte_at size, Opcode::CALL_Jv,    {DECODE_FUNCS}, decode_s0x_imm16
+index_byte_at size, Opcode::JMP_Jv,     {DECODE_FUNCS}, decode_s0x_imm16
+index_byte_at size, Opcode::JMP_Ap,     {DECODE_FUNCS}, decode_s0x_imm16_s1x_imm16
+index_byte_at size, Opcode::JMP_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
+index_byte_at size, Opcode::IN_AL_DX,   {DECODE_FUNCS}, decode_s0x_dx
+index_byte_at size, Opcode::IN_AX_DX,   {DECODE_FUNCS}, decode_s0x_dx
+index_byte_at size, Opcode::OUT_DX_AL,  {DECODE_FUNCS}, decode_s0x_dx_s1l_al
+index_byte_at size, Opcode::OUT_DX_AX,  {DECODE_FUNCS}, decode_s0x_dx_s1x_ax
+index_byte_at size, Opcode::LOCK,       {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_F1h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::REPNZ,      {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::REPZ,       {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::HLT,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::CMC,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::GRP3_Eb,    {DECODE_FUNCS}, decode_s0l_modrm_rm8_opt_s1l_imm8
+index_byte_at size, Opcode::GRP3_Ev,    {DECODE_FUNCS}, decode_s0x_modrm_rm16_opt_s1x_imm16
+index_byte_at size, Opcode::CLC,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::STC,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::CLI,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::STI,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::CLD,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::STD,        {DECODE_FUNCS}, decode_nothing
+index_byte_at size, Opcode::GRP4_Eb,    {DECODE_FUNCS}, decode_s0l_modrm_rm8
+index_byte_at size, Opcode::GRP4_Ev,    {DECODE_FUNCS}, \
+decode_s0x_modrm_rm16_or_s0x_modrm_m32_lo_s1x_modrm_m32_hi
+.assert size = 256, error, "incorrect table size"
 
-; instruction encodings
-.enum
-    D00 ; decode_nothing
-    D01 ; decode_s0l_modrm_reg8_d0l_modrm_rm8
-    D02 ; decode_s0x_modrm_reg16_d0x_modrm_rm16
-    D03 ; decode_s0l_modrm_rm8_d0l_modrm_reg8
-    D04 ; decode_s0x_modrm_rm16_d0x_modrm_reg16
-    D05 ; decode_s0l_imm8_d0l_modrm_rm8
-    D06 ; decode_s0x_imm16_d0x_modrm_rm16
-    D07 ; decode_s0l_imm8_d0l_embed_reg8
-    D08 ; decode_s0x_imm16_d0x_embed_reg16
-    D09 ; decode_s0l_mem8_imm16
-    D10 ; decode_s0x_mem16_imm16
-    D11 ; decode_s0l_al_d0l_mem8
-    D12 ; decode_s0x_ax_d0x_mem16
-    D13 ; decode_s0x_modrm_seg16_d0x_modrm_rm16
-    D14 ; decode_s0x_embed_reg16
-    D15 ; decode_s0x_embed_seg16
-    D16 ; decode_d0x_modrm_rm
-    D17 ; decode_d0x_embed_reg16
-    D18 ; decode_d0x_embed_seg16
-    D19 ; decode_s0l_modrm_reg8_s1l_modrm_rm8
-    D20 ; decode_s0x_modrm_reg16_s1x_modrm_rm16
-    D21 ; decode_s0x_embed_reg16_s1x_ax
-    D22 ; decode_s0x_imm8
-    D23 ; decode_s0x_dx
-    D24 ; decode_s0l_mem8_bx_al
-    D25 ; decode_s0x_modrm_m_addr
-    D26 ; decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi
-    D27 ; decode_s0l_flags_lo
-    D28 ; decode_s0l_ah
-    D29 ; decode_s0x_flags
-    D30 ; decode_s0l_modrm_rm8_s1l_modrm_reg8
-    D31 ; decode_s0x_modrm_rm16_s1x_modrm_reg16
-    D32 ; decode_s0l_al_s1l_imm8
-    D33 ; decode_s0x_ax_s1x_imm16
-    D34 ; decode_s0x_embed_reg16_d0x_embed_reg16
-    D35 ; decode_s0x_ax
-    D36 ; decode_s0l_al
-    D37 ; decode_s0l_al_s1l_ah_s2l_imm8
-    D38 ; decode_s0l_mem8_si
-    D39 ; decode_s0x_mem16_si
-    D40 ; decode_s0l_mem8_si_s1l_mem8_di
-    D41 ; decode_s0x_mem16_si_s1x_mem16_di
-    D42 ; decode_s0x_al_s1x_mem8_di
-    D43 ; decode_s0x_ax_s1x_mem16_di
-    D44 ; decode_s0l_imm8
-    D45 ; decode_s0x_imm16
-    D46 ; decode_s0x_imm16_s1x_imm16
-    D47 ; decode_s0l_modrm_rm8_s1l_imm8
-    D48 ; decode_s0x_modrm_rm16_s1x_imm16
-    D49 ; decode_s0x_modrm_rm16_s1x_imm8
-    D50 ; decode_s0l_modrm_rm8_s1l_1
-    D51 ; decode_s0x_modrm_rm16_s1l_1
-    D52 ; decode_s0l_modrm_rm8_s1l_cl
-    D53 ; decode_s0x_modrm_rm16_s1l_cl
-    D54 ; decode_s0l_modrm_rm8_opt_s1l_imm8
-    D55 ; decode_s0x_modrm_rm16_opt_s1x_imm16
-    D56 ; decode_s0l_modrm_rm8
-    D57 ; decode_s0x_modrm_rm16_or_s0x_modrm_m32_lo_s1x_modrm_m32_hi
-    D58 ; decode_s0l_al_d0l_mem8_di
-    D59 ; decode_s0x_ax_d0x_mem16_di
-    D60 ; decode_s0l_mem8_si_d0l_mem8_di
-    D61 ; decode_s0x_mem16_si_d0x_mem16_di
-    D62 ; decode_s0x_imm8_s1l_al
-    D63 ; decode_s0x_imm8_s1x_ax
-    D64 ; decode_s0x_dx_s1l_al
-    D65 ; decode_s0x_dx_s1x_ax
-
-    BAD ; used for unimplemented or non-existent instructions
-    FUNC_COUNT ; used to check function table size at compile-time
-.endenum
-
-.assert (rbaDecodeFuncHi - rbaDecodeFuncLo) = FUNC_COUNT, error, "decode function count"
-
-; map opcodes to instruction encodings
-rbaInstrDecode:
-;      _0  _1  _2  _3  _4  _5  _6  _7  _8  _9  _A  _B  _C  _D  _E  _F
-.byte D30,D31,D19,D20,D32,D33,D15,D18,D30,D31,D19,D20,D32,D33,D15,BAD ; 0_
-.byte D30,D31,D19,D20,D32,D33,D15,D18,D30,D31,D19,D20,D32,D33,D15,D18 ; 1_
-.byte D30,D31,D19,D20,D32,D33,BAD,D36,D30,D31,D19,D20,D32,D33,BAD,D36 ; 2_
-.byte D30,D31,D19,D20,D32,D33,BAD,D35,D30,D31,D19,D20,D32,D33,BAD,D35 ; 3_
-.byte D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34,D34 ; 4_
-.byte D14,D14,D14,D14,D14,D14,D14,D14,D17,D17,D17,D17,D17,D17,D17,D17 ; 5_
-.byte BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD,BAD ; 6_
-.byte D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44,D44 ; 7_
-.byte D47,D48,BAD,D49,D19,D20,D19,D20,D01,D02,D03,D04,D13,D25,D04,D16 ; 8_
-.byte D00,D21,D21,D21,D21,D21,D21,D21,D36,D35,D46,D00,D29,D00,D28,D27 ; 9_
-.byte D09,D10,D11,D12,D60,D61,D40,D41,D32,D33,D58,D59,D38,D39,D42,D43 ; A_
-.byte D07,D07,D07,D07,D07,D07,D07,D07,D08,D08,D08,D08,D08,D08,D08,D08 ; B_
-.byte BAD,BAD,D45,D00,D26,D26,D05,D06,BAD,BAD,D45,D00,D00,D44,D00,D00 ; C_
-.byte D50,D51,D52,D53,D32,D37,BAD,D24,D00,D00,D00,D00,D00,D00,D00,D00 ; D_
-.byte D44,D44,D44,D44,D22,D22,D62,D63,D45,D45,D46,D44,D23,D23,D64,D65 ; E_
-.byte BAD,BAD,BAD,BAD,D00,D00,D54,D55,D00,D00,D00,D00,D00,D00,D56,D57 ; F_
+.define MODRM_FUNCS \
+get_modrm_m_mode_0, \
+get_modrm_m_mode_1, \
+get_modrm_m_mode_2, \
+get_modrm_r16
 
 rbaModRMAddrFuncLo:
-.byte <(get_modrm_m_mode_0-1)
-.byte <(get_modrm_m_mode_1-1)
-.byte <(get_modrm_m_mode_2-1)
-.byte <(get_modrm_r16-1)
+lo_return_bytes {MODRM_FUNCS}
 rbaModRMAddrFuncHi:
-.byte >(get_modrm_m_mode_0-1)
-.byte >(get_modrm_m_mode_1-1)
-.byte >(get_modrm_m_mode_2-1)
-.byte >(get_modrm_r16-1)
-rbaModRMAddrFuncEnd:
-
-.assert (rbaModRMAddrFuncHi - rbaModRMAddrFuncLo) = (rbaModRMAddrFuncEnd - rbaModRMAddrFuncHi), error, "incomplete ModR/M address function"
+hi_return_bytes {MODRM_FUNCS}
 
 .segment "CODE"
 
@@ -325,13 +416,14 @@ rbaModRMAddrFuncEnd:
 ; < Y = function index
 .proc decode
     ldx Fetch::zbInstrOpcode
-    ldy rbaInstrDecode, x
+    ldy rbaDecodeFuncIndex, x
     lda rbaDecodeFuncHi, y
     pha
     lda rbaDecodeFuncLo, y
     pha
     rts
 .endproc
+
 
 ; ==============================================================================
 ; decode handlers
@@ -359,6 +451,7 @@ rbaModRMAddrFuncEnd:
     rts
 .endproc
 
+
 .proc decode_s0l_modrm_reg8_d0l_modrm_rm8
     jsr parse_modrm
     jsr use_modrm_pointer
@@ -367,8 +460,11 @@ rbaModRMAddrFuncEnd:
     rts
 .endproc
 
-decode_s0x_modrm_rm16: ; extended CALL, JMP, PUSH
-decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
+
+; extended CALL, JMP, PUSH
+decode_s0x_modrm_rm16: ; [code_label]
+; extended INC, DEC
+decode_s0x_modrm_rm16_d0x_modrm_rm16: ; [code_label]
 .proc decode_s0x_modrm_rm16_d0x_modrm_reg16
     jsr parse_modrm
     jsr get_modrm_rm16
@@ -377,12 +473,14 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     rts
 .endproc
 
+
 .proc decode_s0l_modrm_rm8_d0l_modrm_reg8
     jsr parse_modrm
     jsr get_modrm_rm8
     sta Reg::zbS0L
     rts
 .endproc
+
 
 ;    imm -> rm
 .proc decode_s0x_imm16_d0x_modrm_rm16
@@ -398,6 +496,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     rts
 .endproc
 
+
 .proc decode_s0l_imm8_d0l_modrm_rm8
     ldx Fetch::zbInstrLen
     lda Fetch::zbInstrBuffer-1, x
@@ -407,6 +506,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     jsr use_modrm_pointer
     rts
 .endproc
+
 
 ;    imm -> reg
 .proc decode_s0x_imm16_d0x_embed_reg16
@@ -427,6 +527,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     rts
 .endproc
 
+
 ;    mem -> acc
 ;    acc -> mem
 .proc decode_s0x_mem16_imm16
@@ -442,6 +543,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     rts
 .endproc
 
+
 .proc decode_s0l_mem8_imm16
     jsr use_prefix_or_ds_segment
 
@@ -453,6 +555,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     sta Reg::zbS0L
     rts
 .endproc
+
 
 .proc decode_s0x_ax_d0x_mem16
     lda Reg::zwAX+1
@@ -472,6 +575,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     ; [tail_jump]
 .endproc
 
+
 ;    seg -> rm
 ;    rm -> seg
 .proc decode_s0x_modrm_seg16_d0x_modrm_rm16
@@ -480,7 +584,9 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     sta Reg::zwS0X
     stx Reg::zwS0X+1
     jmp use_modrm_pointer
+    ; [tail_jump]
 .endproc
+
 
 ; changes: A, X, Y
 .proc decode_s0x_embed_reg16
@@ -495,6 +601,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     sta Reg::zwS0X+1
     rts
 .endproc
+
 
 ; changes: A, X, Y
 .proc decode_s0x_embed_seg16
@@ -513,11 +620,13 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     rts
 .endproc
 
+
 .proc decode_d0x_modrm_rm
     jsr parse_modrm
     jmp use_modrm_pointer
     ; [tail_jump]
 .endproc
+
 
 ; changes: A, X, Y
 .proc decode_d0x_embed_reg16
@@ -526,6 +635,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     sta zbReg
     rts
 .endproc
+
 
 ; changes: A, X, Y
 .proc decode_d0x_embed_seg16
@@ -554,6 +664,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     rts
 .endproc
 
+
 .proc decode_s0l_modrm_reg8_s1l_modrm_rm8
     jsr parse_modrm
 
@@ -564,6 +675,7 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16: ; extended INC, DEC
     sta Reg::zbS1L
     rts
 .endproc
+
 
 ; changes: A, X, Y
 .proc decode_s0x_embed_reg16_s1x_ax
@@ -679,6 +791,7 @@ modrm_parsed:
     rts
 .endproc
 
+
 .proc decode_s0x_flags
     lda Reg::zwFlags+1
     sta Reg::zwS0X+1
@@ -690,6 +803,7 @@ modrm_parsed:
     sta Reg::zbS0L
     rts
 .endproc
+
 
 .proc decode_s0l_ah
     lda Reg::zbAH
@@ -710,6 +824,7 @@ modrm_parsed:
     stx Reg::zwS1X+1
     rts
 .endproc
+
 
 .proc decode_s0l_modrm_rm8_s1l_modrm_reg8
     jsr parse_modrm
@@ -756,6 +871,7 @@ modrm_parsed:
     rts
 .endproc
 
+
 .proc decode_s0x_ax
     lda Reg::zwAX+1
     sta Reg::zwS0X+1
@@ -767,6 +883,7 @@ modrm_parsed:
     sta Reg::zbS0L
     rts
 .endproc
+
 
 .proc decode_s0l_al_s1l_ah_s2l_imm8
     lda Reg::zbAL
@@ -780,6 +897,7 @@ modrm_parsed:
     rts
 .endproc
 
+
 .proc decode_s0x_mem16_si
     jsr use_prefix_or_ds_segment
     jsr Mem::get_si_word
@@ -787,6 +905,7 @@ modrm_parsed:
     stx Reg::zwS0X+1
     rts
 .endproc
+
 
 .proc decode_s0l_mem8_si
     jsr use_prefix_or_ds_segment
@@ -812,6 +931,7 @@ modrm_parsed:
     rts
 .endproc
 
+
 .proc decode_s0l_mem8_si_s1l_mem8_di
     jsr use_prefix_or_ds_segment
 
@@ -825,6 +945,7 @@ modrm_parsed:
     sta Reg::zbS1L
     rts
 .endproc
+
 
 .proc decode_s0x_ax_s1x_mem16_di
     lda Reg::zwAX
@@ -840,6 +961,7 @@ modrm_parsed:
     stx Reg::zwS1X+1
     rts
 .endproc
+
 
 .proc decode_s0x_al_s1x_mem8_di
     lda Reg::zbAL
@@ -891,6 +1013,7 @@ modrm_parsed:
     rts
 .endproc
 
+
 .proc decode_s0x_mem16_si_d0x_mem16_di
     jsr use_prefix_or_ds_segment
     jsr Mem::get_si_word
@@ -901,6 +1024,7 @@ modrm_parsed:
     jsr Mem::use_segment
     rts
 .endproc
+
 
 .proc decode_s0l_mem8_si_d0l_mem8_di
     jsr use_prefix_or_ds_segment
@@ -965,6 +1089,7 @@ modrm_parsed:
     rts
 .endproc
 
+
 ; ----------------------------------------
 ; group 2
 ; ----------------------------------------
@@ -1018,6 +1143,7 @@ modrm_parsed:
     rts
 .endproc
 
+
 ; ----------------------------------------
 ; group 3
 ; ----------------------------------------
@@ -1039,6 +1165,7 @@ done:
     rts
 .endproc
 
+
 .proc decode_s0x_modrm_rm16_opt_s1x_imm16
     jsr parse_modrm
 
@@ -1058,6 +1185,7 @@ done:
 done:
     rts
 .endproc
+
 
 ; ----------------------------------------
 ; group 4
@@ -1096,10 +1224,11 @@ s0x_modrm_rm16:
 
 ; called when an unsupported opcode is decoded
 .proc decode_bad
-    lda #X86::Err::DECODE_FUNC
+    lda #X86::eErr::DECODE_FUNC
     jmp X86::panic
     ; [tail_jump]
 .endproc
+
 
 ; ==============================================================================
 ; utility functions
@@ -1136,7 +1265,6 @@ use_segment:
     jmp Mem::use_segment
     ; [tail_jump]
 .endproc
-
 
 
 ; extract the Mod, reg, and R/M fields of a ModR/M byte.
@@ -1300,8 +1428,8 @@ done:
     cmp #Decode::MODRM_MOD_REGISTER
     beq done ; branch if R/M value points to a register, not memory
 
-; this is an alternative entry point.
-; it assumes that the ModR/M byte doesn't indicate a register access.
+    ; this is an alternative entry point.
+    ; it assumes that the ModR/M byte doesn't indicate a register access.
 skip_reg_check:
     jsr use_prefix_or_ds_segment
     jsr get_modrm_m
@@ -1325,7 +1453,7 @@ done:
     lda zbMod
     cmp #Decode::MODRM_MOD_REGISTER
     beq get_modrm_r16 ; branch if the value comes from a register, not memory
-    ; [fall_through]
+    ; [tail_branch]
 .endproc
 
 ; get a 16-bit value from memory.
@@ -1371,7 +1499,7 @@ done:
     lda zbMod
     cmp #Decode::MODRM_MOD_REGISTER
     beq get_modrm_r8 ; branch if the value comes from a register, not memory
-    ; [fall_through]
+    ; [tail_branch]
 .endproc
 
 ; get a 8-bit value from memory
@@ -1461,5 +1589,3 @@ done:
     ldx Const::ZERO_PAGE+1, y
     rts
 .endproc
-
-

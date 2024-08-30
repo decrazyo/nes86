@@ -1,12 +1,12 @@
 
 .ifndef _X86_PIC_
-_X86_PIC_ = 1
+    _X86_PIC_ = 1
 
-.scope Pic
+    .scope Pic
 
-    .import pic
-    .import intr
+        .import pic
+        .import intr
 
-.endscope
+    .endscope
 
 .endif

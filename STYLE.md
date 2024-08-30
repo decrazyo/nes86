@@ -19,23 +19,23 @@ Variable names should generally be nouns.
 `PascalCase` should be used for variable names.
 Variables should be prefixed according to the following table in the order they appear.
 
-| prefix | meaning     | description |
-|--------|-------------|-------------|
-| r      | read-only   | variable should be treated as read-only or is located in ROM |
-| z      | zero-page   | variable exists in zero page |
-| b      | byte        | variable is 1 byte in size or a pointer to such |
-| w      | word        | variable is 2 bytes in size or a pointer to such |
-| d      | double word | variable is 4 bytes in size or a pointer to such |
-| q      | quad word   | variable is 8 bytes in size or a pointer to such |
-| a      | array       | variable is an array or a pointer to such (mutually exclusive with "s") |
-| s      | string      | variable is a C string or a pointer to such (mutually exclusive with "a") |
-| p      | pointer     | variable is a data pointer |
+| prefix | meaning     | exclusive     | description |
+|--------|-------------|---------------|-------------|
+| r      | read-only   |               | data is read-only or treated as such in some context |
+| z      | zero-page   |               | data exists in zero page |
+| b      | byte        | w, d, q, s    | data is 1 byte in size |
+| w      | word        | b, d, q, s    | data is 2 bytes in size |
+| d      | double word | b, w, q, s    | data is 4 bytes in size |
+| q      | quad word   | b, w, d, s    | data is 8 bytes in size |
+| a      | array       | s             | data is an array |
+| s      | string      | b, w, d, q, a | data is a C string |
+| p      | pointer     |               | data is a pointer |
 
 Prefixes should appear in the same order as the the above table.  
 e.g. A 1 byte variable that is stored in zero page should be named like this.  
 
     zbMyByte
-Arrays that store a base type (byte, word, double word, quad word) should indicate that with a prefix.  
+Arrays that store a basic type (byte, word, double word, quad word) should indicate that with a prefix.  
 e.g. A word array should be named like this.  
 
     waMyWords

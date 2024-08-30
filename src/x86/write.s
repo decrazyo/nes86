@@ -195,7 +195,7 @@ index_byte_at size, Opcode::JNG_Jb,     {WRITE_FUNCS}, write_nothing
 index_byte_at size, Opcode::JG_Jb,      {WRITE_FUNCS}, write_nothing
 index_byte_at size, Opcode::GRP1_Eb_Ib, {WRITE_FUNCS}, write_group1a
 index_byte_at size, Opcode::GRP1_Ev_Iv, {WRITE_FUNCS}, write_group1b
-index_byte_at size, Opcode::GRP1_82h,   {WRITE_FUNCS}, write_bad
+index_byte_at size, Opcode::GRP1_82h,   {WRITE_FUNCS}, write_group1a
 index_byte_at size, Opcode::GRP1_Ev_Ib, {WRITE_FUNCS}, write_group1b
 index_byte_at size, Opcode::TEST_Gb_Eb, {WRITE_FUNCS}, write_nothing
 index_byte_at size, Opcode::TEST_Gv_Ev, {WRITE_FUNCS}, write_nothing

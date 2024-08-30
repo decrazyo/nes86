@@ -65,11 +65,10 @@
 
 .segment "RODATA"
 
-.define EXECUTE_FUNCS \
+.define NORMAL_FUNCS \
 execute_nop, \
 execute_mov_8, \
 execute_mov_16, \
-execute_push, \
 execute_pop, \
 execute_xchg_8, \
 execute_xchg_16, \
@@ -78,39 +77,19 @@ execute_in_16, \
 execute_out_8, \
 execute_out_16, \
 execute_mov_32, \
-execute_add_8_8, \
-execute_add_16_16, \
-execute_adc_8_8, \
-execute_adc_16_16, \
-execute_inc_8, \
-execute_inc_16, \
 execute_aaa, \
 execute_daa, \
-execute_sub_8_8, \
-execute_sub_16_16, \
-execute_sbb_8_8, \
-execute_sbb_16_16, \
-execute_dec_8, \
-execute_dec_16, \
 execute_aas, \
 execute_das, \
 execute_aam, \
 execute_aad, \
 execute_cbw, \
 execute_cwd, \
-execute_and_8_8, \
-execute_and_16_16, \
-execute_or_8_8, \
-execute_or_16_16, \
-execute_xor_8_8, \
-execute_xor_16_16, \
 execute_rep_repnz, \
 execute_repz_repnz, \
 execute_call_rel_near, \
-execute_call_far, \
 execute_jmp_short, \
 execute_jmp_rel_near, \
-execute_jmp_far, \
 execute_ret_near, \
 execute_ret_far, \
 execute_ret_near_adjust_sp, \
@@ -149,16 +128,110 @@ execute_sti, \
 execute_hlt, \
 execute_wait, \
 execute_esc, \
-execute_nop, \
+execute_nop
+
+; the emulator depends on the order of the functions in the following groups.
+; don't rearrange them or you'll break shit.
+; see also: execute_group
+
+.define GROUP1A_FUNCS \
 execute_group1a, \
+execute_add_8_8, \
+execute_or_8_8, \
+execute_adc_8_8, \
+execute_sbb_8_8, \
+execute_and_8_8, \
+execute_sub_8_8, \
+execute_xor_8_8, \
+execute_sub_8_8
+
+.define GROUP1B_FUNCS \
 execute_group1b, \
+execute_add_16_16, \
+execute_or_16_16, \
+execute_adc_16_16, \
+execute_sbb_16_16, \
+execute_and_16_16, \
+execute_sub_16_16, \
+execute_xor_16_16, \
+execute_sub_16_16
+
+.define GROUP2A_FUNCS \
 execute_group2a, \
+execute_rol_8_8, \
+execute_ror_8_8, \
+execute_rcl_8_8, \
+execute_rcr_8_8, \
+execute_shl_8_8, \
+execute_shr_8_8, \
+execute_bad, \
+execute_sar_8_8
+
+.define GROUP2B_FUNCS \
 execute_group2b, \
+execute_rol_16_8, \
+execute_ror_16_8, \
+execute_rcl_16_8, \
+execute_rcr_16_8, \
+execute_shl_16_8, \
+execute_shr_16_8, \
+execute_bad, \
+execute_sar_16_8
+
+.define GROUP3A_FUNCS \
 execute_group3a, \
+execute_and_8_8, \
+execute_bad, \
+execute_not_8, \
+execute_neg_8, \
+execute_mul_8_8, \
+execute_imul_8_8, \
+execute_div_16_8, \
+execute_idiv_16_8
+
+.define GROUP3B_FUNCS \
 execute_group3b, \
+execute_and_16_16, \
+execute_bad, \
+execute_not_16, \
+execute_neg_16, \
+execute_mul_16_16, \
+execute_imul_16_16, \
+execute_div_32_16, \
+execute_idiv_32_16
+
+.define GROUP4A_FUNCS \
 execute_group4a, \
-execute_group4b, \
+execute_inc_8, \
+execute_dec_8, \
+execute_bad, \
+execute_bad, \
+execute_bad, \
+execute_bad, \
+execute_bad, \
 execute_bad
+
+.define GROUP4B_FUNCS \
+execute_group4b, \
+execute_inc_16, \
+execute_dec_16, \
+execute_call_abs_near, \
+execute_call_far, \
+execute_jmp_abs_near, \
+execute_jmp_far, \
+execute_push, \
+execute_bad
+
+.define EXECUTE_FUNCS \
+NORMAL_FUNCS, \
+GROUP1A_FUNCS, \
+GROUP1B_FUNCS, \
+GROUP2A_FUNCS, \
+GROUP2B_FUNCS, \
+GROUP3A_FUNCS, \
+GROUP3B_FUNCS, \
+GROUP4A_FUNCS, \
+GROUP4B_FUNCS
 
 ; execute function jump table
 rbaExecuteFuncLo:
@@ -334,7 +407,7 @@ index_byte_at size, Opcode::MOV_AX_Ov,  {EXECUTE_FUNCS}, execute_mov_16
 index_byte_at size, Opcode::MOV_Ob_AL,  {EXECUTE_FUNCS}, execute_mov_8
 index_byte_at size, Opcode::MOV_Ov_AX,  {EXECUTE_FUNCS}, execute_mov_16
 ; string instructions may or may not have a repeat prefix.
-; the prefix handler will call the appropriate string instruction handler.
+; the repeat prefix handler will call the appropriate string instruction handler.
 ; see also: rbaExecuteStrFuncIndex
 index_byte_at size, Opcode::MOVSB,      {EXECUTE_FUNCS}, execute_rep_repnz
 index_byte_at size, Opcode::MOVSW,      {EXECUTE_FUNCS}, execute_rep_repnz
@@ -459,6 +532,10 @@ index_byte_at size, Opcode::SCASW,      {EXECUTE_FUNCS}, execute_sub_16_16
 ; ==============================================================================
 
 ; execute the current instruction.
+; calls execute handlers with
+; < A = garbage
+; < X = instruction opcode
+; < Y = function index
 .proc execute
     ldx Fetch::zbInstrOpcode
     ldy rbaExecuteFuncIndex, x
@@ -473,258 +550,31 @@ skip_lookup:
 
 
 ; ==============================================================================
-; extended instruction handlers
+; extended instruction handler
 ; ==============================================================================
 
-; NOTE: these function tables could be eliminated.
-;       we would just need to properly arranging the main function table.
-;       that doesn't seem necessary unless we run out of ROM space.
-
-.segment "RODATA"
-
-.define GROUP1A_FUNCS \
-execute_add_8_8, \
-execute_or_8_8, \
-execute_adc_8_8, \
-execute_sbb_8_8, \
-execute_and_8_8, \
-execute_sub_8_8, \
-execute_xor_8_8, \
-execute_sub_8_8
-
-rbaGroup1aFuncLo:
-lo_return_bytes {GROUP1A_FUNCS}
-rbaGroup1aFuncHi:
-hi_return_bytes {GROUP1A_FUNCS}
-
-.segment "CODE"
-
-.proc execute_group1a
-    ldx Decode::zbExt
-
-    lda rbaGroup1aFuncHi, x
-    pha
-    lda rbaGroup1aFuncLo, x
-    pha
-    rts
+; these aliases are needed to give "index_byte_at" unique symbols to key off of.
+execute_group1a: ; [code_label]
+execute_group1b: ; [code_label]
+execute_group2a: ; [code_label]
+execute_group2b: ; [code_label]
+execute_group3a: ; [code_label]
+execute_group3b: ; [code_label]
+execute_group4a: ; [code_label]
+execute_group4b: ; [code_label]
+; lookup the appropriate extended opcode handler and pass it to "execute".
+.proc execute_group
+    tya
+    sec
+    adc Decode::zbExt
+    tay
+    bne execute::skip_lookup ; branch always.
+    ; [tail_branch]
 .endproc
-
-
-.segment "RODATA"
-
-.define GROUP1B_FUNCS \
-execute_add_16_16, \
-execute_or_16_16, \
-execute_adc_16_16, \
-execute_sbb_16_16, \
-execute_and_16_16, \
-execute_sub_16_16, \
-execute_xor_16_16, \
-execute_sub_16_16
-
-rbaGroup1bFuncLo:
-lo_return_bytes {GROUP1B_FUNCS}
-rbaGroup1bFuncHi:
-hi_return_bytes {GROUP1B_FUNCS}
-
-.segment "CODE"
-
-.proc execute_group1b
-    ldx Decode::zbExt
-
-    lda rbaGroup1bFuncHi, x
-    pha
-    lda rbaGroup1bFuncLo, x
-    pha
-    rts
-.endproc
-
-
-.segment "RODATA"
-
-.define GROUP2A_FUNCS \
-execute_rol_8_8, \
-execute_ror_8_8, \
-execute_rcl_8_8, \
-execute_rcr_8_8, \
-execute_shl_8_8, \
-execute_shr_8_8, \
-execute_bad, \
-execute_sar_8_8
-
-rbaGroup2aFuncLo:
-lo_return_bytes {GROUP2A_FUNCS}
-rbaGroup2aFuncHi:
-hi_return_bytes {GROUP2A_FUNCS}
-
-.segment "CODE"
-
-.proc execute_group2a
-    ldx Decode::zbExt
-
-    lda rbaGroup2aFuncHi, x
-    pha
-    lda rbaGroup2aFuncLo, x
-    pha
-    rts
-.endproc
-
-
-.segment "RODATA"
-
-.define GROUP2B_FUNCS \
-execute_rol_16_8, \
-execute_ror_16_8, \
-execute_rcl_16_8, \
-execute_rcr_16_8, \
-execute_shl_16_8, \
-execute_shr_16_8, \
-execute_bad, \
-execute_sar_16_8
-
-rbaGroup2bFuncLo:
-lo_return_bytes {GROUP2B_FUNCS}
-rbaGroup2bFuncHi:
-hi_return_bytes {GROUP2B_FUNCS}
-
-.segment "CODE"
-
-.proc execute_group2b
-    ldx Decode::zbExt
-
-    lda rbaGroup2bFuncHi, x
-    pha
-    lda rbaGroup2bFuncLo, x
-    pha
-    rts
-.endproc
-
-
-.segment "RODATA"
-
-.define GROUP3A_FUNCS \
-execute_and_8_8, \
-execute_bad, \
-execute_not_8, \
-execute_neg_8, \
-execute_mul_8_8, \
-execute_imul_8_8, \
-execute_div_16_8, \
-execute_idiv_16_8
-
-rbaGroup3aFuncLo:
-lo_return_bytes {GROUP3A_FUNCS}
-rbaGroup3aFuncHi:
-hi_return_bytes {GROUP3A_FUNCS}
-
-.segment "CODE"
-
-.proc execute_group3a
-    ldx Decode::zbExt
-
-    lda rbaGroup3aFuncHi, x
-    pha
-    lda rbaGroup3aFuncLo, x
-    pha
-    rts
-.endproc
-
-
-.segment "RODATA"
-
-.define GROUP3B_FUNCS \
-execute_and_16_16, \
-execute_bad, \
-execute_not_16, \
-execute_neg_16, \
-execute_mul_16_16, \
-execute_imul_16_16, \
-execute_div_32_16, \
-execute_idiv_32_16
-
-rbaGroup3bFuncLo:
-lo_return_bytes {GROUP3B_FUNCS}
-rbaGroup3bFuncHi:
-hi_return_bytes {GROUP3B_FUNCS}
-
-.segment "CODE"
-
-.proc execute_group3b
-    ldx Decode::zbExt
-
-    lda rbaGroup3bFuncHi, x
-    pha
-    lda rbaGroup3bFuncLo, x
-    pha
-    rts
-.endproc
-
-
-.segment "RODATA"
-
-.define GROUP4A_FUNCS \
-execute_inc_8, \
-execute_dec_8, \
-execute_bad, \
-execute_bad, \
-execute_bad, \
-execute_bad, \
-execute_bad, \
-execute_bad
-
-rbaGroup4aFuncLo:
-lo_return_bytes {GROUP4A_FUNCS}
-rbaGroup4aFuncHi:
-hi_return_bytes {GROUP4A_FUNCS}
-
-.segment "CODE"
-
-.proc execute_group4a
-    ldx Decode::zbExt
-
-    lda rbaGroup4aFuncHi, x
-    pha
-    lda rbaGroup4aFuncLo, x
-    pha
-    rts
-.endproc
-
-
-.segment "RODATA"
-
-.define GROUP4B_FUNCS \
-execute_inc_16, \
-execute_dec_16, \
-execute_call_abs_near, \
-execute_call_far, \
-execute_jmp_abs_near, \
-execute_jmp_far, \
-execute_push, \
-execute_bad
-
-rbaGroup4bFuncLo:
-lo_return_bytes {GROUP4B_FUNCS}
-rbaGroup4bFuncHi:
-hi_return_bytes {GROUP4B_FUNCS}
-
-.segment "CODE"
-
-.proc execute_group4b
-    ldx Decode::zbExt
-
-    lda rbaGroup4bFuncHi, x
-    pha
-    lda rbaGroup4bFuncLo, x
-    pha
-    rts
-.endproc
-
 
 ; ==============================================================================
 ; repeat handlers
 ; ==============================================================================
-
-.segment "CODE"
 
 ; execute MOVS/STOS/LODS with or without a repeat prefix
 .proc execute_rep_repnz
@@ -809,15 +659,6 @@ hi_return_bytes {GROUP4B_FUNCS}
 .proc clear_repeat_prefix
     lda #0
     sta Fetch::zbPrefixRepeat
-    rts
-.endproc
-
-
-; ==============================================================================
-; extended execution handlers
-; ==============================================================================
-
-.proc execute_ext
     rts
 .endproc
 

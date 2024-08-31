@@ -12,7 +12,7 @@
 .export scan
 .export get_key
 .export put_key
-.export buffer_status
+.export status
 
 .segment "ZEROPAGE"
 
@@ -92,7 +92,7 @@ done:
 ; check if there is a key available to be read from the key buffer.
 ; < A = 0 if the key buffer is empty
 ;   A = 1 if the key buffer is not empty
-.proc buffer_status
+.proc status
     sec
     lda zbReadIndex
     sbc zbWriteIndex

@@ -4,6 +4,8 @@
 ; i definitely feel like i'm abusing ca65's macros though.
 ; using these macros may noticeably increase compilation time.
 
+.linecont +
+
 .ifndef _LIST_
     _LIST_ = 1
 
@@ -135,6 +137,186 @@
     .endmacro
 
     ; this is intended to be a callback macro for "iterate".
+    ; increment "length" each time the macro is called.
+    ; < length = initial length value. set this to 0.
+    ; < item = list item provided by "iterate".
+    ; > length = number of times this macro was called by "iterate".
+    ;            i.e. number of items in the list.
+    ; example:
+    ;   .define FUNC_LIST func_1, func_2, func_3, func_4
+    ;   length .set 0
+    ;   iterate {FUNC_LIST}, {count_all length,}
+    ;   ; "length" should now be 4
+    .macro count_all length, item
+        .local length
+        .local item
+
+        .ifblank length
+            .error "macro 'count_all' missing required parameter 'length'"
+            .exitmacro
+        .endif
+
+        .ifblank item
+            .error "macro 'count_all' missing required parameter 'item'"
+            .exitmacro
+        .endif
+
+        length .set length + 1
+    .endmacro
+
+    ; count the number of items in "list"
+    ; < list = comma separated list of items to count.
+    ; < length = initial length value. set this to 0.
+    ; > length = number of items in "list".
+    ; example:
+    ;   .define FUNC_LIST func_1, func_2, func_3, func_4
+    ;   length .set 0
+    ;   length_of {FUNC_LIST}, length
+    ;   ; "length" should now be 4
+    .macro length_of list, length
+        .local list
+        .local length
+
+        .ifblank list
+            .error "macro 'length_of' missing required parameter 'list'"
+            .exitmacro
+        .endif
+
+        .ifblank length
+            .error "macro 'length_of' missing required parameter 'length'"
+            .exitmacro
+        .endif
+
+        iterate {list}, {count_all length,}
+    .endmacro
+
+    ; do not call this function externally. call "zip_lists" instead.
+    ; this is a recursive function that does the bulk of the work for "zip_lists".
+    ; < name = name of a new macro to define with the content of the zipped list.
+    ; < count = number of items in a both lists.
+    ; < list1 = comma separated list to combine with "list2". must be the same length as "list2".
+    ; < list2 = comma separated list to combine with "list1". must be the same length as "list1".
+    ; < list3 = accumulates the result of zipping "list1" and "list2". leave this blank initially.
+    .macro zipper name, count, list1, list2, list3
+        .local name
+        .local count
+        .local list1
+        .local list2
+        .local list3
+        .local done
+        .local len1
+        .local len2
+        .local tcount1
+        .local tcount2
+
+        .ifblank name
+            .error "macro 'zipper' missing required parameter 'name'"
+            .exitmacro
+        .endif
+
+        .ifblank count
+            .error "macro 'zipper' missing required parameter 'count'"
+            .exitmacro
+        .endif
+
+        .if count = 0
+            ; list3 will have a leading comma that needs to be stripped.
+            .define name .right(.tcount(list3) - 1, list3)
+        .else
+            count .set count - 1
+
+            done .set 0
+            len1 .set 0
+            tcount1 .set .tcount(list1)
+
+            ; find the length of the first item in list1.
+            .repeat tcount1, i
+                .if done = 0
+                    .if .match({.mid(i, 1, list1)}, {,})
+                        done .set 1
+                    .else
+                        len1 .set len1 + 1
+                    .endif
+                .endif
+            .endrepeat
+
+            done .set 0
+            len2 .set 0
+            tcount2 .set .tcount(list2)
+
+            ; find the length of the first item in list2.
+            .repeat tcount2, i
+                .if done = 0
+                    .if .match({.mid(i, 1, list2)}, {,})
+                        done .set 2
+                    .else
+                        len2 .set len2 + 1
+                    .endif
+                .endif
+            .endrepeat
+
+            ; use recursion to zip the lists together.
+            ; the first items in list1 and list2 will be removed
+            ; and combined to form a new item to append to list3.
+            zipper \
+            name, \
+            count, \
+            {.right(tcount1 - len1 - 1, list1)},\
+            {.right(tcount2 - len2 - 1, list2)}, \
+            {list3, .left(len1, list1) .left(len2, list2)}
+        .endif
+
+    .endmacro
+
+    ; combine 2 lists together into a new list
+    ; by combining the 0th items of each list, followed by the 1st items, etc...
+    ; this is basically python's builtin "zip" function.
+    ; https://docs.python.org/3/library/functions.html#zip
+    ; < name = name of a new macro to define with the content of the zipped list.
+    ; < list1 = comma separated list to combine with "list2". must be the same length as "list2".
+    ; < list2 = comma separated list to combine with "list1". must be the same length as "list1".
+    ; example:
+    ;   .define MY_LIST_1 foo, bar
+    ;   .define MY_LIST_2 baz, qux
+    ;   zip_lists MY_LIST, {MY_LIST_1}, {MY_LIST_2}
+    ;   ; the example above is equivalent to the following.
+    ;   ; .define MY_LIST foo baz, bar qux
+    .macro zip_lists name, list1, list2
+        .local name
+        .local list1
+        .local list2
+        .local length1
+        .local length2
+
+        .ifblank name
+            .error "macro 'zip_lists' missing required parameter 'name'"
+            .exitmacro
+        .endif
+
+        .ifblank list1
+            .error "macro 'zip_lists' missing required parameter 'list1'"
+            .exitmacro
+        .endif
+
+        .ifblank list2
+            .error "macro 'zip_lists' missing required parameter 'list2'"
+            .exitmacro
+        .endif
+
+        length1 .set 0
+        length2 .set 0
+
+        length_of {list1}, length1
+        length_of {list2}, length2
+
+        .if length1 <> length2
+            .error "lists are different lengths"
+        .endif
+
+        zipper name, length1, {list1}, {list2}
+    .endmacro
+
+    ; this is intended to be a callback macro for "iterate".
     ; compare "item1" to "item2".
     ; if the items match then set "index" to "count".
     ; increment "count" each time the macro is called.
@@ -143,7 +325,8 @@
     ; < item1 = item to search for in a list.
     ; < item2 = list item to compare against. provided by "iterate".
     ; > index = index of the last occurrence of "item1" in a list or the initial "index" value.
-    ; > count = number of times this macro was called by "iterate". i.e. number of items in the list.
+    ; > count = number of times this macro was called by "iterate".
+    ;           i.e. number of items in the list.
     ; example:
     ;   .define FUNC_LIST func_1, func_2, func_3, func_4
     ;   index .set -1
@@ -193,8 +376,9 @@
     ; > index = index of the last occurrence of "item" in "list" or the initial "index" value.
     ; example:
     ;   .define FUNC_LIST func_1, func_2, func_3, func_4
-    ;   ; this will produce the same result as ".byte 2".
-    ;   index_byte {FUNC_LIST}, func_3
+    ;   index .set -1
+    ;   index_of {FUNC_LIST}, func_3, index
+    ;   ; "index" should now be 2
     .macro index_of list, item, index
         .local list
         .local item
@@ -257,7 +441,7 @@
             .error "item could not be found in list"
             .exitmacro
         .elseif index > 255
-            .error "index is out of range"
+            .error "item index is out of range"
             .exitmacro
         .endif
 
@@ -313,9 +497,27 @@
             .exitmacro
         .endif
 
-        .repeat index - size + 1
-            index_byte {list}, item
-            size .set size + 1
+        value .set -1
+        count .set 0
+        iterate {list}, {find_item value, count, item,}
+
+        .if count > 255
+            .warning "list contains more than 255 items"
+        .endif
+
+        .if value = -1
+            .error "item could not be found in list"
+            .exitmacro
+        .elseif value > 255
+            .error "item index is out of range"
+            .exitmacro
+        .endif
+
+        iterations .set index - size + 1
+        size .set size + iterations
+
+        .repeat iterations
+            .byte value
         .endrepeat
     .endmacro
 

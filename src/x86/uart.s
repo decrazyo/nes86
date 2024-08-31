@@ -38,19 +38,9 @@ zbLineStatus: .res 1
 zbModemStatus: .res 1
 zbScratch: .res 1
 
-zwPpuAddr: .res 2
-
 .segment "CODE"
 
 .proc uart
-    ; init shitty serial console
-    ; PPU_ADDR = $2300
-    PPU_ADDR = $2000
-    lda #<PPU_ADDR
-    sta zwPpuAddr
-    lda #>PPU_ADDR
-    sta zwPpuAddr+1
-
     lda #$00
     sta zbInterruptEnable
     sta zbModemControl
@@ -87,8 +77,6 @@ zwPpuAddr: .res 2
 .endproc
 
 
-; =============================================================================
-
 ; Interrupt Enable Register
 .proc get_ier
     lda zbInterruptEnable
@@ -102,8 +90,6 @@ zwPpuAddr: .res 2
     rts
 .endproc
 
-
-; =============================================================================
 
 ; Interrupt Identification Register
 .proc get_iir
@@ -119,8 +105,6 @@ zwPpuAddr: .res 2
 .endproc
 
 
-; =============================================================================
-
 ; Line Control Register
 .proc get_lcr
     lda zbLineControl
@@ -135,16 +119,12 @@ zwPpuAddr: .res 2
 .endproc
 
 
-; =============================================================================
-
 ; Modem Control Register
 .proc set_mcr
     sta zbModemControl
     rts
 .endproc
 
-
-; =============================================================================
 
 ; Line Status Register
 .proc get_lsr
@@ -154,16 +134,12 @@ zwPpuAddr: .res 2
 .endproc
 
 
-; =============================================================================
-
 ; Modem Status Register
 .proc get_msr
     lda zbModemStatus
     rts
 .endproc
 
-
-; =============================================================================
 
 ; Scratch Register
 .proc get_sr
@@ -176,70 +152,3 @@ zwPpuAddr: .res 2
     sta zbScratch
     rts
 .endproc
-
-
-; =============================================================================
-
-; ; half-assed serial console.
-; .proc print
-;     sta Tmp::zb3
-
-;     ; don't print control chars
-;     lda Tmp::zb3
-;     cmp #$0a ; "\n"
-;     bne not_newline
-
-;     clc
-;     lda zwPpuAddr
-;     adc #32
-;     and #%1110_0000
-;     sta zwPpuAddr
-;     lda zwPpuAddr+1
-;     adc #0
-;     sta zwPpuAddr+1
-
-; not_newline:
-;     lda Tmp::zb3
-;     cmp #$20
-;     bcc done ; branch if not printable
-
-;     clc
-;     lda zwPpuAddr
-;     adc #1
-;     sta zwPpuAddr
-;     lda zwPpuAddr+1
-;     adc #0
-;     sta zwPpuAddr+1
-
-;     ; lda zwPpuAddr
-;     ; cmp #$a0
-;     ; bcc keep_printing
-
-;     ; lda #$00
-;     ; sta zwPpuAddr
-
-; keep_printing:
-;     ldx Nmi::zbBufferLen
-;     lda zwPpuAddr+1
-;     sta Nmi::aNmiBuffer, x
-
-;     inx
-;     lda zwPpuAddr
-;     sta Nmi::aNmiBuffer, x
-
-;     inx
-;     lda #1
-;     sta Nmi::aNmiBuffer, x
-
-;     inx
-;     lda Tmp::zb3
-;     sta Nmi::aNmiBuffer, x
-
-;     inx
-;     stx Nmi::zbBufferLen
-
-;     jsr Nmi::wait
-
-; done:
-;     rts
-; .endproc

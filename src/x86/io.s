@@ -2,13 +2,14 @@
 ; TODO: update ca65 and use "--feature line_continuations"
 .linecont +
 
+.include "keyboard.inc"
+.include "list.inc"
+.include "mmc5.inc"
+.include "tmp.inc"
 .include "x86.inc"
 .include "x86/io.inc"
 .include "x86/reg.inc"
 .include "x86/uart.inc"
-.include "mmc5.inc"
-.include "tmp.inc"
-.include "keyboard.inc"
 
 .export io
 
@@ -153,123 +154,53 @@ BANK_MASK = %11000000_00000000
 .endproc
 
 
-; read a key from the keyboard.
-; this function will block until a key is pressed.
-; > A = ASCII code
-; changes: A, X
-; .proc read_keybaord
-;     jsr Keyboard::get_key
-;     ; bcs read_keybaord
-;     bcc done
-;     lda #0
-; done:
-;     rts
-; .endproc
-
-
 ; =============================================================================
 ; I/O handler function pointer tables
 ; =============================================================================
 
 .segment "IO_FUNC"
 
-; we can have a maximum of 256 IN and OUT handlers.
-TABLE_SIZE = 256
-
-.enum eIoFunc
-    BAD
-    NONE
-    COM1_DATA
-    COM1_IER
-    COM1_IIR_FCR
-    COM1_LCR
-    COM1_MCR
-    COM1_LSR
-    COM1_MSR
-    COM1_SR
-    KB_DATA
-    KB_STATUS
-    FUNC_COUNT
-.endenum
-
 ; handlers that send data from I/O devices to the CPU.
 .define IO_IN_FUNCS \
-io_bad-1, \
-io_in_none-1, \
-Uart::get_rbr-1, \
-Uart::get_ier-1, \
-Uart::get_iir-1, \
-Uart::get_lcr-1, \
-io_bad-1, \
-Uart::get_lsr-1, \
-Uart::get_msr-1, \
-Uart::get_sr-1, \
-Keyboard::get_key-1, \
-Keyboard::buffer_status-1
+io_bad, \
+io_in_none, \
+Keyboard::get_key, \
+Keyboard::status, \
+Uart::get_rbr, \
+Uart::get_ier, \
+Uart::get_iir, \
+Uart::get_lcr, \
+io_bad, \
+Uart::get_lsr, \
+Uart::get_msr, \
+Uart::get_sr
 
 ; handlers that send data from the CPU to I/O devices.
 .define IO_OUT_FUNCS \
-io_bad-1, \
-io_out_none-1, \
-Uart::set_thr-1, \
-Uart::set_ier-1, \
-Uart::set_fcr-1, \
-Uart::set_lcr-1, \
-Uart::set_mcr-1, \
-io_bad-1, \
-io_bad-1, \
-Uart::set_sr-1, \
-io_out_none-1, \
-io_out_none-1
+io_bad, \
+io_out_none, \
+io_out_none, \
+io_out_none, \
+Uart::set_thr, \
+Uart::set_ier, \
+Uart::set_fcr, \
+Uart::set_lcr, \
+Uart::set_mcr, \
+io_bad, \
+io_bad, \
+Uart::set_sr
 
-; build function pointer tables.
-; tables are filled to capacity with io_bad pointers.
-; this is done to ensure proper execution even if we get an invalid function index.
-
-; I/O IN function tables
+; I/O IN function jump table
 rbaIoInFuncLo:
-.lobytes IO_IN_FUNCS
-
-rbaIoInFuncLoMid:
-.assert rbaIoInFuncLoMid - rbaIoInFuncLo <= TABLE_SIZE, error, "too many IN handlers"
-.repeat TABLE_SIZE - (rbaIoInFuncLoMid - rbaIoInFuncLo)
-    .byte <(io_bad-1)
-.endrepeat
-rbaIoInFuncLoEnd:
-
+lo_return_bytes {IO_IN_FUNCS}
 rbaIoInFuncHi:
-.hibytes IO_IN_FUNCS
-rbaIoInFuncHiMid:
-.repeat TABLE_SIZE - (rbaIoInFuncHiMid - rbaIoInFuncHi)
-    .byte <(io_bad-1)
-.endrepeat
-rbaIoInFuncHiEnd:
+hi_return_bytes {IO_IN_FUNCS}
 
-; I/O OUT function tables
+; I/O OUT function jump table
 rbaIoOutFuncLo:
-.lobytes IO_OUT_FUNCS
-rbaIoOutFuncLoMid:
-.assert rbaIoOutFuncLoMid - rbaIoOutFuncLo <= TABLE_SIZE, error, "too many OUT handlers"
-.repeat TABLE_SIZE - (rbaIoOutFuncLoMid - rbaIoOutFuncLo)
-    .byte <(io_bad-1)
-.endrepeat
-rbaIoOutFuncLoEnd:
-
+lo_return_bytes {IO_OUT_FUNCS}
 rbaIoOutFuncHi:
-.hibytes IO_OUT_FUNCS
-rbaIoOutFuncHiMid:
-.repeat TABLE_SIZE - (rbaIoOutFuncHiMid - rbaIoOutFuncHi)
-    .byte <(io_bad-1)
-.endrepeat
-rbaIoOutFuncHiEnd:
-
-; check that we have the same number of input and output handlers.
-.assert rbaIoOutFuncLoMid - rbaIoOutFuncLo = rbaIoOutFuncLoMid - rbaIoOutFuncLo, error, \
-    "I/O table size mismatch"
-
-; check that each I/O handler has an associated enum value.
-.assert rbaIoOutFuncLoMid - rbaIoOutFuncLo = eIoFunc::FUNC_COUNT, error, \
-    "I/O table sise does not match enum size"
+hi_return_bytes {IO_OUT_FUNCS}
 
 ; =============================================================================
 ; I/O port to handler function index table
@@ -277,73 +208,67 @@ rbaIoOutFuncHiEnd:
 
 .segment "IO_PORT"
 
-current_port .set 0
+; combine the lists of IN and OUT handler functions.
+; we'll use this to define function indices.
+zip_lists IO_FUNCS, {IO_IN_FUNCS}, {IO_OUT_FUNCS}
 
-; map a port to an I/O handler function index.
-; < port = I/O port address to associate with a function index.
-; < func = eIoFunc function index to associate with "port".
-; < fill = eIoFunc function index to fill the table with until "port" is reached.
-;          this parameter is options.
-;          defaults to eIoFunc::BAD
-.macro map_port port, func, fill
-    .if current_port > port
-        .error  "ports must be mapped sequentially"
-    .endif
+.ifdef DEBUG
+    ; if this is a debug build then we want to be alerted to unexpected I/O.
+    .define FILL_FUNC io_bad io_bad
+.else
+    ; if this isn't a debug build then we will ignore unexpected I/O.
+    .define FILL_FUNC io_in_none io_out_none
+.endif
 
-    .repeat port - current_port
-        .ifblank fill
-            .byte eIoFunc::BAD ; default fill value
-        .else
-            .byte fill ; explicit fill value
-        .endif
-    .endrepeat
-
-    .byte func
-
-    current_port .set port + 1
-.endmacro
-
-; map functions to I/O ports.
+; map I/O ports to jump table indices
+size .set 0
 rbaIoFuncIndex:
-map_port $0020, eIoFunc::NONE ; TODO: PIC Interrupt Command Register
-map_port $0021, eIoFunc::NONE ; TODO: PIC Interrupt Mask Register
+; programmable interrupt controller (PIC)
+; interrupt command register
+index_byte_at size, $0020, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
+; interrupt mask register
+index_byte_at size, $0021, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
 
-map_port $0040, eIoFunc::NONE ; TODO: PIT Counter 0 Data Port
-map_port $0043, eIoFunc::NONE ; TODO: PIT Control Word Register
+; programmable interrupt timer (PIT)
+; counter 0 data port
+index_byte_at size, $0040, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC 
+; control word register
+index_byte_at size, $0043, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC 
 
-map_port $0060, eIoFunc::KB_DATA ; read keyboard data
-map_port $0064, eIoFunc::KB_STATUS ; read keyboard status
+; keyboard
+; data
+index_byte_at size, $0060, {IO_FUNCS}, Keyboard::get_key io_out_none, FILL_FUNC
+; status
+index_byte_at size, $0064, {IO_FUNCS}, Keyboard::status io_out_none, FILL_FUNC
 
-map_port $0080, eIoFunc::NONE ; delay
+; delay
+index_byte_at size, $0080, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
 
 ; COM4
-map_port $02e9, eIoFunc::NONE ; COM4_IER
+index_byte_at size, $02e9, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
 
 ; COM2
-map_port $02f9, eIoFunc::NONE ; COM2_IER
+index_byte_at size, $02f9, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
 
 ; COM3
-map_port $03e9, eIoFunc::NONE ; COM3_IER
+index_byte_at size, $03e9, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
 
 ; COM1
-map_port $03f8, eIoFunc::COM1_DATA
-; map_port $03f9, eIoFunc::COM1_IER
-map_port $03f9, eIoFunc::NONE ; COM3_IER
-; map_port $03fa, eIoFunc::COM1_IIR_FCR
-; map_port $03fb, eIoFunc::COM1_LCR
-; map_port $03fc, eIoFunc::COM1_MCR
-; map_port $03fd, eIoFunc::COM1_LSR
-map_port $03fd, eIoFunc::NONE ; COM1_LSR
-; map_port $03fe, eIoFunc::COM1_MSR
-; map_port $03ff, eIoFunc::COM1_SR
+index_byte_at size, $03f8, {IO_FUNCS}, Uart::get_rbr Uart::set_thr, FILL_FUNC
+; index_byte_at size, $03f9, {IO_FUNCS}, Uart::get_ier Uart::set_ier, FILL_FUNC
+index_byte_at size, $03f9, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC ; COM1_IER
+; index_byte_at size, $03fa, {IO_FUNCS}, Uart::get_iir Uart::set_fcr, FILL_FUNC
+; index_byte_at size, $03fb, {IO_FUNCS}, Uart::get_lcr Uart::set_lcr, FILL_FUNC
+; index_byte_at size, $03fc, {IO_FUNCS}, io_bad Uart::set_mcr, FILL_FUNC
+; index_byte_at size, $03fd, {IO_FUNCS}, Uart::get_lsr io_bad, FILL_FUNC
+index_byte_at size, $03fd, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
+; index_byte_at size, $03fe, {IO_FUNCS}, Uart::get_msr io_bad, FILL_FUNC
+; index_byte_at size, $03ff, {IO_FUNCS}, Uart::get_sr Uart::set_sr, FILL_FUNC
 
-; not sure what these are used for but ELKS accesses them.
-map_port $0510, eIoFunc::NONE
-map_port $0511, eIoFunc::NONE
+; ; not sure what these are used for but ELKS accesses them.
+index_byte_at size, $0510, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
+index_byte_at size, $0511, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
 
-; the linker should fill the rest of the table with zeros.
-; i.e. eIoFunc::BAD
-; this is faster than using .repeat to fill the table
-rbaIoFuncIndexEnd:
-
-; NOTE: don't put anything else in this segment!
+; fill out the rest of the table
+index_byte_fill size, $ffff, {IO_FUNCS}, FILL_FUNC
+.assert size = $10000, error, "incorrect table size"

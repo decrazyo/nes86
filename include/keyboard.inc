@@ -10,7 +10,7 @@
         .import scan
         .import get_key
         .import put_key
-        .import buffer_status
+        .import status
 
     .endscope
 

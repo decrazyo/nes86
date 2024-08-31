@@ -33,7 +33,6 @@ int_03:
 
 // serial console
 int_10:
-    pushf
     cmp ah, 0x03
     je get_cursor
     cmp ah, 0x09
@@ -47,13 +46,11 @@ int_10:
     cmp ah, 0x1a
     je vga_config
 
-    popf
     iret
 
 get_cursor:
     mov dx, 0
     mov cx, 0
-    popf
     iret
 
 // write to a teletype
@@ -62,7 +59,6 @@ teletype:
     mov dx, 0x3F8
     out dx, al
     pop dx
-    popf
     iret
 
 // get video mode
@@ -74,7 +70,6 @@ video_mode:
     mov bh, 0
     pop bx
     pop ax
-    popf
     iret
 
 ega_config:
@@ -82,12 +77,10 @@ ega_config:
     mov bl, 0 // 64k EGA
     mov ch, 0 // feature bits
     mov cl, 0 // switch settings
-    popf
     iret
 
 vga_config:
     mov al, 0
-    popf
     iret
 
 // get ram size

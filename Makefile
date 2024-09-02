@@ -1,6 +1,9 @@
 
 NAME := nes86
 
+MAJOR_VERSION := 0
+MINOR_VERSION := 1
+
 AS := ca65
 LD := ld65
 OBJDUMP := ia16-elf-objdump
@@ -34,6 +37,8 @@ AS_FLAGS := -I $(INC_DIR)
 AS_FLAGS += --bin-include-dir $(BINC_DIR)
 AS_FLAGS += --feature string_escapes
 AS_FLAGS += --feature underline_in_numbers
+AS_FLAGS += -D MAJOR_VERSION=$(MAJOR_VERSION)
+AS_FLAGS += -D MINOR_VERSION=$(MINOR_VERSION)
 AS_FLAGS += -D DEBUG
 AS_FLAGS += --debug-info
 

@@ -1,15 +1,20 @@
 
-.include "reset.inc"
+; this module contains the low level initialization code for the NES.
+; this puts the NES into a known good state with memory cleared and all interrupts disabled.
+; further initialization code is located in main.s and various modules.
 
-.include "mmc5.inc"
-.include "ppu.inc"
 .include "apu.inc"
 .include "main.inc"
+.include "mmc5.inc"
+.include "ppu.inc"
+.include "reset.inc"
 
 .export reset
 
 .segment "LOWCODE"
 
+; largely standard init code borrowed from nesdev.org
+; https://www.nesdev.org/wiki/Init_code
 .proc reset
     sei ; ignore IRQs.
     cld ; disable decimal mode.
@@ -55,15 +60,15 @@ clear_ram:
     inx
     bne clear_ram
 
-    ; TODO: move this to main
-    ;       run it after displaying a splash screen
+    ; at this point, only code stored in the "LOWCODE" segment is guaranteed to be available.
+    ; we'll initialize out mapper chip here so that all code is available going forward.
     jsr Mmc5::mmc5
 
 vblank_wait2:
     bit Ppu::STATUS
     bpl vblank_wait2
 
+    ; call main to handle higher level initialization.
     jmp Main::main
-    ; TODO: locate "main" here to avoid the jump
     ; [tail_jump]
 .endproc

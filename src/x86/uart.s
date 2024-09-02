@@ -1,4 +1,6 @@
 
+; TODO: move this to an "io" sub-directory.
+
 .include "x86/uart.inc"
 .include "nmi.inc"
 .include "terminal.inc"

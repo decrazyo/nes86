@@ -1,136 +1,122 @@
 
-.include "main.inc"
+; this module handles the high level initialization of various components,
+; performs some basic hardware tests,
+; and passes off executions to the x86 emulator.
 
-.include "keyboard.inc"
-.include "const.inc"
-.include "nmi.inc"
-.include "tmp.inc"
-.include "ppu.inc"
 .include "apu.inc"
-.include "boot.inc"
+.include "chr.inc"
+.include "keyboard.inc"
+.include "main.inc"
+.include "mmc5.inc"
+.include "nmi.inc"
+.include "ppu.inc"
+.include "splash.inc"
 .include "terminal.inc"
 .include "x86.inc"
-.include "x86/pic.inc"
-.include "x86/fetch.inc"
 
 .export main
 
-.segment "ZEROPAGE"
-
-zbJoypadNew: .res 1
-zbJoypadOld: .res 1
-zbJoypadDiff: .res 1
-zbJoypadDown: .res 1
-zbIntCount: .res 1
-
-zbContinue: .res 1
-zbDebug: .res 1
-zbStep: .res 1
-
-.segment "LOWCODE"
+.segment "CODE"
 
 .proc main
+    ; initialize hardware
     jsr Apu::apu
     jsr Ppu::ppu
 
-    jsr Boot::boot
+    ; initialize the splash screen
+    jsr Splash::splash
 
-; asdf:
-;     jmp asdf
+    ; display static splash screen elements
+    jsr Splash::nes86_logo
+    jsr Splash::energy_logo
+    .ifdef DEBUG
+        jsr Splash::debug_string
+    .endif
+    jsr Splash::version_string
+    jsr Splash::copyleft_string
 
+    ; initialize the x86 emulator
+    jsr Splash::processor_string
     jsr X86::x86
+    jsr Splash::processor_8086
 
-loop:
-    jsr X86::step
-    jmp loop
+    ; clear PRG RAM in preparation for memory tests.
+    ; this is also done in case the x86 software we're running doesn't clear its own RAM.
+    jsr Splash::memory_test_string
+    jsr Mmc5::clear_ram
 
-main_loop:
-    jsr read_joypad
+    ; perform RAM test and report the results.
+    jsr Splash::ram_string
+    jsr Mmc5::test_ram
+    bcc ram_test_pass
+    jsr Splash::ram_fail
+    jmp ram_test_done
+ram_test_pass:
+    jsr Splash::ram_pass
+ram_test_done:
 
-    ; "B" trigger INT 8
-    lda zbJoypadDown
-    and #Const::JOYPAD_B
-    beq @no_int
-    lda #$08
-    jsr Pic::pic
-@no_int:
+    ; perform ROM test and report the results.
+    jsr Splash::rom_string
+    jsr Mmc5::test_rom
+    bcc rom_test_pass
+    jsr Splash::rom_fail
+    jmp rom_test_done
+rom_test_pass:
+    jsr Splash::rom_pass
+rom_test_done:
 
-    ; "select" toggles the debugger output on (default) and off
-    lda zbJoypadDown
-    and #Const::JOYPAD_SELECT
-    eor zbDebug
-    sta zbDebug
+    ; initialize a keyboard and report which driver was loaded.
+    jsr Splash::keyboard_string
+    jsr Keyboard::keyboard
+    bcs family_basic_driver
+    jsr Splash::keyboard_on_screen
+    jmp keyboard_initialized
+family_basic_driver:
+    jsr Splash::keyboard_family_basic
+keyboard_initialized:
 
-    ; "start" toggles continuous execution on and off (default)
-    lda zbJoypadDown
-    and #Const::JOYPAD_START
-    eor zbContinue
-    sta zbContinue
+    ; let the user know that we're ready to boot.
+    ; i can't be bothered to implement different POST beep codes.
+    jsr Apu::beep
+    jsr Splash::boot_string
 
-    bne no_wait
 
-    ; "A" executes a single instruction
-    lda zbJoypadDown
-    and #Const::JOYPAD_A
-    beq main_loop
+    ; keep the boot splash screen visible for a while.
+    ldy #5 ; seconds to pause before booting
+boot_delay:
+    jsr Splash::boot_count
 
-no_wait:
-;     ; break out of the halt state with an interrupt
-;     lda Fetch::zbInstrOpcode
-;     cmp #$f4 ; HLT
-;     bne @no_hlt
-;     inc zbIntCount
-; @no_hlt:
+    ; TODO: detect 50Hz consoles and set this to 50
+    ldx #60 ; frames to wait. about 1 second.
+busy_wait:
+    jsr Nmi::wait
+    dex
+    bne busy_wait
 
-;     lda zbIntCount
-;     beq @no_int
-;     dec zbIntCount
-;     lda #$08
-;     jsr Pic::pic
-; @no_int:
+    ; the keyboard was scanned once per frame while we were waiting.
+    ; read what the user typed.
+read_keyboard:
+    jsr Keyboard::get_key
+    bcs keyboard_buffer_empty
+    ; boot immediately if the user pressed enter.
+    cmp #Chr::LF
+    beq resume_boot
+    bne read_keyboard
 
-    jsr X86::step
+keyboard_buffer_empty:
+    dey
+    bne boot_delay
+    jsr Splash::boot_count
 
-    lda zbDebug
-    bne no_debug
-no_debug:
+resume_boot:
+    ; flush the keyboard buffer in case the user typed something other than enter.
+    jsr Keyboard::clear
 
-    jmp main_loop
+    ; initialize the terminal.
+    ; this should clear the boot splash.
+    jsr Terminal::terminal
+
+    ; run the x86 emulator
+    jmp X86::run
     ; [tail_jump]
-.endproc
-
-
-; At the same time that we strobe bit 0, we initialize the ring counter
-; so we're hitting two birds with one stone here
-.proc read_joypad
-    ; save the previous button state
-    lda zbJoypadNew
-    sta zbJoypadOld
-
-    lda #$01
-    ; While the strobe bit is set, buttons will be continuously reloaded.
-    ; This means that reading from JOYPAD1 will only return the state of the
-    ; first button: button A.
-    sta Const::JOYPAD1
-    sta zbJoypadNew
-    lsr a        ; now A is 0
-    ; By storing 0 into Const::JOYPAD1, the strobe bit is cleared and the reloading stops.
-    ; This allows all 8 buttons (newly reloaded) to be read from Const::JOYPAD1.
-    sta Const::JOYPAD1
-loop:
-    lda Const::JOYPAD1
-    lsr a        ; bit 0 -> Carry
-    rol zbJoypadNew  ; Carry -> bit 0; bit 7 -> Carry
-    bcc loop
-
-    ; determine which buttons changed state
-    lda zbJoypadNew
-    eor zbJoypadOld
-    sta zbJoypadDiff
-
-    ; determine which buttons changed state from released to pressed
-    and zbJoypadNew
-    sta zbJoypadDown
-
-    rts
 .endproc

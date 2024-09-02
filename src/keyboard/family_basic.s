@@ -8,7 +8,7 @@
 
 .export family_basic
 
-.segment "LOWCODE"
+.segment "CODE"
 
 ; 0       1       2       3       4       5       6       7
 ; ----------------------------------------------------------------

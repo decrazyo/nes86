@@ -10,8 +10,6 @@
 .include "nmi.inc"
 .include "chr.inc"
 
-.export mem
-
 .export use_segment
 .export use_pointer
 
@@ -58,11 +56,6 @@ zbBank: .res 1
 ; =============================================================================
 ; high level public memory interface
 ; =============================================================================
-
-.proc mem
-    rts
-.endproc
-
 
 ; read value from a segment register
 ; shift the value left 4 bits

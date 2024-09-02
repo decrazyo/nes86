@@ -11,6 +11,7 @@
         .import get_key
         .import put_key
         .import status
+        .import clear
 
     .endscope
 

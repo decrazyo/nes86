@@ -4,8 +4,6 @@
 
     .scope Mem
 
-        .import mem
-
         .import use_segment
         .import use_pointer
 

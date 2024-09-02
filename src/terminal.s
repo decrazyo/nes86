@@ -42,7 +42,7 @@ zbInvertText: .res 1
 ; this should be more than enough space for any sequence we're likely to receive.
 baEscapeBuffer: .res 256
 
-.segment "LOWCODE"
+.segment "CODE"
 
 ; TODO: use a sprite to show the cursor location.
 
@@ -120,6 +120,7 @@ attr_loop:
 ; > X = index of the following argument in baEscapeBuffer.
 ; > N = 0 if argument valid
 ;   N = 1 if argument invalid
+; changes: Y
 .proc get_escape_arg
     ; Y will count the number of argument bytes we push on the stack.
     ldy #0

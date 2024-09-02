@@ -13,6 +13,7 @@
 .export get_key
 .export put_key
 .export status
+.export clear
 
 .segment "ZEROPAGE"
 
@@ -61,7 +62,7 @@ done:
 ; retrieve a key from the key buffer
 ; > A = ASCII code
 ; > C = 0 success
-;   C = 1 no keys pressed. ignore A.
+;   C = 1 no keys pressed. A will be 0.
 ; changes: A, X
 .proc get_key
     lda #0
@@ -90,8 +91,11 @@ done:
 
 
 ; check if there is a key available to be read from the key buffer.
-; < A = 0 if the key buffer is empty
+; > A = 0 if the key buffer is empty
 ;   A = 1 if the key buffer is not empty
+; > Z = 0 if the key buffer is not empty
+;   Z = 1 if the key buffer is empty
+; changes: A
 .proc status
     sec
     lda zbReadIndex
@@ -99,5 +103,15 @@ done:
     beq done
     lda #1
 done:
+    rts
+.endproc
+
+
+; clear all data from the key buffer.
+.proc clear
+    ; it doesn't matter what A is.
+    ; we just need to make sure the read and write index is the same.
+    sta zbReadIndex
+    sta zbWriteIndex
     rts
 .endproc

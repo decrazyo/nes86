@@ -164,7 +164,7 @@ execute_rcl_8_8, \
 execute_rcr_8_8, \
 execute_shl_8_8, \
 execute_shr_8_8, \
-execute_bad, \
+execute_error, \
 execute_sar_8_8
 
 .define GROUP2B_FUNCS \
@@ -175,13 +175,13 @@ execute_rcl_16_8, \
 execute_rcr_16_8, \
 execute_shl_16_8, \
 execute_shr_16_8, \
-execute_bad, \
+execute_error, \
 execute_sar_16_8
 
 .define GROUP3A_FUNCS \
 execute_group3a, \
 execute_and_8_8, \
-execute_bad, \
+execute_error, \
 execute_not_8, \
 execute_neg_8, \
 execute_mul_8_8, \
@@ -192,7 +192,7 @@ execute_idiv_16_8
 .define GROUP3B_FUNCS \
 execute_group3b, \
 execute_and_16_16, \
-execute_bad, \
+execute_error, \
 execute_not_16, \
 execute_neg_16, \
 execute_mul_16_16, \
@@ -204,12 +204,12 @@ execute_idiv_32_16
 execute_group4a, \
 execute_inc_8, \
 execute_dec_8, \
-execute_bad, \
-execute_bad, \
-execute_bad, \
-execute_bad, \
-execute_bad, \
-execute_bad
+execute_error, \
+execute_error, \
+execute_error, \
+execute_error, \
+execute_error, \
+execute_error
 
 .define GROUP4B_FUNCS \
 execute_group4b, \
@@ -220,7 +220,7 @@ execute_call_far, \
 execute_jmp_abs_near, \
 execute_jmp_far, \
 execute_push, \
-execute_bad
+execute_error
 
 .define EXECUTE_FUNCS \
 NORMAL_FUNCS, \
@@ -257,7 +257,7 @@ index_byte_at size, Opcode::OR_Gv_Ev,   {EXECUTE_FUNCS}, execute_or_16_16
 index_byte_at size, Opcode::OR_AL_Ib,   {EXECUTE_FUNCS}, execute_or_8_8
 index_byte_at size, Opcode::OR_AX_Iv,   {EXECUTE_FUNCS}, execute_or_16_16
 index_byte_at size, Opcode::PUSH_CS,    {EXECUTE_FUNCS}, execute_push
-index_byte_at size, Opcode::NONE_0Fh,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_0Fh,   {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::ADC_Eb_Gb,  {EXECUTE_FUNCS}, execute_adc_8_8
 index_byte_at size, Opcode::ADC_Ev_Gv,  {EXECUTE_FUNCS}, execute_adc_16_16
 index_byte_at size, Opcode::ADC_Gb_Eb,  {EXECUTE_FUNCS}, execute_adc_8_8
@@ -280,7 +280,7 @@ index_byte_at size, Opcode::AND_Gb_Eb,  {EXECUTE_FUNCS}, execute_and_8_8
 index_byte_at size, Opcode::AND_Gv_Ev,  {EXECUTE_FUNCS}, execute_and_16_16
 index_byte_at size, Opcode::AND_AL_Ib,  {EXECUTE_FUNCS}, execute_and_8_8
 index_byte_at size, Opcode::AND_AX_Iv,  {EXECUTE_FUNCS}, execute_and_16_16
-index_byte_at size, Opcode::ES,         {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::ES,         {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::DAA,        {EXECUTE_FUNCS}, execute_daa
 index_byte_at size, Opcode::SUB_Eb_Gb,  {EXECUTE_FUNCS}, execute_sub_8_8
 index_byte_at size, Opcode::SUB_Ev_Gv,  {EXECUTE_FUNCS}, execute_sub_16_16
@@ -288,7 +288,7 @@ index_byte_at size, Opcode::SUB_Gb_Eb,  {EXECUTE_FUNCS}, execute_sub_8_8
 index_byte_at size, Opcode::SUB_Gv_Ev,  {EXECUTE_FUNCS}, execute_sub_16_16
 index_byte_at size, Opcode::SUB_AL_Ib,  {EXECUTE_FUNCS}, execute_sub_8_8
 index_byte_at size, Opcode::SUB_AX_Iv,  {EXECUTE_FUNCS}, execute_sub_16_16
-index_byte_at size, Opcode::CS,         {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::CS,         {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::DAS,        {EXECUTE_FUNCS}, execute_das
 index_byte_at size, Opcode::XOR_Eb_Gb,  {EXECUTE_FUNCS}, execute_xor_8_8
 index_byte_at size, Opcode::XOR_Ev_Gv,  {EXECUTE_FUNCS}, execute_xor_16_16
@@ -296,7 +296,7 @@ index_byte_at size, Opcode::XOR_Gb_Eb,  {EXECUTE_FUNCS}, execute_xor_8_8
 index_byte_at size, Opcode::XOR_Gv_Ev,  {EXECUTE_FUNCS}, execute_xor_16_16
 index_byte_at size, Opcode::XOR_AL_Ib,  {EXECUTE_FUNCS}, execute_xor_8_8
 index_byte_at size, Opcode::XOR_AX_Iv,  {EXECUTE_FUNCS}, execute_xor_16_16
-index_byte_at size, Opcode::SS,         {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::SS,         {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::AAA,        {EXECUTE_FUNCS}, execute_aaa
 index_byte_at size, Opcode::CMP_Eb_Gb,  {EXECUTE_FUNCS}, execute_sub_8_8
 index_byte_at size, Opcode::CMP_Ev_Gv,  {EXECUTE_FUNCS}, execute_sub_16_16
@@ -304,7 +304,7 @@ index_byte_at size, Opcode::CMP_Gb_Eb,  {EXECUTE_FUNCS}, execute_sub_8_8
 index_byte_at size, Opcode::CMP_Gv_Ev,  {EXECUTE_FUNCS}, execute_sub_16_16
 index_byte_at size, Opcode::CMP_AL_Ib,  {EXECUTE_FUNCS}, execute_sub_8_8
 index_byte_at size, Opcode::CMP_AX_Iv,  {EXECUTE_FUNCS}, execute_sub_16_16
-index_byte_at size, Opcode::DS,         {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::DS,         {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::AAS,        {EXECUTE_FUNCS}, execute_aas
 index_byte_at size, Opcode::INC_AX,     {EXECUTE_FUNCS}, execute_inc_16
 index_byte_at size, Opcode::INC_CX,     {EXECUTE_FUNCS}, execute_inc_16
@@ -338,22 +338,22 @@ index_byte_at size, Opcode::POP_SP,     {EXECUTE_FUNCS}, execute_pop
 index_byte_at size, Opcode::POP_BP,     {EXECUTE_FUNCS}, execute_pop
 index_byte_at size, Opcode::POP_SI,     {EXECUTE_FUNCS}, execute_pop
 index_byte_at size, Opcode::POP_DI,     {EXECUTE_FUNCS}, execute_pop
-index_byte_at size, Opcode::NONE_60h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_61h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_62h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_63h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_64h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_65h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_66h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_67h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_68h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_69h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_6Ah,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_6Bh,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_6Ch,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_6Dh,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_6Eh,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_6Fh,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_60h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_61h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_62h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_63h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_64h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_65h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_66h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_67h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_68h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_69h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_6Ah,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_6Bh,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_6Ch,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_6Dh,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_6Eh,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_6Fh,   {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::JO_Jb,      {EXECUTE_FUNCS}, execute_jo
 index_byte_at size, Opcode::JNO_Jb,     {EXECUTE_FUNCS}, execute_jno
 index_byte_at size, Opcode::JB_Jb,      {EXECUTE_FUNCS}, execute_jb
@@ -437,16 +437,16 @@ index_byte_at size, Opcode::MOV_SP_Iv,  {EXECUTE_FUNCS}, execute_mov_16
 index_byte_at size, Opcode::MOV_BP_Iv,  {EXECUTE_FUNCS}, execute_mov_16
 index_byte_at size, Opcode::MOV_SI_Iv,  {EXECUTE_FUNCS}, execute_mov_16
 index_byte_at size, Opcode::MOV_DI_Iv,  {EXECUTE_FUNCS}, execute_mov_16
-index_byte_at size, Opcode::NONE_C0h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_C1h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_C0h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_C1h,   {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::RET_Iw,     {EXECUTE_FUNCS}, execute_ret_near_adjust_sp
 index_byte_at size, Opcode::RET,        {EXECUTE_FUNCS}, execute_ret_near
 index_byte_at size, Opcode::LES_Gv_Mp,  {EXECUTE_FUNCS}, execute_mov_32
 index_byte_at size, Opcode::LDS_Gv_Mp,  {EXECUTE_FUNCS}, execute_mov_32
 index_byte_at size, Opcode::MOV_Eb_Ib,  {EXECUTE_FUNCS}, execute_mov_8
 index_byte_at size, Opcode::MOV_Ev_Iv,  {EXECUTE_FUNCS}, execute_mov_16
-index_byte_at size, Opcode::NONE_C8h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_C9h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_C8h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_C9h,   {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::RETF_Iw,    {EXECUTE_FUNCS}, execute_ret_far_adjust_sp
 index_byte_at size, Opcode::RETF,       {EXECUTE_FUNCS}, execute_ret_far
 index_byte_at size, Opcode::INT3,       {EXECUTE_FUNCS}, execute_int3
@@ -459,7 +459,7 @@ index_byte_at size, Opcode::GRP2_Eb_CL, {EXECUTE_FUNCS}, execute_group2a
 index_byte_at size, Opcode::GRP2_Ev_CL, {EXECUTE_FUNCS}, execute_group2b
 index_byte_at size, Opcode::AAM_I0,     {EXECUTE_FUNCS}, execute_aam
 index_byte_at size, Opcode::AAD_I0,     {EXECUTE_FUNCS}, execute_aad
-index_byte_at size, Opcode::NONE_D6h,   {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::NONE_D6h,   {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::XLAT,       {EXECUTE_FUNCS}, execute_mov_8
 index_byte_at size, Opcode::NONE_D8h,   {EXECUTE_FUNCS}, execute_esc
 index_byte_at size, Opcode::NONE_D9h,   {EXECUTE_FUNCS}, execute_esc
@@ -485,10 +485,10 @@ index_byte_at size, Opcode::IN_AL_DX,   {EXECUTE_FUNCS}, execute_in_8
 index_byte_at size, Opcode::IN_AX_DX,   {EXECUTE_FUNCS}, execute_in_16
 index_byte_at size, Opcode::OUT_DX_AL,  {EXECUTE_FUNCS}, execute_out_8
 index_byte_at size, Opcode::OUT_DX_AX,  {EXECUTE_FUNCS}, execute_out_16
-index_byte_at size, Opcode::LOCK,       {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::NONE_F1h,   {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::REPNZ,      {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::REPZ,       {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::LOCK,       {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::NONE_F1h,   {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::REPNZ,      {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::REPZ,       {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::HLT,        {EXECUTE_FUNCS}, execute_hlt
 index_byte_at size, Opcode::CMC,        {EXECUTE_FUNCS}, execute_cmc
 index_byte_at size, Opcode::GRP3_Eb,    {EXECUTE_FUNCS}, execute_group3a
@@ -513,8 +513,8 @@ index_byte_at size, Opcode::CMPSB,      {EXECUTE_FUNCS}, execute_sub_8_8
 index_byte_at size, Opcode::CMPSW,      {EXECUTE_FUNCS}, execute_sub_16_16
 ; these test instructions should never be called from a repeat prefix handler.
 ; they are just here to fill out the table and avoid conditional logic.
-index_byte_at size, Opcode::TEST_AL_Ib, {EXECUTE_FUNCS}, execute_bad
-index_byte_at size, Opcode::TEST_AX_Iv, {EXECUTE_FUNCS}, execute_bad
+index_byte_at size, Opcode::TEST_AL_Ib, {EXECUTE_FUNCS}, execute_error
+index_byte_at size, Opcode::TEST_AX_Iv, {EXECUTE_FUNCS}, execute_error
 index_byte_at size, Opcode::STOSB,      {EXECUTE_FUNCS}, execute_mov_8
 index_byte_at size, Opcode::STOSW,      {EXECUTE_FUNCS}, execute_mov_16
 index_byte_at size, Opcode::LODSB,      {EXECUTE_FUNCS}, execute_mov_8
@@ -2380,8 +2380,8 @@ done:
 .endproc
 
 
-.proc execute_bad
-    lda #X86::eErr::EXECUTE_FUNC
+.proc execute_error
+    lda #X86::eErr::EXECUTE_ERROR
     jmp X86::panic
     ; [tail_jump]
 .endproc

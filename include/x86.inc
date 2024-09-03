@@ -11,16 +11,13 @@
         .import panic
 
         .enum eErr
-            REG_INDEX
-            CODE_END
-            FETCH_LEN
-            FETCH_FUNC
-            DECODE_FUNC
-            EXECUTE_FUNC
-            WRITE_FUNC
-            MOD_RM
-            IO_FUNC
-            UNKNOWN
+            FETCH_ERROR
+            DECODE_ERROR
+            EXECUTE_ERROR
+            WRITE_ERROR
+            IO_ERROR
+            UNKNOWN_ERROR
+            ERROR_COUNT
         .endenum
 
     .endscope

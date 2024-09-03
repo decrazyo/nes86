@@ -50,7 +50,7 @@ zaInstrOperands: .res Fetch::BUFFER_LEN
 .segment "RODATA"
 
 .define FETCH_FUNCS \
-fetch_bad, \
+fetch_error, \
 fetch_len_1, \
 fetch_len_2, \
 fetch_len_3, \
@@ -102,7 +102,7 @@ index_byte_at size, Opcode::OR_Gv_Ev,   {FETCH_FUNCS}, fetch_modrm_reg
 index_byte_at size, Opcode::OR_AL_Ib,   {FETCH_FUNCS}, fetch_len_2
 index_byte_at size, Opcode::OR_AX_Iv,   {FETCH_FUNCS}, fetch_len_3
 index_byte_at size, Opcode::PUSH_CS,    {FETCH_FUNCS}, fetch_len_1
-index_byte_at size, Opcode::NONE_0Fh,   {FETCH_FUNCS}, fetch_bad
+index_byte_at size, Opcode::NONE_0Fh,   {FETCH_FUNCS}, fetch_error
 index_byte_at size, Opcode::ADC_Eb_Gb,  {FETCH_FUNCS}, fetch_modrm_reg
 index_byte_at size, Opcode::ADC_Ev_Gv,  {FETCH_FUNCS}, fetch_modrm_reg
 index_byte_at size, Opcode::ADC_Gb_Eb,  {FETCH_FUNCS}, fetch_modrm_reg
@@ -183,22 +183,22 @@ index_byte_at size, Opcode::POP_SP,     {FETCH_FUNCS}, fetch_len_1
 index_byte_at size, Opcode::POP_BP,     {FETCH_FUNCS}, fetch_len_1
 index_byte_at size, Opcode::POP_SI,     {FETCH_FUNCS}, fetch_len_1
 index_byte_at size, Opcode::POP_DI,     {FETCH_FUNCS}, fetch_len_1
-index_byte_at size, Opcode::NONE_60h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_61h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_62h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_63h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_64h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_65h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_66h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_67h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_68h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_69h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_6Ah,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_6Bh,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_6Ch,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_6Dh,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_6Eh,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_6Fh,   {FETCH_FUNCS}, fetch_bad
+index_byte_at size, Opcode::NONE_60h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_61h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_62h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_63h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_64h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_65h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_66h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_67h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_68h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_69h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_6Ah,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_6Bh,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_6Ch,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_6Dh,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_6Eh,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_6Fh,   {FETCH_FUNCS}, fetch_error
 index_byte_at size, Opcode::JO_Jb,      {FETCH_FUNCS}, fetch_len_2
 index_byte_at size, Opcode::JNO_Jb,     {FETCH_FUNCS}, fetch_len_2
 index_byte_at size, Opcode::JB_Jb,      {FETCH_FUNCS}, fetch_len_2
@@ -279,16 +279,16 @@ index_byte_at size, Opcode::MOV_SP_Iv,  {FETCH_FUNCS}, fetch_len_3
 index_byte_at size, Opcode::MOV_BP_Iv,  {FETCH_FUNCS}, fetch_len_3
 index_byte_at size, Opcode::MOV_SI_Iv,  {FETCH_FUNCS}, fetch_len_3
 index_byte_at size, Opcode::MOV_DI_Iv,  {FETCH_FUNCS}, fetch_len_3
-index_byte_at size, Opcode::NONE_C0h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_C1h,   {FETCH_FUNCS}, fetch_bad
+index_byte_at size, Opcode::NONE_C0h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_C1h,   {FETCH_FUNCS}, fetch_error
 index_byte_at size, Opcode::RET_Iw,     {FETCH_FUNCS}, fetch_len_3
 index_byte_at size, Opcode::RET,        {FETCH_FUNCS}, fetch_len_1
 index_byte_at size, Opcode::LES_Gv_Mp,  {FETCH_FUNCS}, fetch_modrm_reg
 index_byte_at size, Opcode::LDS_Gv_Mp,  {FETCH_FUNCS}, fetch_modrm_reg
 index_byte_at size, Opcode::MOV_Eb_Ib,  {FETCH_FUNCS}, fetch_modrm_ext_imm8
 index_byte_at size, Opcode::MOV_Ev_Iv,  {FETCH_FUNCS}, fetch_modrm_ext_imm16
-index_byte_at size, Opcode::NONE_C8h,   {FETCH_FUNCS}, fetch_bad
-index_byte_at size, Opcode::NONE_C9h,   {FETCH_FUNCS}, fetch_bad
+index_byte_at size, Opcode::NONE_C8h,   {FETCH_FUNCS}, fetch_error
+index_byte_at size, Opcode::NONE_C9h,   {FETCH_FUNCS}, fetch_error
 index_byte_at size, Opcode::RETF_Iw,    {FETCH_FUNCS}, fetch_len_3
 index_byte_at size, Opcode::RETF,       {FETCH_FUNCS}, fetch_len_1
 index_byte_at size, Opcode::INT3,       {FETCH_FUNCS}, fetch_len_1
@@ -301,7 +301,7 @@ index_byte_at size, Opcode::GRP2_Eb_CL, {FETCH_FUNCS}, fetch_modrm_reg
 index_byte_at size, Opcode::GRP2_Ev_CL, {FETCH_FUNCS}, fetch_modrm_reg
 index_byte_at size, Opcode::AAM_I0,     {FETCH_FUNCS}, fetch_len_2
 index_byte_at size, Opcode::AAD_I0,     {FETCH_FUNCS}, fetch_len_2
-index_byte_at size, Opcode::NONE_D6h,   {FETCH_FUNCS}, fetch_bad
+index_byte_at size, Opcode::NONE_D6h,   {FETCH_FUNCS}, fetch_error
 index_byte_at size, Opcode::XLAT,       {FETCH_FUNCS}, fetch_len_1
 index_byte_at size, Opcode::NONE_D8h,   {FETCH_FUNCS}, fetch_modrm_reg
 index_byte_at size, Opcode::NONE_D9h,   {FETCH_FUNCS}, fetch_modrm_reg
@@ -328,7 +328,7 @@ index_byte_at size, Opcode::IN_AX_DX,   {FETCH_FUNCS}, fetch_len_1
 index_byte_at size, Opcode::OUT_DX_AL,  {FETCH_FUNCS}, fetch_len_1
 index_byte_at size, Opcode::OUT_DX_AX,  {FETCH_FUNCS}, fetch_len_1
 index_byte_at size, Opcode::LOCK,       {FETCH_FUNCS}, fetch_lock_prefix
-index_byte_at size, Opcode::NONE_F1h,   {FETCH_FUNCS}, fetch_bad
+index_byte_at size, Opcode::NONE_F1h,   {FETCH_FUNCS}, fetch_error
 index_byte_at size, Opcode::REPNZ,      {FETCH_FUNCS}, fetch_repeat_prefix
 index_byte_at size, Opcode::REPZ,       {FETCH_FUNCS}, fetch_repeat_prefix
 index_byte_at size, Opcode::HLT,        {FETCH_FUNCS}, fetch_len_1
@@ -407,9 +407,9 @@ done:
 ; ==============================================================================
 
 ; called when an unsupported instruction byte is fetch.
-.proc fetch_bad
+.proc fetch_error
     jsr buffer_ip_byte
-    lda #X86::eErr::FETCH_FUNC
+    lda #X86::eErr::FETCH_ERROR
     jmp X86::panic
     ; [tail_jump]
 .endproc

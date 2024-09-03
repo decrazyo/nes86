@@ -41,10 +41,6 @@
 
         DEL = $7f ; delete
 
-        NULL = $00
-        NEW_LINE = $0a
-        BLANK_TILE = <-1
-
     .endscope
 
 .endif

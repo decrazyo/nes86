@@ -147,8 +147,8 @@ BANK_MASK = %11000000_00000000
 ; then we want the emulator to panic and tell us about it.
 ; then we can decide to emulate the device or let "io_none" handle it.
 ; this is mostly for debugging.
-.proc io_bad
-    lda #X86::eErr::IO_FUNC
+.proc io_error
+    lda #X86::eErr::IO_ERROR
     jmp X86::panic
     ; [tail_jump]
 .endproc
@@ -162,7 +162,7 @@ BANK_MASK = %11000000_00000000
 
 ; handlers that send data from I/O devices to the CPU.
 .define IO_IN_FUNCS \
-io_bad, \
+io_error, \
 io_in_none, \
 Keyboard::get_key, \
 Keyboard::status, \
@@ -170,14 +170,14 @@ Uart::get_rbr, \
 Uart::get_ier, \
 Uart::get_iir, \
 Uart::get_lcr, \
-io_bad, \
+io_error, \
 Uart::get_lsr, \
 Uart::get_msr, \
 Uart::get_sr
 
 ; handlers that send data from the CPU to I/O devices.
 .define IO_OUT_FUNCS \
-io_bad, \
+io_error, \
 io_out_none, \
 io_out_none, \
 io_out_none, \
@@ -186,8 +186,8 @@ Uart::set_ier, \
 Uart::set_fcr, \
 Uart::set_lcr, \
 Uart::set_mcr, \
-io_bad, \
-io_bad, \
+io_error, \
+io_error, \
 Uart::set_sr
 
 ; I/O IN function jump table
@@ -214,7 +214,7 @@ zip_lists IO_FUNCS, {IO_IN_FUNCS}, {IO_OUT_FUNCS}
 
 .ifdef DEBUG
     ; if this is a debug build then we want to be alerted to unexpected I/O.
-    .define FILL_FUNC io_bad io_bad
+    .define FILL_FUNC io_error io_error
 .else
     ; if this isn't a debug build then we will ignore unexpected I/O.
     .define FILL_FUNC io_in_none io_out_none
@@ -259,10 +259,10 @@ index_byte_at size, $03f8, {IO_FUNCS}, Uart::get_rbr Uart::set_thr, FILL_FUNC
 index_byte_at size, $03f9, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC ; COM1_IER
 ; index_byte_at size, $03fa, {IO_FUNCS}, Uart::get_iir Uart::set_fcr, FILL_FUNC
 ; index_byte_at size, $03fb, {IO_FUNCS}, Uart::get_lcr Uart::set_lcr, FILL_FUNC
-; index_byte_at size, $03fc, {IO_FUNCS}, io_bad Uart::set_mcr, FILL_FUNC
-; index_byte_at size, $03fd, {IO_FUNCS}, Uart::get_lsr io_bad, FILL_FUNC
+; index_byte_at size, $03fc, {IO_FUNCS}, io_error Uart::set_mcr, FILL_FUNC
+; index_byte_at size, $03fd, {IO_FUNCS}, Uart::get_lsr io_error, FILL_FUNC
 index_byte_at size, $03fd, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
-; index_byte_at size, $03fe, {IO_FUNCS}, Uart::get_msr io_bad, FILL_FUNC
+; index_byte_at size, $03fe, {IO_FUNCS}, Uart::get_msr io_error, FILL_FUNC
 ; index_byte_at size, $03ff, {IO_FUNCS}, Uart::get_sr Uart::set_sr, FILL_FUNC
 
 ; ; not sure what these are used for but ELKS accesses them.

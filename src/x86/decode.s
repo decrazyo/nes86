@@ -120,7 +120,7 @@ decode_s0x_imm8_s1l_al, \
 decode_s0x_imm8_s1x_ax, \
 decode_s0x_dx_s1l_al, \
 decode_s0x_dx_s1x_ax, \
-decode_bad
+decode_error
 
 ; decode function jump table
 rbaDecodeFuncLo:
@@ -146,7 +146,7 @@ index_byte_at size, Opcode::OR_Gv_Ev,   {DECODE_FUNCS}, decode_s0x_modrm_reg16_s
 index_byte_at size, Opcode::OR_AL_Ib,   {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
 index_byte_at size, Opcode::OR_AX_Iv,   {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
 index_byte_at size, Opcode::PUSH_CS,    {DECODE_FUNCS}, decode_s0x_embed_seg16
-index_byte_at size, Opcode::NONE_0Fh,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_0Fh,   {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::ADC_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
 index_byte_at size, Opcode::ADC_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
 index_byte_at size, Opcode::ADC_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1l_modrm_rm8
@@ -169,7 +169,7 @@ index_byte_at size, Opcode::AND_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1
 index_byte_at size, Opcode::AND_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
 index_byte_at size, Opcode::AND_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
 index_byte_at size, Opcode::AND_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
-index_byte_at size, Opcode::ES,         {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::ES,         {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::DAA,        {DECODE_FUNCS}, decode_s0l_al
 index_byte_at size, Opcode::SUB_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
 index_byte_at size, Opcode::SUB_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
@@ -177,7 +177,7 @@ index_byte_at size, Opcode::SUB_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1
 index_byte_at size, Opcode::SUB_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
 index_byte_at size, Opcode::SUB_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
 index_byte_at size, Opcode::SUB_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
-index_byte_at size, Opcode::CS,         {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::CS,         {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::DAS,        {DECODE_FUNCS}, decode_s0l_al
 index_byte_at size, Opcode::XOR_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
 index_byte_at size, Opcode::XOR_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
@@ -185,7 +185,7 @@ index_byte_at size, Opcode::XOR_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1
 index_byte_at size, Opcode::XOR_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
 index_byte_at size, Opcode::XOR_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
 index_byte_at size, Opcode::XOR_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
-index_byte_at size, Opcode::SS,         {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::SS,         {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::AAA,        {DECODE_FUNCS}, decode_s0x_ax
 index_byte_at size, Opcode::CMP_Eb_Gb,  {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l_modrm_reg8
 index_byte_at size, Opcode::CMP_Ev_Gv,  {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1x_modrm_reg16
@@ -193,7 +193,7 @@ index_byte_at size, Opcode::CMP_Gb_Eb,  {DECODE_FUNCS}, decode_s0l_modrm_reg8_s1
 index_byte_at size, Opcode::CMP_Gv_Ev,  {DECODE_FUNCS}, decode_s0x_modrm_reg16_s1x_modrm_rm16
 index_byte_at size, Opcode::CMP_AL_Ib,  {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
 index_byte_at size, Opcode::CMP_AX_Iv,  {DECODE_FUNCS}, decode_s0x_ax_s1x_imm16
-index_byte_at size, Opcode::DS,         {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::DS,         {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::AAS,        {DECODE_FUNCS}, decode_s0x_ax
 index_byte_at size, Opcode::INC_AX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
 index_byte_at size, Opcode::INC_CX,     {DECODE_FUNCS}, decode_s0x_embed_reg16_d0x_embed_reg16
@@ -227,22 +227,22 @@ index_byte_at size, Opcode::POP_SP,     {DECODE_FUNCS}, decode_d0x_embed_reg16
 index_byte_at size, Opcode::POP_BP,     {DECODE_FUNCS}, decode_d0x_embed_reg16
 index_byte_at size, Opcode::POP_SI,     {DECODE_FUNCS}, decode_d0x_embed_reg16
 index_byte_at size, Opcode::POP_DI,     {DECODE_FUNCS}, decode_d0x_embed_reg16
-index_byte_at size, Opcode::NONE_60h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_61h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_62h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_63h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_64h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_65h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_66h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_67h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_68h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_69h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_6Ah,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_6Bh,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_6Ch,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_6Dh,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_6Eh,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_6Fh,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_60h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_61h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_62h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_63h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_64h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_65h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_66h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_67h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_68h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_69h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_6Ah,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_6Bh,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_6Ch,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_6Dh,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_6Eh,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_6Fh,   {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::JO_Jb,      {DECODE_FUNCS}, decode_s0l_imm8
 index_byte_at size, Opcode::JNO_Jb,     {DECODE_FUNCS}, decode_s0l_imm8
 index_byte_at size, Opcode::JB_Jb,      {DECODE_FUNCS}, decode_s0l_imm8
@@ -323,16 +323,16 @@ index_byte_at size, Opcode::MOV_SP_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_emb
 index_byte_at size, Opcode::MOV_BP_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
 index_byte_at size, Opcode::MOV_SI_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
 index_byte_at size, Opcode::MOV_DI_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_embed_reg16
-index_byte_at size, Opcode::NONE_C0h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_C1h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_C0h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_C1h,   {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::RET_Iw,     {DECODE_FUNCS}, decode_s0x_imm16
 index_byte_at size, Opcode::RET,        {DECODE_FUNCS}, decode_nothing
 index_byte_at size, Opcode::LES_Gv_Mp,  {DECODE_FUNCS}, decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi
 index_byte_at size, Opcode::LDS_Gv_Mp,  {DECODE_FUNCS}, decode_s0x_modrm_m32_lo_s1x_modrm_m32_hi
 index_byte_at size, Opcode::MOV_Eb_Ib,  {DECODE_FUNCS}, decode_s0l_imm8_d0l_modrm_rm8
 index_byte_at size, Opcode::MOV_Ev_Iv,  {DECODE_FUNCS}, decode_s0x_imm16_d0x_modrm_rm16
-index_byte_at size, Opcode::NONE_C8h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_C9h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_C8h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_C9h,   {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::RETF_Iw,    {DECODE_FUNCS}, decode_s0x_imm16
 index_byte_at size, Opcode::RETF,       {DECODE_FUNCS}, decode_nothing
 index_byte_at size, Opcode::INT3,       {DECODE_FUNCS}, decode_nothing
@@ -345,7 +345,7 @@ index_byte_at size, Opcode::GRP2_Eb_CL, {DECODE_FUNCS}, decode_s0l_modrm_rm8_s1l
 index_byte_at size, Opcode::GRP2_Ev_CL, {DECODE_FUNCS}, decode_s0x_modrm_rm16_s1l_cl
 index_byte_at size, Opcode::AAM_I0,     {DECODE_FUNCS}, decode_s0l_al_s1l_imm8
 index_byte_at size, Opcode::AAD_I0,     {DECODE_FUNCS}, decode_s0l_al_s1l_ah_s2l_imm8
-index_byte_at size, Opcode::NONE_D6h,   {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::NONE_D6h,   {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::XLAT,       {DECODE_FUNCS}, decode_s0l_mem8_bx_al
 index_byte_at size, Opcode::NONE_D8h,   {DECODE_FUNCS}, decode_nothing
 index_byte_at size, Opcode::NONE_D9h,   {DECODE_FUNCS}, decode_nothing
@@ -371,10 +371,10 @@ index_byte_at size, Opcode::IN_AL_DX,   {DECODE_FUNCS}, decode_s0x_dx
 index_byte_at size, Opcode::IN_AX_DX,   {DECODE_FUNCS}, decode_s0x_dx
 index_byte_at size, Opcode::OUT_DX_AL,  {DECODE_FUNCS}, decode_s0x_dx_s1l_al
 index_byte_at size, Opcode::OUT_DX_AX,  {DECODE_FUNCS}, decode_s0x_dx_s1x_ax
-index_byte_at size, Opcode::LOCK,       {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::NONE_F1h,   {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::REPNZ,      {DECODE_FUNCS}, decode_bad
-index_byte_at size, Opcode::REPZ,       {DECODE_FUNCS}, decode_bad
+index_byte_at size, Opcode::LOCK,       {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::NONE_F1h,   {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::REPNZ,      {DECODE_FUNCS}, decode_error
+index_byte_at size, Opcode::REPZ,       {DECODE_FUNCS}, decode_error
 index_byte_at size, Opcode::HLT,        {DECODE_FUNCS}, decode_nothing
 index_byte_at size, Opcode::CMC,        {DECODE_FUNCS}, decode_nothing
 index_byte_at size, Opcode::GRP3_Eb,    {DECODE_FUNCS}, decode_s0l_modrm_rm8_opt_s1l_imm8
@@ -1223,8 +1223,8 @@ s0x_modrm_rm16:
 
 
 ; called when an unsupported opcode is decoded
-.proc decode_bad
-    lda #X86::eErr::DECODE_FUNC
+.proc decode_error
+    lda #X86::eErr::DECODE_ERROR
     jmp X86::panic
     ; [tail_jump]
 .endproc

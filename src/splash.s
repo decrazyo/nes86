@@ -42,12 +42,10 @@
 .export boot_string
 .export boot_count
 
-.segment "CODE"
-
 ; convert an onscreen (x, y) tile position to a PPU address.
 ; < x_pos = x position
 ; < y_pos = y position
-.define X_Y_POS_TO_PPU_ADDR(x_pos, y_pos) $2000 + 32 * + y_pos + x_pos
+.define X_Y_POS_TO_PPU_ADDR(x_pos, y_pos) $2000 + 32 * y_pos + x_pos
 
 ; convert a label address to a raSplashStrings table offset.
 ; < label = string label between raSplashStrings and raSplashStringsEnd
@@ -56,6 +54,8 @@
 ; convert a label address to a raSplashStringsAddr table offset.
 ; < label = string address label between raSplashStringsAddr and raSplashStringsAddrEnd
 .define STRING_ADDRESS_OFFSET(label) <(label - raSplashStringsAddr)
+
+.segment "RODATA"
 
 ; splash screen pallet data.
 ; pallet data may contain NULL bytes so we can't define this as a string.
@@ -139,22 +139,26 @@ rsCopyleft:
 .byte "Copyleft (", $1f, ") 2024, Decrazyo", $00
 
 rsProcessor:
-.asciiz "Processor: "
+.define PROCESSOR_STRING "Processor: "
+.asciiz PROCESSOR_STRING
 rs8086:
 .asciiz "8086"
 
 rsMemory:
 .asciiz "Memory test: "
 rsRam:
-.asciiz "RAM: "
+.define RAM_STRING "RAM: "
+.asciiz RAM_STRING
 rsRom:
-.asciiz "ROM: "
+.define ROM_STRING "ROM: "
+.asciiz ROM_STRING
 rsPass:
 .asciiz "PASS"
 rsFail:
 .asciiz "FAIL"
 
 rsKeyboard:
+.define KEYBOARD_STRING "Keyboard: "
 .asciiz "Keyboard: "
 
 rsFamilyBasic:
@@ -165,8 +169,8 @@ rsOnScreen:
 rsBoot:
 .define BOOT_STRING "Press ENTER to boot ( )"
 .asciiz BOOT_STRING
-BOOT_MSG_ADDR = X_Y_POS_TO_PPU_ADDR 2, 27
-BOOT_COUNT_ADDR = BOOT_MSG_ADDR + .strlen(BOOT_STRING) - 2
+BOOT_STRING_ADDR = X_Y_POS_TO_PPU_ADDR 2, 27
+BOOT_COUNT_ADDR = BOOT_STRING_ADDR + .strlen(BOOT_STRING) - 2
 raSplashStringsEnd:
 
 SPLASH_STRING_BYTES = raSplashStringsEnd - raSplashStrings
@@ -224,54 +228,66 @@ rCopyleftAddr:
 .byte STRING_OFFSET rsCopyleft
 
 rProcessorAddr:
-.word X_Y_POS_TO_PPU_ADDR 2, 16
+PROCESSOR_X = 2
+PROCESSOR_Y = 16
+.word X_Y_POS_TO_PPU_ADDR PROCESSOR_X, PROCESSOR_Y
 .byte STRING_OFFSET rsProcessor
 
 r8086Addr:
-.word X_Y_POS_TO_PPU_ADDR 13, 16
+.word X_Y_POS_TO_PPU_ADDR PROCESSOR_X + .strlen(PROCESSOR_STRING), PROCESSOR_Y
 .byte STRING_OFFSET rs8086
 
 rMemoryAddr:
-.word X_Y_POS_TO_PPU_ADDR 2, 18
+MEMORY_X = 2
+MEMORY_Y = 18
+.word X_Y_POS_TO_PPU_ADDR MEMORY_X, MEMORY_Y
 .byte STRING_OFFSET rsMemory
 
 rRamAddr:
-.word X_Y_POS_TO_PPU_ADDR 4, 19
+RAM_X = MEMORY_X + 2
+RAM_Y = MEMORY_Y + 1
+.word X_Y_POS_TO_PPU_ADDR RAM_X, RAM_Y
 .byte STRING_OFFSET rsRam
 rRamPassAddr:
-.word X_Y_POS_TO_PPU_ADDR 9, 19
+.word X_Y_POS_TO_PPU_ADDR RAM_X + .strlen(RAM_STRING) , RAM_Y
 .byte STRING_OFFSET rsPass
 rRamFailAddr:
-.word X_Y_POS_TO_PPU_ADDR 9, 19
+.word X_Y_POS_TO_PPU_ADDR RAM_X + .strlen(RAM_STRING) , RAM_Y
 .byte STRING_OFFSET rsFail
 
 rRomAddr:
-.word X_Y_POS_TO_PPU_ADDR 4, 20
+ROM_X = MEMORY_X + 2
+ROM_Y = MEMORY_Y + 2
+.word X_Y_POS_TO_PPU_ADDR ROM_X, ROM_Y
 .byte STRING_OFFSET rsRom
 rRomPassAddr:
-.word X_Y_POS_TO_PPU_ADDR 9, 20
+.word X_Y_POS_TO_PPU_ADDR ROM_X + .strlen(ROM_STRING) , ROM_Y
 .byte STRING_OFFSET rsPass
 rRomFailAddr:
-.word X_Y_POS_TO_PPU_ADDR 9, 20
+.word X_Y_POS_TO_PPU_ADDR ROM_X + .strlen(ROM_STRING) , ROM_Y
 .byte STRING_OFFSET rsFail
 
 rKeyboardAddr:
-.word X_Y_POS_TO_PPU_ADDR 2, 22
+KEYBOARD_X = 2
+KEYBOARD_Y = 22
+.word X_Y_POS_TO_PPU_ADDR KEYBOARD_X, KEYBOARD_Y
 .byte STRING_OFFSET rsKeyboard
 rFamilyBasicAddr:
-.word X_Y_POS_TO_PPU_ADDR 12, 22
+.word X_Y_POS_TO_PPU_ADDR KEYBOARD_X + .strlen(KEYBOARD_STRING), KEYBOARD_Y
 .byte STRING_OFFSET rsFamilyBasic
 rOnScreenAddr:
-.word X_Y_POS_TO_PPU_ADDR 12, 22
+.word X_Y_POS_TO_PPU_ADDR KEYBOARD_X + .strlen(KEYBOARD_STRING), KEYBOARD_Y
 .byte STRING_OFFSET rsOnScreen
 
 rBootAddr:
-.word BOOT_MSG_ADDR
+.word BOOT_STRING_ADDR
 .byte STRING_OFFSET rsBoot
 raSplashStringsAddrEnd:
 
 STRING_ADDR_BYTES = raSplashStringsAddrEnd - raSplashStringsAddr
 .assert STRING_ADDR_BYTES <= 256, error, "splash screen string address data is too large"
+
+.segment "CODE"
 
 ; ==============================================================================
 ; public interface
@@ -558,4 +574,5 @@ copy_done:
 
     ; close the buffer.
     jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc

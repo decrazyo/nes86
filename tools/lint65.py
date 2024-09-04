@@ -3,6 +3,7 @@
 # TODO: allow scopes to have no name
 # TODO: limit linting inside of macros
 # TODO: return non-zero value if there are warnings
+# TODO: fix linting of define-style macros that take parameters
 
 """
 A poorly implemented linter for 6502 assembly with ca65 syntax.
@@ -1380,7 +1381,7 @@ class Linter:
         elif mnemonic == 'jmp':
             max_count = 2
             if linter_tag != LinterTag.TAIL_JUMP:
-                self.warn(f'Tail branch incorrectly tagged as "{tag_name}".', tag_line.num)
+                self.warn(f'Tail jump incorrectly tagged as "{tag_name}".', tag_line.num)
         elif mnemonic in BRANCHES:
             if linter_tag != LinterTag.TAIL_BRANCH:
                 self.warn(f'Tail branch incorrectly tagged as "{tag_name}".', tag_line.num)

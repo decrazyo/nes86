@@ -1,4 +1,6 @@
 
+; hardware interrupt vector.
+
 .include "nmi.inc"
 .include "reset.inc"
 .include "irq.inc"

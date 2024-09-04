@@ -33,30 +33,30 @@ rsErrorHeader:
 
 ; keep error messages to 25 characters or less so they fit on one line.
 raErrorMessages:
-FetchError:
-.asciiz "fetch error"
-DecodeError:
-.asciiz "decode error"
-ExecuteError:
-.asciiz "execute error"
-WriteError:
-.asciiz "write error"
-IoError:
-.asciiz "I/O error"
-UnknownError:
-.asciiz "unknown error"
+rsFetchError:
+.asciiz "fetch error."
+rsDecodeError:
+.asciiz "decode error."
+rsExecuteError:
+.asciiz "execute error."
+rsWriteError:
+.asciiz "write error."
+rsIoError:
+.asciiz "I/O error."
+rsUnknownError:
+.asciiz "unknown error."
 raErrorMessagesEnd:
 
 ERROR_STRING_BYTES = raErrorMessagesEnd - raErrorMessages
 .assert ERROR_STRING_BYTES <= 256, error, "error string data is too large"
 
 raErrorOffset:
-.byte STRING_OFFSET FetchError
-.byte STRING_OFFSET DecodeError
-.byte STRING_OFFSET ExecuteError
-.byte STRING_OFFSET WriteError
-.byte STRING_OFFSET IoError
-.byte STRING_OFFSET UnknownError
+.byte STRING_OFFSET rsFetchError
+.byte STRING_OFFSET rsDecodeError
+.byte STRING_OFFSET rsExecuteError
+.byte STRING_OFFSET rsWriteError
+.byte STRING_OFFSET rsIoError
+.byte STRING_OFFSET rsUnknownError
 raErrorOffsetEnd:
 
 ERROR_OFFSET_BYTES = raErrorOffsetEnd - raErrorOffset
@@ -67,8 +67,8 @@ ERROR_OFFSET_BYTES = raErrorOffsetEnd - raErrorOffset
 ; initialize x86 components.
 .proc x86
     jsr Reg::reg
-    jsr Io::io
-    rts
+    jmp Io::io
+    ; [tail_jump]
 .endproc
 
 

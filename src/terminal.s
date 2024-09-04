@@ -45,7 +45,7 @@ zbEscapeState: .res 1
 .endenum
 
 ; escape buffer index
-zbEscapeIndex: .res 1 
+zbEscapeIndex: .res 1
 
 .segment "BSS"
 
@@ -118,9 +118,8 @@ attr_loop:
     bne attr_loop
 
     jsr Ppu::finalize_write
-    jsr Nmi::wait
-
-    rts
+    jmp Nmi::wait
+    ; [tail_jump]
 .endproc
 
 
@@ -165,16 +164,16 @@ attr_loop:
     adc #$80
 
 print_char:
-jsr use_cursor_address
+    jsr use_cursor_address
     jsr Ppu::write_byte
     lda #1
-    jsr cursor_right_wrap
-    rts
+    jmp cursor_right_wrap
+    ; [tail_jump]
 .endproc
 
 
 ; handle control characters
-; < A
+; < A = control character.
 .proc control
     cmp #Chr::BEL
     beq bell
@@ -193,16 +192,22 @@ jsr use_cursor_address
     rts
 .endproc
 
+
 ; =============================================================================
 ; control character handlers
 ; =============================================================================
 
+; make a short audible beep
 .proc bell
     jmp Apu::beep
     ; [tail_jump]
 .endproc
 
 
+; move the cursor back one space.
+; if the cursor is at the left edge of the screen
+; then move the cursor to the end of the previous line.
+; do nothing if the cursor is at the top left of the screen.
 .proc backspace
     ldx zbCursorX
     beq wrap_back
@@ -223,6 +228,7 @@ done:
 .endproc
 
 
+; print 8 spaces
 .proc tab
     lda #TAB_SIZE
     sta Tmp::zb1
@@ -237,22 +243,29 @@ loop:
 .endproc
 
 
+; move the cursor down to the next line.
+; scroll the screen if needed.
 .proc line_feed
     lda #1
-    jsr cursor_down_wrap
-    rts
+    jmp cursor_down_wrap
+    ; [tail_jump]
 .endproc
 
 
+; move the cursor to the start of the line.
 .proc carage_return
     lda zbCursorY
     ldx #0
     stx zbCursorX
     jsr get_address
-    jsr Ppu::initialize_write
-    rts
+    jmp Ppu::initialize_write
+    ; [tail_jump]
 .endproc
 
+
+; =============================================================================
+; escape sequence buffering
+; =============================================================================
 
 ; start a new escape sequence
 ; < A = $1b
@@ -273,7 +286,7 @@ loop:
 .endproc
 
 
-; continue an escape sequence.
+; continue processing an escape sequence based on the current escape sequence state.
 ; < A = escape sequence byte
 ; < X = escape sequence state
 .proc continue_escape
@@ -304,6 +317,7 @@ loop:
     ; [tail_branch]
 .endproc
 
+; terminate an escape sequence.
 .proc end_escape_sequence
     ldx #eEscapeState::NONE
     stx zbEscapeState
@@ -312,6 +326,9 @@ loop:
     rts
 .endproc
 
+
+; processing the byte following an ESC character.
+; < A = escape sequence byte
 .proc continue_escape_esc
     ; check what type of escape sequence we are receiving.
     ; we're only supporting CSI sequences.
@@ -324,6 +341,10 @@ loop:
     rts
 .endproc
 
+
+; process CSI parameters.
+; if A isn't a parameter byte then call the appropriate handler for the byte.
+; < A = escape sequence byte
 .proc continue_escape_csi_param
     cmp #'0'
     bcc continue_escape_csi_inter
@@ -338,6 +359,9 @@ loop:
 .endproc
 
 
+; process CSI intermediate bytes.
+; if A isn't an intermediate byte then call the appropriate handler for the byte.
+; < A = escape sequence byte
 .proc continue_escape_csi_inter
     cmp #Chr::SPACE
     bcc end_escape_sequence
@@ -352,6 +376,9 @@ loop:
 .endproc
 
 
+; process the final escape sequence byte.
+; then perform the action specified by the escape sequence.
+; < A = escape sequence byte
 .proc continue_escape_final
     cmp #'@'
     bcc end_escape_sequence
@@ -376,6 +403,12 @@ loop:
 .endproc
 
 
+; =============================================================================
+; escape sequence handlers
+; =============================================================================
+
+; set the cursor position with an escape sequence.
+; example: ^[[10;3H
 .proc escape_cursor_position
     ldx #2
     jsr get_escape_arg
@@ -394,6 +427,9 @@ done:
 .endproc
 
 
+; clear the screen with an escape sequence.
+; the cursor is left at the top left of the screen.
+; example: ^[[2J
 .proc escape_clear_screen
     ldx #2
     jsr get_escape_arg
@@ -406,7 +442,9 @@ done:
 
     ; only handle clearing the whole screen
     cmp #2
-    bne done
+    bcc done ; branch if the argument is 0 or 1
+    cmp #4
+    bcs done ; branch if the argument is greater than 3
     jsr clear_screen
     jmp cursor_home
 
@@ -415,7 +453,10 @@ done:
 .endproc
 
 
-; select graphic rendition
+; select graphic rendition.
+; change the foreground and background colors with an escape sequence.
+; the best we can easily do is invert the text color.
+; example: ^[[41m
 .proc escape_sgr
     ldx #2
 
@@ -453,32 +494,37 @@ done:
 
 
 ; =============================================================================
-; escape sequence handlers
+; cursor positioning and screen scrolling
 ; =============================================================================
 
-
+; move the cursor to the top left of the screen
 .proc cursor_home
     lda #0
     sta zbCursorX
     ldx #0
     stx zbCursorY
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 
+; set the cursor position
 ; < A = screen y position
 ; < X = screen x position
 .proc cursor_position
     sta zbCursorY
     stx zbCursorX
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 
+; unused/untested
+; move the cursor up. stop at the top of the screen.
+; < A = number of characters to move up.
+; changes: A, X
 .proc cursor_up_stop
-    ; subtract from the current cursor x position
+    ; subtract from the current cursor y position
     eor #$ff
     clc
     adc #1
@@ -486,16 +532,20 @@ done:
 
     ; check if we passed the edge of the screen
     bpl store_cursor
-    ; set the cursor x position at the edge of the screen
+    ; set the cursor y position at the edge of the screen
     lda #0
 store_cursor:
     sta zbCursorY
 
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 
+; unused/untested
+; move the cursor down. stop at the bottom of the screen.
+; < A = number of characters to move down.
+; changes: A, X
 .proc cursor_down_stop
     ; add to the current cursor x position
     clc
@@ -508,12 +558,12 @@ store_cursor:
 store_cursor:
     sta zbCursorY
 
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 
-; move the cursor to the down.
+; move the cursor down.
 ; scroll at the bottom of the screen.
 ; < A = number of characters to move down.
 ; changes: A, X
@@ -539,11 +589,12 @@ store_cursor:
     txa
     bne scroll_down_clear ; branch if we need to scroll the screen.
 
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 
+; unused/untested
 ; move the cursor to the left.
 ; stop at the edge of the screen.
 ; < A = number of characters to move left.
@@ -562,11 +613,12 @@ store_cursor:
 store_cursor:
     sta zbCursorX
 
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 
+; unused/untested
 ; move the cursor to the right.
 ; stop at the edge of the screen.
 ; < A = number of characters to move right.
@@ -583,8 +635,8 @@ store_cursor:
 store_cursor:
     sta zbCursorX
 
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 
@@ -617,21 +669,17 @@ store_cursor:
     txa
     bne cursor_down_wrap ; branch if we need to change the cursor y position
 
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 
+; clear the whole screen. leave the cursor position unchanged.
+; changes: A, X
 .proc clear_screen
-    ; disable sprite and background rendering
-    ; lda Ppu::zbMask
-    ; and #<~(Ppu::MASK_s | Ppu::MASK_b)
-    ; sta Ppu::MASK
-
     lda #Const::SCREEN_TILE_HEIGHT
     sta Tmp::zb1
 
-    ; TODO: optimize this. we don't need to wait 1 frame for each line we clear.
 clear_screen_loop:
     lda Tmp::zb1
     ldx #0
@@ -651,10 +699,6 @@ clear_line_loop:
 
     dec Tmp::zb1
     bne clear_screen_loop
-
-    ; restore rendering
-    ; lda Ppu::zbMask
-    ; sta Ppu::MASK
 
     rts
 .endproc
@@ -679,14 +723,16 @@ done:
     sta Ppu::zbScrollPixelY
 
     jsr clear_line
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
+
 ; =============================================================================
-; escape sequence handler functions
+; utility functions
 ; =============================================================================
 
+; parse an escape sequence parameter from baEscapeBuffer.
 ; < X = index of the next argument in baEscapeBuffer.
 ; > A = retrieved argument
 ; > X = index of the following argument in baEscapeBuffer.
@@ -822,10 +868,7 @@ done:
 .endproc
 
 
-; =============================================================================
-; low level cursor position and PPU functions
-; =============================================================================
-
+; clear the line that the cursor is on.
 .proc clear_line
     lda zbCursorY
     ldx #0
@@ -841,9 +884,8 @@ loop:
     dey
     bne loop
 
-    jsr Ppu::finalize_write
-
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 

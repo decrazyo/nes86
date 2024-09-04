@@ -309,8 +309,8 @@ loop:
     cpy #<(rbaPalletsEnd - rbaPallets)
     bcc loop
 
-    jsr Ppu::finalize_write
-    rts
+    jmp Ppu::finalize_write
+    ; [tail_jump]
 .endproc
 
 
@@ -329,6 +329,7 @@ loop:
     jsr buffer_rom_string
 
     jmp Nmi::wait
+    ; [tail_jump]
 .endproc
 
 
@@ -359,6 +360,7 @@ loop:
     jsr buffer_rom_string
 
     jmp Nmi::wait
+    ; [tail_jump]
 .endproc
 
 
@@ -410,6 +412,7 @@ loop:
     jmp Nmi::wait
     ; [tail_jump]
 .endproc
+
 
 ; render the "Memory test:" string.
 ; changes: A, X, Y

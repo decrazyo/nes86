@@ -1,17 +1,21 @@
 
+; this module is a pretty bare bones terminal emulator.
+; it includes limited control character and ANSI escape sequence support.
+
+.include "apu.inc"
+.include "chr.inc"
+.include "const.inc"
+.include "mmc5.inc"
+.include "nmi.inc"
+.include "ppu.inc"
 .include "terminal.inc"
 .include "tmp.inc"
-.include "const.inc"
-.include "ppu.inc"
-.include "chr.inc"
-.include "nmi.inc"
-.include "mmc5.inc"
-.include "apu.inc"
 
 .export terminal
 .export put_char
-.export clear_screen
-.export cursor_position
+
+; number of spaces to inset for a tab "\t" character.
+TAB_SIZE = 8
 
 .segment "ZEROPAGE"
 
@@ -23,6 +27,14 @@ zbCursorY: .res 1
 zbScrollTileX: .res 1
 zbScrollTileY: .res 1
 
+; indicates if text color for subsequent characters should be inverted.
+; this gets set if an ANSI escape sequence changes the foreground or background colors.
+; it's as close as we can easily get to supporting those ANSI escape sequence.
+zbInvertText: .res 1
+
+; tracks the state of the ANSI escape sequence handler.
+zbEscapeState: .res 1
+
 .enum eEscapeState
     NONE ; not currently processing an escape sequence.
     ESC ; escape byte $1b
@@ -32,9 +44,8 @@ zbScrollTileY: .res 1
     FINAL ; CSI final byte in the ASCII range ['@', '~']
 .endenum
 
-zbEscapeState: .res 1
-zbEscapeIndex: .res 1
-zbInvertText: .res 1
+; escape buffer index
+zbEscapeIndex: .res 1 
 
 .segment "BSS"
 
@@ -42,9 +53,7 @@ zbInvertText: .res 1
 ; this should be more than enough space for any sequence we're likely to receive.
 baEscapeBuffer: .res 256
 
-.segment "CODE"
-
-; TODO: use a sprite to show the cursor location.
+.segment "RODATA"
 
 ; NOTE: this module makes heavy use of my weird NMI/PPU interface.
 ;       great care must be taken to prevent corruption.
@@ -59,9 +68,8 @@ baEscapeBuffer: .res 256
 
 ; TODO: use the MMC5's "attribute and tile index expansion"
 ;       to set pallet attributes for each individual tile.
-;       this could give us limited support for ANSI color escapes.
-;       we can't support full color.
-;       maybe just light gray text and a dark grey background.
+;       this could give us better support for ANSI color escapes.
+;       we could support a few colors and independent control over foreground/background colors.
 
 ; we're using magenta to indicate unused colors.
 rbaPallets:
@@ -71,36 +79,38 @@ rbaPallets:
 .byte Ppu::eColor::BLACK, Ppu::eColor::DARK_GRAY, Ppu::eColor::GRAY,  Ppu::eColor::MAGENTA
 rbaPalletsEnd:
 
+.segment "CODE"
+
 ; =============================================================================
 ; public interface
 ; =============================================================================
 
-; initialize the terminal
+; initialize the terminal.
 .proc terminal
-    jsr Terminal::clear_screen
+    jsr clear_screen
 
-    ; initialize palette data.
-    lda #>Ppu::BACKGROUND_PALLET_ADDR
-    sta Ppu::ADDR
+    ; initialize pallet data
     lda #<Ppu::BACKGROUND_PALLET_ADDR
-    sta Ppu::ADDR
+    ldx #>Ppu::BACKGROUND_PALLET_ADDR
+    jsr Ppu::initialize_write
 
-    ldx #0
-pallet_loop:
-    lda rbaPallets, x
-    sta Ppu::DATA
-    inx
-    cpx #<(rbaPalletsEnd - rbaPallets)
-    bcc pallet_loop
+    ldy #0
+loop:
+    lda rbaPallets, y
+    jsr Ppu::write_bytes
+    iny
+    cpy #<(rbaPalletsEnd - rbaPallets)
+    bcc loop
+
+    jsr Ppu::finalize_write
+    jsr Nmi::wait
 
     ; clear attribute data.
     lda #<Ppu::ATTRIBUTE_0
     ldx #>Ppu::ATTRIBUTE_0
     jsr Ppu::initialize_write
 
-    jsr Ppu::scroll
-
-    lda #0
+    lda #Chr::NUL
     ldy #64
 attr_loop:
     jsr Ppu::write_bytes
@@ -108,153 +118,17 @@ attr_loop:
     bne attr_loop
 
     jsr Ppu::finalize_write
-
     jsr Nmi::wait
 
     rts
 .endproc
 
 
-; < X = index of the next argument in baEscapeBuffer.
-; > A = retrieved argument
-; > X = index of the following argument in baEscapeBuffer.
-; > N = 0 if argument valid
-;   N = 1 if argument invalid
-; changes: Y
-.proc get_escape_arg
-    ; Y will count the number of argument bytes we push on the stack.
-    ldy #0
-    ; temp byte 3 is used as an error flag.
-    ; initialize it to indicate no error.
-    sty Tmp::zb3
-    ; start parsing the argument.
-    beq parse_arg ; branch always
-
-    INVALID_ARG = $80
-
-invalid_arg_byte:
-    lda #INVALID_ARG
-    sta Tmp::zb3
-
-    ; this will parse an entire argument and leave X pointing at the next argument.
-parse_arg:
-    ; get a byte that may or may not be part of the argument.
-    lda baEscapeBuffer, x
-    ; increment the buffer index.
-    inx
-
-    ; check if the byte is an intermediate byte.
-    cmp #'/' + 1
-    bcc end_of_last_arg ; branch if the byte is an intermediate byte. i.e. end of arguments.
-
-    ; check if the byte is the final byte.
-    cmp #'@'
-    bcs end_of_last_arg ; branch if the byte is the final byte of the sequence.
-
-    ; check if we've reached an argument boundary
-    cmp #';'
-    beq end_of_arg ; branch if we have reached the end of the current argument.
-
-    ; our caller will expect the argument to be in the range [0, 255]
-    ; if we have more than 3 digits then we will assume that the value is outside of that range.
-    ; this avoids needing to pop a bunch of extra data off the stack later
-    ; and it prevents a possible stack overflow caused by very large arguments.
-    cpy #3
-    beq invalid_arg_byte
-
-    ; if we get a byte that isn't an ASCII digit then we'll flag the argument as invalid.
-    ; we only want integer arguments.
-    cmp #'9' + 1
-    bcs invalid_arg_byte
-    cmp #'0'
-    bcc invalid_arg_byte
-
-    ; convert the ASCII digit to an integer.
-    ; C is necessarily set by the previous "cmp" instruction.
-    sbc #'0'
-    ; push it onto the stack for later processing.
-    pha
-    ; count the number of bytes we have pushed.
-    iny
-
-    bne parse_arg ; branch always
-
-    ; we've reached the end of the last argument.
-end_of_last_arg:
-    ; decrement the buffer index.
-    ; this enables the caller to call this function again and get the default argument.
-    dex
-
-    ; we've reached the end of an argument.
-end_of_arg:
-    ; check if we have received no argument bytes
-    cpy #0
-    beq use_default_arg ; branch if there are no argument bytes.
-
-    ; arguments are supplied as ASCII representations of base-10 numbers.
-    ; each digit has already been converted from ASCII to a integer.
-    ; now we need to combine the digits into a single integer.
-
-    ; get the 1s place digit.
-    pla
-
-    dey
-    beq done ; branch if there are no more digits
-
-    ; store the 1s place digit for later.
-    sta Tmp::zb2
-
-    ; multiply the 10s place digit by 10.
-    lda #10
-    sta Mmc5::MULT_LO
-    pla
-    sta Mmc5::MULT_HI
-
-    ; add the 10s place digit to the 1s place digit.
-    clc
-    lda Mmc5::MULT_LO
-    adc Tmp::zb2
-
-    dey
-    beq done ; branch if there are no more digits
-
-    ; store the combined 10s and 1s place digits for later.
-    sta Tmp::zb2
-
-    ; multiply the 100s digit by 100.
-    lda #100
-    sta Mmc5::MULT_LO
-    pla
-    sta Mmc5::MULT_HI
-
-    ; check if the 100s place digit alone is larger than a byte.
-    lda Mmc5::MULT_HI
-    bne arg_overflows_byte
-
-    ; add the 100s place digit to the 10s and 1s place digits.
-    lda Mmc5::MULT_LO
-    adc Tmp::zb2
-    bcc done ; branch if the result fits in a byte.
-
-arg_overflows_byte:
-    lda #INVALID_ARG
-    sta Tmp::zb3
-
-use_default_arg:
-    lda #0
-
-done:
-    ; clear or set N to indicate if the argument is valid or not
-    ldy Tmp::zb3
-    rts
-.endproc
-
-
-
 ; write a character to the terminal.
 ; the character will either be drawn to the screen
 ; or buffered until more characters are received.
-; < A = character to write
+; ANSI escape sequences will be parsed but only a limited subset have any effect.
+; < A = ASCII character to write
 .proc put_char
     ; NOTE: this a hack to work around NULL bytes in escape sequences.
     cmp #Chr::NUL
@@ -281,7 +155,7 @@ done:
 ; move the cursor to the right
 ; wrap to the next line if needed
 ; scroll the screen if needed
-; < A
+; < A = ASCII character to write
 .proc print
     ldx zbInvertText
     beq print_char
@@ -291,7 +165,7 @@ done:
     adc #$80
 
 print_char:
-    jsr use_cursor_address
+jsr use_cursor_address
     jsr Ppu::write_byte
     lda #1
     jsr cursor_right_wrap
@@ -330,11 +204,35 @@ print_char:
 
 
 .proc backspace
+    ldx zbCursorX
+    beq wrap_back
+    dex
+    lda zbCursorY
+    jmp cursor_position
+
+wrap_back:
+    ldy zbCursorY
+    beq done
+    dey
+    tya
+    ldx #(Const::SCREEN_TILE_WIDTH - 1)
+    jmp cursor_position
+
+done:
     rts
 .endproc
 
 
 .proc tab
+    lda #TAB_SIZE
+    sta Tmp::zb1
+
+loop:
+    lda #Chr::SPACE
+    jsr print
+    dec Tmp::zb1
+    bne loop
+
     rts
 .endproc
 
@@ -441,7 +339,7 @@ print_char:
 
 
 .proc continue_escape_csi_inter
-    cmp #' '
+    cmp #Chr::SPACE
     bcc end_escape_sequence
 
     cmp #'/' + 1
@@ -552,8 +450,6 @@ check_if_done:
 done:
     rts
 .endproc
-
-
 
 
 ; =============================================================================
@@ -791,8 +687,139 @@ done:
 ; escape sequence handler functions
 ; =============================================================================
 
+; < X = index of the next argument in baEscapeBuffer.
+; > A = retrieved argument
+; > X = index of the following argument in baEscapeBuffer.
+; > N = 0 if argument valid
+;   N = 1 if argument invalid
+; changes: Y
+.proc get_escape_arg
+    ; Y will count the number of argument bytes we push on the stack.
+    ldy #0
+    ; temp byte 3 is used as an error flag.
+    ; initialize it to indicate no error.
+    sty Tmp::zb3
+    ; start parsing the argument.
+    beq parse_arg ; branch always
 
+    INVALID_ARG = $80
 
+invalid_arg_byte:
+    lda #INVALID_ARG
+    sta Tmp::zb3
+
+    ; this will parse an entire argument and leave X pointing at the next argument.
+parse_arg:
+    ; get a byte that may or may not be part of the argument.
+    lda baEscapeBuffer, x
+    ; increment the buffer index.
+    inx
+
+    ; check if the byte is an intermediate byte.
+    cmp #'/' + 1
+    bcc end_of_last_arg ; branch if the byte is an intermediate byte. i.e. end of arguments.
+
+    ; check if the byte is the final byte.
+    cmp #'@'
+    bcs end_of_last_arg ; branch if the byte is the final byte of the sequence.
+
+    ; check if we've reached an argument boundary
+    cmp #';'
+    beq end_of_arg ; branch if we have reached the end of the current argument.
+
+    ; our caller will expect the argument to be in the range [0, 255]
+    ; if we have more than 3 digits then we will assume that the value is outside of that range.
+    ; this avoids needing to pop a bunch of extra data off the stack later
+    ; and it prevents a possible stack overflow caused by very large arguments.
+    cpy #3
+    beq invalid_arg_byte
+
+    ; if we get a byte that isn't an ASCII digit then we'll flag the argument as invalid.
+    ; we only want integer arguments.
+    cmp #'9' + 1
+    bcs invalid_arg_byte
+    cmp #'0'
+    bcc invalid_arg_byte
+
+    ; convert the ASCII digit to an integer.
+    ; C is necessarily set by the previous "cmp" instruction.
+    sbc #'0'
+    ; push it onto the stack for later processing.
+    pha
+    ; count the number of bytes we have pushed.
+    iny
+
+    bne parse_arg ; branch always
+
+    ; we've reached the end of the last argument.
+end_of_last_arg:
+    ; decrement the buffer index.
+    ; this enables the caller to call this function again and get the default argument.
+    dex
+
+    ; we've reached the end of an argument.
+end_of_arg:
+    ; check if we have received no argument bytes
+    cpy #0
+    beq use_default_arg ; branch if there are no argument bytes.
+
+    ; arguments are supplied as ASCII representations of base-10 numbers.
+    ; each digit has already been converted from ASCII to a integer.
+    ; now we need to combine the digits into a single integer.
+
+    ; get the 1s place digit.
+    pla
+
+    dey
+    beq done ; branch if there are no more digits
+
+    ; store the 1s place digit for later.
+    sta Tmp::zb2
+
+    ; multiply the 10s place digit by 10.
+    lda #10
+    sta Mmc5::MULT_LO
+    pla
+    sta Mmc5::MULT_HI
+
+    ; add the 10s place digit to the 1s place digit.
+    clc
+    lda Mmc5::MULT_LO
+    adc Tmp::zb2
+
+    dey
+    beq done ; branch if there are no more digits
+
+    ; store the combined 10s and 1s place digits for later.
+    sta Tmp::zb2
+
+    ; multiply the 100s digit by 100.
+    lda #100
+    sta Mmc5::MULT_LO
+    pla
+    sta Mmc5::MULT_HI
+
+    ; check if the 100s place digit alone is larger than a byte.
+    lda Mmc5::MULT_HI
+    bne arg_overflows_byte
+
+    ; add the 100s place digit to the 10s and 1s place digits.
+    lda Mmc5::MULT_LO
+    adc Tmp::zb2
+    bcc done ; branch if the result fits in a byte.
+
+arg_overflows_byte:
+    lda #INVALID_ARG
+    sta Tmp::zb3
+
+use_default_arg:
+    lda #0
+
+done:
+    ; clear or set N to indicate if the argument is valid or not
+    ldy Tmp::zb3
+    rts
+.endproc
 
 
 ; =============================================================================

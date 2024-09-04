@@ -6,10 +6,6 @@
 
         .import terminal
         .import put_char
-        .import clear_screen
-        .import cursor_position
-
-        TAB_SIZE = 8
 
     .endscope
 

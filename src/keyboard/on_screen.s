@@ -1,18 +1,45 @@
 
-.include "keyboard/on_screen.inc"
-.include "keyboard.inc"
-.include "keyboard/ram.inc"
-.include "ppu.inc"
-.include "nmi.inc"
-.include "tmp.inc"
-.include "mmc5.inc"
-.include "const.inc"
-.include "terminal.inc"
+; this module manages the on-screen keyboard together with irq.s
+; TODO: refactor this module to be more readable/maintainable.
+
 .include "apu.inc"
+.include "chr.inc"
+.include "const.inc"
+.include "keyboard.inc"
+.include "keyboard/on_screen.inc"
+.include "mmc5.inc"
+.include "nmi.inc"
+.include "ppu.inc"
+.include "tmp.inc"
 
 .export on_screen
 
-.segment "CODE"
+.segment "ZEROPAGE"
+
+; cursor position on screen
+zbCursorX: .res 1
+zbCursorY: .res 1
+
+; screen scroll position for displaying the keyboard
+zbKeyboardScrollX: .res 1
+zbKeyboardScrollY: .res 1
+
+; joypad button states
+zbJoypadOld: .res 1 ; button state on previous frame
+zbJoypadNew: .res 1 ; button state on current frame
+zbJoypadPressed: .res 1 ; button that changed state from released to pressed.
+
+; holds the state of modifier keys (CAPS, SHIFT, CTRL, ALT)
+zbModifierKeys: .res 1
+
+; indicates if the on-screen keyboard is enabled or not.
+; if enabled, then the keyboard is visible and key presses are handles.
+zbKeyboardEnabled: .res 1
+
+; indicates if sprite data has been updated, necessitating an OAM DMA.
+zbDoOamDma: .res 1
+
+.segment "RODATA"
 
 rsRow0:
 .asciiz "  ` 1 2 3 4 5 6 7 8 9 0 - = bksp"
@@ -146,6 +173,8 @@ rbaMaskSprites:
 .byte $30, $01, $00, Const::SCREEN_PIXEL_WIDTH - Const::TILE_WIDTH
 rbaMaskSpritesEnd:
 
+MASK_SPRITE_COUTN = (rbaMaskSpritesEnd - rbaMaskSprites - 1) / .sizeof(Ppu::sSprite)
+
 ; we're using magenta to indicate unused colors.
 ; we only need 1 sprite pallet so we'll make them all the same.
 rbaPallets:
@@ -164,10 +193,12 @@ rbTypeEnter:
 rbTypeCursor:
 .byte Const::JOYPAD_B
 
-CURSOR_UPPER_LEFT = Ppu::SPRITE_1
-CURSOR_UPPER_RIGHT = Ppu::SPRITE_2
-CURSOR_LOWER_LEFT = Ppu::SPRITE_3
-CURSOR_LOWER_RIGHT = Ppu::SPRITE_4
+CURSOR_UPPER_LEFT =  0 * .sizeof(Ppu::sSprite)
+CURSOR_UPPER_RIGHT = 1 * .sizeof(Ppu::sSprite)
+CURSOR_LOWER_LEFT =  2 * .sizeof(Ppu::sSprite)
+CURSOR_LOWER_RIGHT = 3 * .sizeof(Ppu::sSprite)
+
+.segment "CODE"
 
 ; =============================================================================
 ; public functions
@@ -231,10 +262,10 @@ copy_string:
     ; set the initial position of the on-screen keyboard
     ; x offset centers the keyboard.
     lda #4
-    sta Ram::OnScreen::zbKeyboardScrollX
+    sta zbKeyboardScrollX
     ; y offset 0 selects the normal keyboard graphics.
     lda #0
-    sta Ram::OnScreen::zbKeyboardScrollY
+    sta zbKeyboardScrollY
 
     ; use 7 sprites to mask off the right edge of the screen beside the keyboard.
     ; otherwise fragments of the terminal will appear on screen there.
@@ -242,33 +273,37 @@ copy_string:
     ldx #rbaMaskSpritesEnd - rbaMaskSprites - 1
 setup_cover_sprites:
     lda rbaMaskSprites, x
-    sta Ppu::aOamBuffer + Ppu::SPRITE_57, x
+    sta Ppu::aOamBuffer + .sizeof(Ppu::sSprite) * (Ppu::SPRITE_COUNT - MASK_SPRITE_COUTN), x
     dex
     bpl setup_cover_sprites
 
     ; setup the cursor sprites.
     ; the cursor only uses tile 0.
     lda #0
-    sta Ppu::aOamBuffer + CURSOR_UPPER_LEFT + Ppu::SPRITE_TILE
-    sta Ppu::aOamBuffer + CURSOR_UPPER_RIGHT + Ppu::SPRITE_TILE
-    sta Ppu::aOamBuffer + CURSOR_LOWER_LEFT + Ppu::SPRITE_TILE
-    sta Ppu::aOamBuffer + CURSOR_LOWER_RIGHT + Ppu::SPRITE_TILE
+    sta Ppu::aOamBuffer + CURSOR_UPPER_LEFT + Ppu::sSprite::bTile
+    sta Ppu::aOamBuffer + CURSOR_UPPER_RIGHT + Ppu::sSprite::bTile
+    sta Ppu::aOamBuffer + CURSOR_LOWER_LEFT + Ppu::sSprite::bTile
+    sta Ppu::aOamBuffer + CURSOR_LOWER_RIGHT + Ppu::sSprite::bTile
 
     ; the sprite attributes never need to change so we'll set them here once.
     ; A = 0
-    sta Ppu::aOamBuffer + CURSOR_UPPER_LEFT + Ppu::SPRITE_ATTR
+    sta Ppu::aOamBuffer + CURSOR_UPPER_LEFT + Ppu::sSprite::bAttr
     lda #Ppu::SPRITE_ATTR_H
-    sta Ppu::aOamBuffer + CURSOR_UPPER_RIGHT + Ppu::SPRITE_ATTR
+    sta Ppu::aOamBuffer + CURSOR_UPPER_RIGHT + Ppu::sSprite::bAttr
     lda #Ppu::SPRITE_ATTR_V
-    sta Ppu::aOamBuffer + CURSOR_LOWER_LEFT + Ppu::SPRITE_ATTR
+    sta Ppu::aOamBuffer + CURSOR_LOWER_LEFT + Ppu::sSprite::bAttr
     lda #(Ppu::SPRITE_ATTR_H | Ppu::SPRITE_ATTR_V)
-    sta Ppu::aOamBuffer + CURSOR_LOWER_RIGHT + Ppu::SPRITE_ATTR
+    sta Ppu::aOamBuffer + CURSOR_LOWER_RIGHT + Ppu::sSprite::bAttr
+
+    ; sprites have been updated. OAM DMA is needed.
+    lda #1
+    sta zbDoOamDma
 
     ; put the cursor on the spacebar.
     ldx #5
-    stx Ram::OnScreen::zbCursorX
+    stx zbCursorX
     dex
-    stx Ram::OnScreen::zbCursorY
+    stx zbCursorY
 
     jsr update_cursor
 
@@ -288,8 +323,10 @@ setup_cover_sprites:
 .endproc
 
 
+; scan the keyboard matrix if the keyboard is enabled.
+; if the keyboard is disabled then check if the user is trying to enable it.
 .proc scan
-    lda Ram::OnScreen::zbKeyboardEnabled
+    lda zbKeyboardEnabled
     beq keyboard_disabled
     ; [tail_branch]
 .endproc
@@ -298,10 +335,21 @@ setup_cover_sprites:
 ; private functions
 ; =============================================================================
 
+; prepare to draw the keyboard on the next frame.
+; scan the joypad and check if the user is trying to do something with keyboard like...
+; - disabling the keyboard
+; - moving the cursor
+; - typing a key
+; changes: A, X, Y
 .proc keyboard_enabled
+    ; the keyboard is enabled so it should be drawn next frame.
     jsr draw_keyboard
 
+    ; check for user input.
     jsr scan_joypad
+
+    ; only handle a single pressed button each frame.
+    ; this could result in some missed input but the impact should me minimal.
 
     bit rbToggleKeyboard
     bne toggle_keyboard
@@ -319,51 +367,68 @@ setup_cover_sprites:
 .endproc
 
 
+; check if the user is trying to enable the keyboard.
+; changes: A
 .proc keyboard_disabled
     jsr scan_joypad
 
     bit rbToggleKeyboard
     bne toggle_keyboard
 
-    ; TODO: handle arrow keys with the d-pad
-    ;       and home and end with b and a
-
+    ; NOTE: we could do more work here like using the d-pad as arrow keys.
     rts
 .endproc
 
 
+; toggle the keyboard's state.
+; enabled -> disabled
+; disabled -> enabled
+; changes: A
 .proc toggle_keyboard
-    lda Ram::OnScreen::zbKeyboardEnabled
+    lda zbKeyboardEnabled
     eor #1
-    sta Ram::OnScreen::zbKeyboardEnabled
+    sta zbKeyboardEnabled
     rts
 .endproc
 
 
+; move the cursor on the keyboard.
+; up, down, left, or right 1 key.
+; changes: A, X, Y
 .proc move_cursor
     jsr move_cursor_up_down
     jsr move_cursor_left_right
-    jsr update_cursor
-    rts
+    jmp update_cursor
+    ; [tail_jump]
 .endproc
 
 
+; type the enter key.
+; this bypasses modifier keys. it probably shouldn't.
+; changes: A, X
 .proc type_enter
-    jsr Apu::click
-    lda #$0a
+    jsr Apu::boop
+    lda #Chr::LF
     jmp Keyboard::put_key
     ; [tail_jump]
 .endproc
 
 
+; type the key at the current cursor position.
+; changes: A, X, Y
 .proc type_cursor
-    jsr Apu::click
+    jsr Apu::boop
+
+    ; lookup the key under the cursor
     jsr cursor_to_index
     tax
     lda rbaKeyMap, x
 
-    bmi toggle_modifier
+    ; check if the key is a modifier key (CAPS, SHIFT, CTRL, ALT).
+    ; modifier keys have bit 7 set. normal keys do not.
+    bmi toggle_modifier ; branch if this is a modifier key.
 
+    ; apply modifier keys to the key that was typed
     jsr modify_key
 
     jmp Keyboard::put_key
@@ -371,28 +436,36 @@ setup_cover_sprites:
 .endproc
 
 
+; toggle the state of a modifier key (CAPS, SHIFT, CTRL, ALT).
+; changes: A, Y
 .proc toggle_modifier
-    ; strip off the highest bit since we don't need it anymore.
-    and #%01111111
-    ; toggle modifier key bits.
-    eor Ram::OnScreen::zbModifierKeys
-    sta Ram::OnScreen::zbModifierKeys
+    ; strip off the highest bit since we don't want/need it anymore.
+    and #<~MOD_MASK
+    ; toggle the bit associated with the modifier key we received.
+    eor zbModifierKeys
+    sta zbModifierKeys
 
     ; determine which keyboard graphics to display based on the state of caps lock and shift.
     and #%00000011
     tay
     lda rbaKeyboardScrollY, y
-    sta Ram::OnScreen::zbKeyboardScrollY
+    sta zbKeyboardScrollY
 
     rts
 .endproc
 
 
+; apply modifier keys to the key that was typed
 ; < A = ascii code
 ; < X = key index
+; > A = modified ascii code
+; changes: A, X, Y
 .proc modify_key
+    ; read the state of the modifier keys
     tay
-    lda Ram::OnScreen::zbModifierKeys
+    lda zbModifierKeys
+
+    ; determine which modifier to apply, if any.
     bit rbCtrl
     bne ctrl_key
 
@@ -407,8 +480,10 @@ setup_cover_sprites:
 .endproc
 
 
+; apply the CTRL key to the key that was typed
 ; < X = key index
 ; < Y = ascii code
+; changes: A, X, Y
 .proc ctrl_key
     ; this is a pretty lazy way to interpret control characters.
     ; good enough.
@@ -421,6 +496,7 @@ setup_cover_sprites:
     tya
 
 done:
+    ; toggle the CTRL key off.
     tax
     lda #CTRL_MASK
     jsr toggle_modifier
@@ -429,8 +505,11 @@ done:
 .endproc
 
 
+; apply the SHIFT key to the key that was typed
 ; < X = key index
+; changes: A, Y
 .proc shift_key
+    ; toggle the SHIFT key off.
     lda #SHIFT_MASK
     jsr toggle_modifier
 
@@ -441,7 +520,10 @@ done:
 .endproc
 
 
+; apply the CAPS key to the key that was typed
 ; < Y = ascii code
+; > A = ascii code
+; changes: A
 .proc caps_key
     tya
     cmp #'z' + 1
@@ -456,8 +538,10 @@ done:
 .endproc
 
 
+; move the cursor up or down 1 row depending on which direction was pressed.
+; changes: A, X, Y
 .proc move_cursor_up_down
-    lda Ram::OnScreen::zbJoypadPressed
+    lda zbJoypadPressed
     and #(Const::JOYPAD_UP | Const::JOYPAD_DOWN)
     beq done
     and #Const::JOYPAD_UP
@@ -469,8 +553,10 @@ done:
 .endproc
 
 
+; move the cursor left or right 1 key depending on which direction was pressed.
+; changes: A, X, Y
 .proc move_cursor_left_right
-    lda Ram::OnScreen::zbJoypadPressed
+    lda zbJoypadPressed
     and #(Const::JOYPAD_LEFT | Const::JOYPAD_RIGHT)
     beq done
     and #Const::JOYPAD_LEFT
@@ -482,16 +568,20 @@ done:
 .endproc
 
 
+; move the cursor up 1 row and find the nearest key.
+; changes: A, X, Y
 .proc move_cursor_up
-    ldy Ram::OnScreen::zbCursorY
+    ldy zbCursorY
     dey
     bpl move_cursor_y ; branch if the cursor is still inside the bounds of the keyboard.
     rts
 .endproc
 
 
+; move the cursor down 1 row and find the nearest key.
+; changes: A, X, Y
 .proc move_cursor_down
-    ldy Ram::OnScreen::zbCursorY
+    ldy zbCursorY
     iny
     cpy #OnScreen::KEYBOARD_ROWS
     bcc move_cursor_y ; branch if the cursor is still inside the bounds of the keyboard.
@@ -499,8 +589,10 @@ done:
 .endproc
 
 
+; move the cursor left 1 key.
+; changes: A, X, Y
 .proc move_cursor_left
-    ldx Ram::OnScreen::zbCursorX
+    ldx zbCursorX
     beq done ; branch if we are at the left edge of the keyboard
 
     jsr cursor_to_index
@@ -513,15 +605,17 @@ loop:
     lda rbaCursorPositionX, y
     beq loop
 
-    stx Ram::OnScreen::zbCursorX
+    stx zbCursorX
 
 done:
     rts
 .endproc
 
 
+; move the cursor right 1 key.
+; changes: A, X, Y
 .proc move_cursor_right
-    ldx Ram::OnScreen::zbCursorX
+    ldx zbCursorX
     cpx #OnScreen::KEYBOARD_COLS - 1
     beq done ; branch if we are at the right edge of the keyboard
 
@@ -535,43 +629,59 @@ loop:
     lda rbaCursorPositionX, y
     beq loop
 
-    stx Ram::OnScreen::zbCursorX
+    stx zbCursorX
 
 done:
     rts
 .endproc
 
 
+; move the cursor up or down one row.
+; and change the cursor's x position to a valid key
+; since keys on different rows are offset from each other.
+; changes: A, X, Y
 .proc move_cursor_y
     ; store the new cursor y position
-    sty Ram::OnScreen::zbCursorY
+    sty zbCursorY
 
     jsr cursor_to_index
     tay
 
     ; determine the cursor x position for the row we moved to.
     ldx rbaCursorIndexX, y
-    stx Ram::OnScreen::zbCursorX
+    stx zbCursorX
     rts
 .endproc
 
 
+; setup the PPU to display the keyboard.
+; enable an interrupt to restore terminal viability after the keyboard is drawn.
+; see also: irq.s
+; changes: A
 .proc draw_keyboard
     ; select nametable 1 which contains the keyboard(s).
     lda Ppu::zbCtrl
     ora #1
     sta Ppu::CTRL
 
-    ; update sprite data.
-    ; TODO: only call this when the cursor sprite has actually moved.
-    ;       that would save quite a few cycles.
+    ; check if sprites have been changed, necessitating an OAM DMA.
+    ; avoiding unnecessary OAM DMA saves quite a few cycles.
+    lda zbDoOamDma
+    beq scroll_screen ; branch if no OAM DMA is needed.
+
+    ; copy sprite data to the PPU.
     jsr Ppu::oam_dma
+
+    ; disable future OAM DMAs until something sprites are updated.
+    lda #0
+    sta zbDoOamDma
 
     ; scroll to the appreciate keyboard graphics.
     ; normal keyboard, keyboard with caps lock pressed, or keyboard with shift pressed.
-    lda Ram::OnScreen::zbKeyboardScrollX
+scroll_screen:
+    lda zbKeyboardScrollX
     sta Ppu::SCROLL
-    lda Ram::OnScreen::zbKeyboardScrollY
+    lda zbKeyboardScrollY
     sta Ppu::SCROLL
 
     ; enable scanline interrupt generation in the MMC5.
@@ -587,16 +697,19 @@ done:
 .endproc
 
 
+; scan the joypad and determine which buttons are newly pressed this frame.
+; < A = newly pressed buttons.
+; changes: A
 .proc scan_joypad
     ; save the previous button state
-    lda Ram::OnScreen::zbJoypadNew
-    sta Ram::OnScreen::zbJoypadOld
+    lda zbJoypadNew
+    sta zbJoypadOld
 
     ; continuously reload the button state into the shift register.
     lda #$01
     sta Const::JOYPAD1
     ; bit 0 will serve as a flag to tell us when we've read a full byte.
-    sta Ram::OnScreen::zbJoypadNew
+    sta zbJoypadNew
 
     ; latch the button state in the shift register so that we can read it.
     lsr
@@ -607,22 +720,22 @@ done:
 loop:
     lda Const::JOYPAD1
     lsr
-    rol Ram::OnScreen::zbJoypadNew
+    rol zbJoypadNew
     bcc loop
 
     ; determine which buttons changed state
-    lda Ram::OnScreen::zbJoypadNew
-    eor Ram::OnScreen::zbJoypadOld
+    lda zbJoypadNew
+    eor zbJoypadOld
 
     ; determine which buttons changed state from released to pressed
-    and Ram::OnScreen::zbJoypadNew
-    sta Ram::OnScreen::zbJoypadPressed
+    and zbJoypadNew
+    sta zbJoypadPressed
 
     rts
 .endproc
 
 
-; multiply the cursor x and y position to get a table offset.
+; convert the cursor's x and y position into a table offset.
 ; > A table offset
 ; changes: A
 .proc cursor_to_index
@@ -631,7 +744,7 @@ loop:
     ; and that could overwrite data that the emulator was in the middle of multiplying.
 
     ; first multiply the cursor's y position by 16 via bit shifting.
-    lda Ram::OnScreen::zbCursorY
+    lda zbCursorY
     asl
     asl
     asl
@@ -639,39 +752,45 @@ loop:
 
     ; now subtract the cursor's y position twice, effectively multiplying by 14.
     sec
-    sbc Ram::OnScreen::zbCursorY
-    sbc Ram::OnScreen::zbCursorY
+    sbc zbCursorY
+    sbc zbCursorY
 
     ; add the cursor's x position to get the offset we need.
     clc
-    adc Ram::OnScreen::zbCursorX
+    adc zbCursorX
     rts
 .endproc
 
 
+; update the cursor sprites on screen position.
+; changes: A, X, Y
 .proc update_cursor
     ; set cursor sprite y position
-    ldx Ram::OnScreen::zbCursorY
+    ldx zbCursorY
     ldy rbaCursorPositionY, x
-    sty Ppu::aOamBuffer + CURSOR_UPPER_LEFT + Ppu::SPRITE_Y
-    sty Ppu::aOamBuffer + CURSOR_UPPER_RIGHT + Ppu::SPRITE_Y
+    sty Ppu::aOamBuffer + CURSOR_UPPER_LEFT + Ppu::sSprite::bPosY
+    sty Ppu::aOamBuffer + CURSOR_UPPER_RIGHT + Ppu::sSprite::bPosY
     iny
     iny
     iny
-    sty Ppu::aOamBuffer + CURSOR_LOWER_LEFT + Ppu::SPRITE_Y
-    sty Ppu::aOamBuffer + CURSOR_LOWER_RIGHT + Ppu::SPRITE_Y
+    sty Ppu::aOamBuffer + CURSOR_LOWER_LEFT + Ppu::sSprite::bPosY
+    sty Ppu::aOamBuffer + CURSOR_LOWER_RIGHT + Ppu::sSprite::bPosY
 
     jsr cursor_to_index
     tax
 
     ; set cursor sprite x position
     lda rbaCursorPositionX, x
-    sta Ppu::aOamBuffer + CURSOR_UPPER_LEFT + Ppu::SPRITE_X
-    sta Ppu::aOamBuffer + CURSOR_LOWER_LEFT + Ppu::SPRITE_X
+    sta Ppu::aOamBuffer + CURSOR_UPPER_LEFT + Ppu::sSprite::bPosX
+    sta Ppu::aOamBuffer + CURSOR_LOWER_LEFT + Ppu::sSprite::bPosX
     clc
     adc rbaCursorWidth, x
-    sta Ppu::aOamBuffer + CURSOR_UPPER_RIGHT + Ppu::SPRITE_X
-    sta Ppu::aOamBuffer + CURSOR_LOWER_RIGHT + Ppu::SPRITE_X
+    sta Ppu::aOamBuffer + CURSOR_UPPER_RIGHT + Ppu::sSprite::bPosX
+    sta Ppu::aOamBuffer + CURSOR_LOWER_RIGHT + Ppu::sSprite::bPosX
+
+    ; sprites have been updated. OAM DMA is needed.
+    lda #1
+    sta zbDoOamDma
 
     rts
 .endproc

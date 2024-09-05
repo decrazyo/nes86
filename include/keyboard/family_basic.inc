@@ -6,8 +6,6 @@
 
         .import family_basic
 
-        MATRIX_ROWS = 9
-
     .endscope
 
 .endif

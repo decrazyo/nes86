@@ -8,7 +8,7 @@
 
         .import apu
         .import beep
-        .import click
+        .import boop
 
         ; APU registers
 

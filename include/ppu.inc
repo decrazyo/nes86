@@ -139,80 +139,16 @@
 
         SPRITE_COUNT = 64
 
-        SPRITE_Y = $00
-        SPRITE_TILE = $01
-        SPRITE_ATTR = $02
-        SPRITE_X = $03
-
         SPRITE_ATTR_V = %10000000
         SPRITE_ATTR_H = %01000000
 
-        SPRITE_0 = $00
-        SPRITE_1 = $04
-        SPRITE_2 = $08
-        SPRITE_3 = $0c
-        SPRITE_4 = $10
-        SPRITE_5 = $14
-        SPRITE_6 = $18
-        SPRITE_7 = $1c
-        SPRITE_8 = $20
-        SPRITE_9 = $24
-        SPRITE_10 = $28
-        SPRITE_11 = $2c
-        SPRITE_12 = $30
-        SPRITE_13 = $34
-        SPRITE_14 = $38
-        SPRITE_15 = $3c
-        SPRITE_16 = $40
-        SPRITE_17 = $44
-        SPRITE_18 = $48
-        SPRITE_19 = $4c
-        SPRITE_20 = $50
-        SPRITE_21 = $54
-        SPRITE_22 = $58
-        SPRITE_23 = $5c
-        SPRITE_24 = $60
-        SPRITE_25 = $64
-        SPRITE_26 = $68
-        SPRITE_27 = $6c
-        SPRITE_28 = $70
-        SPRITE_29 = $74
-        SPRITE_30 = $78
-        SPRITE_31 = $7c
-        SPRITE_32 = $80
-        SPRITE_33 = $84
-        SPRITE_34 = $88
-        SPRITE_35 = $8c
-        SPRITE_36 = $90
-        SPRITE_37 = $94
-        SPRITE_38 = $98
-        SPRITE_39 = $9c
-        SPRITE_40 = $a0
-        SPRITE_41 = $a4
-        SPRITE_42 = $a8
-        SPRITE_43 = $ac
-        SPRITE_44 = $b0
-        SPRITE_45 = $b4
-        SPRITE_46 = $b8
-        SPRITE_47 = $bc
-        SPRITE_48 = $c0
-        SPRITE_49 = $c4
-        SPRITE_50 = $c8
-        SPRITE_51 = $cc
-        SPRITE_52 = $d0
-        SPRITE_53 = $d4
-        SPRITE_54 = $d8
-        SPRITE_55 = $dc
-        SPRITE_56 = $e0
-        SPRITE_57 = $e4
-        SPRITE_58 = $e8
-        SPRITE_59 = $ec
-        SPRITE_60 = $f0
-        SPRITE_61 = $f4
-        SPRITE_62 = $f8
-        SPRITE_63 = $fc
+        .struct sSprite
+            bPosY .byte
+            bTile .byte
+            bAttr .byte
+            bPosX .byte
+        .endstruct
 
-        ; TODO: add definitions for OAM, pallets, etc...
     .endscope
 
 .endif

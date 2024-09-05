@@ -3,7 +3,7 @@
 
 .export apu
 .export beep
-.export click
+.export boop
 
 .segment "RODATA"
 
@@ -55,8 +55,7 @@ loop:
 .endproc
 
 
-.proc click
-    ; TODO: make a better "click" sound effect.
+.proc boop
     FREQUENCY = 400 ; Hz
     PERIOD = 1118608 / (FREQUENCY * 10) - 1
     DURATION = $0

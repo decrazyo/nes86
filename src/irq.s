@@ -1,30 +1,29 @@
 
-.include "irq.inc"
+; this module uses a scanline interrupt to change the screen scroll position
+; after the on-screen keyboard has been displayed.
+; see also: keyboard/on_screen.s
 
 .include "const.inc"
-.include "ppu.inc"
-.include "mmc5.inc"
-.include "terminal.inc"
-.include "keyboard/ram.inc"
+.include "irq.inc"
 .include "keyboard/on_screen.inc"
+.include "mmc5.inc"
+.include "ppu.inc"
+.include "terminal.inc"
 
 .export irq
 
 .segment "ZEROPAGE"
 
-zwTemp: .res 2
-
-zbMode: .res 1
-
-.enum eMode
-    SCROLL_KEYBOARD
-    SCROLL_TERMINAL
-.endenum
+zbTemp: .res 1
 
 .segment "LOWCODE"
 
 ; global IRQ handler.
 ; exclusively used by the on-screen keyboard.
+; this function alters the screen scroll position in the middle of a frame.
+; that requires careful modification of the state of the PPU.
+; see nesdev.org for more details.
+; https://www.nesdev.org/wiki/PPU_scrolling#Split_X/Y_scroll
 .proc irq
     ; save CPU state
     pha ; save A register
@@ -48,14 +47,14 @@ continue:
     and #%11111000
     asl
     asl
-    sta zwTemp
+    sta zbTemp
 
     lda Ppu::zbScrollPixelX
     lsr
     lsr
     lsr
-    ora zwTemp
-    sta zwTemp
+    ora zbTemp
+    sta zbTemp
 
     ; yyy NN YYYYY XXXXX
     ; ||| || ||||| +++++-- coarse X scroll
@@ -103,7 +102,7 @@ continue:
     ; ||| ++-------------- nametable select
     ; +++----------------- fine Y scroll
 
-    lda zwTemp
+    lda zbTemp
     sta Ppu::ADDR
 
     lda Ppu::zbCtrl

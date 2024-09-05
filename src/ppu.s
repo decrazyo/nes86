@@ -47,7 +47,7 @@ zbWriteIndex: .res 1
 .segment "OAM"
 
 ; sprite data
-aOamBuffer: .res 256
+aOamBuffer: .res .sizeof(Ppu::sSprite) * Ppu::SPRITE_COUNT
 
 .segment "BSS"
 

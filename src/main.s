@@ -68,7 +68,7 @@ rom_test_done:
     ; initialize a keyboard and report which driver was loaded.
     jsr Splash::keyboard_string
     jsr Keyboard::keyboard
-    bcs family_basic_driver
+    bcc family_basic_driver
     jsr Splash::keyboard_on_screen
     jmp keyboard_initialized
 family_basic_driver:

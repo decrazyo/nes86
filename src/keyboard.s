@@ -30,15 +30,15 @@ baKeyBuffer: .res 256
 ; detect and initialize a keyboard.
 ; first try to use a Family BASIC keyboard.
 ; if that fails then fall back to an on-screen keyboard.
-; > C = 1 ; Family BASIC keyboard driver was loaded
-;   C = 0 ; on-screen keyboard driver was loaded
+; > C = 1 ; on-screen keyboard driver was loaded
+;   C = 0 ; Family BASIC keyboard driver was loaded
 ; changes: A, X, Y
 .proc keyboard
     jsr FamilyBasic::family_basic
-    bcs done
+    bcc done
 
     jsr OnScreen::on_screen
-    clc
+    sec
 
 done:
     rts

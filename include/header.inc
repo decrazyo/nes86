@@ -30,8 +30,9 @@
                             ; 1: PAL NES
                             ; 2: Multi-region
                             ; 3: Dendy
-            EXP_DEV   = $00 ; default expansion device
-            ; EXP_DEV   = $23 ; default expansion device
+            ; EXP_DEV   = $00 ; default expansion device
+            EXP_DEV   = $23 ; default expansion device
+                            ; $00 = None
                             ; $23 = Family BASIC Keyboard
         .endscope
 

@@ -1,4 +1,7 @@
 
+; this module handles audio generation.
+; TODO: refactor this module to improve readability/maintainability
+
 .include "apu.inc"
 
 .export apu
@@ -17,6 +20,7 @@ rbaRegInit:
 .segment "CODE"
 
 ; initialize the APU
+; changes: A, Y
 .proc apu
     ; Init $4000-4013
     ldy #$13
@@ -37,6 +41,9 @@ loop:
 .endproc
 
 
+; make a short 900 Hz "beep" sound
+; used for a POST beep on startup and the terminal receiving a BELL character.
+; changes: A
 .proc beep
     FREQUENCY = 900 ; Hz
     PERIOD = 1118608 / (FREQUENCY * 10) - 1
@@ -55,6 +62,9 @@ loop:
 .endproc
 
 
+; make a short 400 Hz "boop" sound
+; used to indicate that a key was pressed on the on-screen keyboard.
+; changes: A
 .proc boop
     FREQUENCY = 400 ; Hz
     PERIOD = 1118608 / (FREQUENCY * 10) - 1

@@ -722,9 +722,11 @@ execute_group4b: ; [code_label]
 
 .segment "ZEROPAGE"
 
-; TODO: refactor mem.s to fix this.
-
-fuckup: .res 3
+; TODO: refactor "mem.s" or "decode.s" to fix poor design choices.
+;       the "pop" instruction changes the segment that the "mem" module has saved.
+;       that will cause the "write" stage to write to the wrong location.
+;       as a workaround we will backup the segment and restore it when we are done.
+zaFuckUp: .res 3
 
 .segment "CODE"
 
@@ -734,11 +736,11 @@ fuckup: .res 3
 .proc execute_pop
 
     lda Mem::zaSegment
-    sta fuckup
+    sta zaFuckUp
     lda Mem::zaSegment+1
-    sta fuckup+1
+    sta zaFuckUp+1
     lda Mem::zaSegment+2
-    sta fuckup+2
+    sta zaFuckUp+2
 
     ldx #Reg::zwSS
     jsr Mem::use_segment
@@ -747,11 +749,11 @@ fuckup: .res 3
     sta Reg::zwD0X
     stx Reg::zwD0X+1
 
-    lda fuckup
+    lda zaFuckUp
     sta Mem::zaSegment
-    lda fuckup+1
+    lda zaFuckUp+1
     sta Mem::zaSegment+1
-    lda fuckup+2
+    lda zaFuckUp+2
     sta Mem::zaSegment+2
 
     rts

@@ -7,15 +7,19 @@ SRC_DIR := src
 
 SRCS := $(wildcard $(SRC_DIR)/*.asm)
 BINS := $(SRCS:$(SRC_DIR)/%.asm=$(BIN_DIR)/%.bin)
+DSTS := $(BINS:$(BIN_DIR)/%.bin=$(BINC_DIR)/%.bin)
 AS_FLAGS :=
 LD_FLAGS := -T memmap.ldscript
 
 .PHONY: all
-all: $(BINS)
+all: $(DSTS)
 
 .PHONY: clean
 clean:
 	-rm -rf $(BIN_DIR)
+
+$(BINC_DIR)/%.bin: $(BINS)
+	cp $< $@
 
 $(BIN_DIR)/%.bin: $(BIN_DIR)/%.o $(BIN_DIR)
 	$(LD) $(LD_FLAGS) -o $@ $<

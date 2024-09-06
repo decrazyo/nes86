@@ -1,10 +1,6 @@
 
 ; This module is responsible for performing arithmetic and logic operations
 ; on temporary registers.
-; This module must not access the x86 address space nor registers other then
-; temporary registers and the flags register.
-; This module may simply move values between temporary registers to facilitate
-; code reuse in the "decode" and "write" stages.
 
 .linecont +
 

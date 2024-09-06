@@ -1,18 +1,6 @@
 
 ; This module is responsible for copying values needed by x86 instructions
 ; into temporary pseudo-registers.
-; This module must only read the x86 address space though the
-; Mem's general-purpose memory interface and dedicated stack interface.
-; This module must not write to the x86 address space at all.
-; This module may only move data and must not transform it in any other way.
-; If an instruction's opcode indicates that it simply moves a value to or from a fixed
-; location, i.e. a specific register or the stack, then reading that
-; value may be deferred until the "write" stage.
-; e.g. decoding "CALL 0x1234:0x5678" may defer reading "CS" to the "write" stage
-; since the opcode of the instruction (0x9A) always requires "CS" to be
-; pushed onto the stack and "CS" is not needed by the "execute" stage.
-; If an instruction will write to the x86 address space during the "write" stage
-; then this module must configure the Mem appropriately for that write.
 
 .linecont +
 

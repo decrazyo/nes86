@@ -1,12 +1,5 @@
 
 ; This module is responsible for writing values to registers and the x86 address space.
-; If an instruction's opcode indicates that it simply moves a value to or from a fixed
-; location, i.e. a specific register or the stack, then this module may read that value.
-; This module may decode instructions to determine where to write data.
-; If this module must write to the x86 address space then it expects the MMU
-; to have already been configured for that write by the "decode" stage.
-; If this module writes to "CS" or "IP" then it must flag the MMU's code address as dirty.
-; If this module writes to "SS" or "SP" then it must flag the MMU's stack address as dirty.
 
 .linecont +
 

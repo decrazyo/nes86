@@ -1,35 +1,35 @@
 
-NAME := nes86
-
-MAJOR_VERSION := 0
-MINOR_VERSION := 1
-
 AS := ca65
 LD := ld65
 OBJDUMP := ia16-elf-objdump
-MESEN := ./tools/Mesen2/bin/linux-x64/Release/Mesen
 
-BIN_DIR := bin
-BUILD_DIR := build
-CONF_DIR := conf
-DATA_DIR := data
-INC_DIR := include
-BINC_DIR := binclude
-SRC_DIR := src
-TOOLS_DIR := tools
+export TOP_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
+export BIN_DIR := $(TOP_DIR)/bin
+export BUILD_DIR := $(TOP_DIR)/build
+export CONF_DIR := $(TOP_DIR)/conf
+export DATA_DIR := $(TOP_DIR)/data
+export INC_DIR := $(TOP_DIR)/include
+export BINC_DIR := $(TOP_DIR)/binclude
+export SRC_DIR := $(TOP_DIR)/src
+export TOOLS_DIR := $(TOP_DIR)/tools
 
 SRC_SUB_DIRS := $(wildcard $(SRC_DIR)/*/)
 BUILD_SUB_DIRS := $(SRC_SUB_DIRS:$(SRC_DIR)/%=$(BUILD_DIR)/%)
 
 LD_CONF := $(CONF_DIR)/ld.cfg
 
+# SRCS := $(wildcard $(SRC_DIR)/*.s) $(wildcard $(addsuffix /*.s, $(SRC_SUB_DIRS)))
 SRCS := $(shell find $(SRC_DIR) -type f -name *.s)
 OBJS := $(SRCS:$(SRC_DIR)/%.s=$(BUILD_DIR)/%.o)
 INCS := $(wildcard $(INC_DIR)/*.inc)
 BINCS := $(wildcard $(BINC_DIR)/*)
 
+NAME := nes86
 ROM := $(BIN_DIR)/$(NAME).nes
 DBG := $(ROM:%.nes=%.dbg)
+
+MAJOR_VERSION := 0
+MINOR_VERSION := 1
 
 # TODO: use "--feature line_continuations" and remove ".linecont +" from source files.
 #       at the moment, the cc65 package provided for my Linux distro doesn't support that.
@@ -44,37 +44,19 @@ AS_FLAGS += --debug-info
 
 LD_FLAGS := -C $(LD_CONF) --dbgfile $(DBG)
 
-# TODO: lint lint65.py with pylint
-
 .PHONY: all
-all: $(TOOLS_DIR) $(DATA_DIR) $(ROM)
-	# this is just here for development/debugging
-	$(OBJDUMP) -D -b binary -m i8086 -M intel $(BINC_DIR)/bios.bin
-
-.PHONY: $(NAME)
-$(NAME):$(ROM)
+all: $(DATA_DIR) $(ROM)
 
 .PHONY: clean
 clean:
-	$(MAKE) -C $(DATA_DIR) clean
-	#$(MAKE) -C $(TOOLS_DIR) clean
-	#-rm -rf $(BINC_DIR)
+	$(MAKE) -C $(DATA_DIR) $(MAKECMDGOALS)
+	-rm -rf $(BINC_DIR)
 	-rm -rf $(BUILD_DIR)
 	-rm -rf $(BIN_DIR)
 
-.PHONY: $(TOOLS_DIR)
-$(TOOLS_DIR):
-	#$(MAKE) -C $(TOOLS_DIR)
-
 .PHONY: $(DATA_DIR)
 $(DATA_DIR): $(BINC_DIR)
-	# TODO: refactor this so that "make all" doesn't rebuild everything every time
 	$(MAKE) -C $(DATA_DIR)
-	cp $(DATA_DIR)/*/$(BIN_DIR)/* $(BINC_DIR)
-
-.PHONY: mesen
-mesen: all
-	$(MESEN) $(ROM) &
 
 # link object and library files into a iNES file
 $(ROM): $(OBJS) $(LD_CONF) $(BIN_DIR)
@@ -86,11 +68,11 @@ $(BUILD_DIR)/%.o: $(SRC_DIR)/%.s $(INCS) $(BINCS) $(BINC_DIR) $(BUILD_DIR)
 	-python $(TOOLS_DIR)/lint65.py $(LD_CONF) $<
 
 $(BUILD_DIR):
-	-mkdir $(BUILD_DIR)
-	-mkdir -p $(BUILD_SUB_DIRS)
+	-mkdir $@
+	-mkdir $(BUILD_SUB_DIRS)
 
 $(BIN_DIR):
-	-mkdir $(BIN_DIR)
+	-mkdir $@
 
 $(BINC_DIR):
-	-mkdir $(BINC_DIR)
+	-mkdir $@

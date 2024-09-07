@@ -4,7 +4,7 @@
 
     .scope Irq
 
-        .global irq
+        .import irq
 
     .endscope
 

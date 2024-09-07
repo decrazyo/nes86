@@ -1,9 +1,7 @@
 #!/usr/bin/env python3.6
 
-# TODO: allow scopes to have no name
-# TODO: limit linting inside of macros
+# TODO: check that macros are linted correctly.
 # TODO: return non-zero value if there are warnings
-# TODO: fix linting of define-style macros that take parameters
 
 """
 A poorly implemented linter for 6502 assembly with ca65 syntax.
@@ -1219,7 +1217,9 @@ class Linter:
 
         name = self.args
 
-        if not self.is_pascal_case(name):
+        if not name:
+            self.cry(f'Scope has no name.')
+        elif not self.is_pascal_case(name):
             self.warn(f'Scope "{name}" name is not pascal case.')
 
         self.blocks.append(self.command)
@@ -1437,7 +1437,11 @@ class Linter:
         if self.command != '.define':
             return
 
+        # strip off macro value
         name = self.args.split()[0]
+
+        # strip off macro parameters
+        name = name.split('(')[0]
 
         if not self.is_upper_case(name):
             self.warn(f'Define-style macro "{name}" is not upper case.')
@@ -1452,15 +1456,15 @@ class Linter:
         linter_tag = self.get_linter_tag()
 
         # check if we are in a code block.
-        if self.block == '.proc':
-            # we are in a code block.
+        if self.block == '.proc' or "CODE" in self.segment:
+            # we are in a code block or code segment.
             # labels should be code labels unless a linter tag says otherwise.
             if linter_tag == LinterTag.DATA_LABEL:
                 self.lint_label_data()
             else:
                 self.lint_label_code()
         else:
-            # we are not in a code block.
+            # we are not in a code block nor code segment.
             # labels should be data labels unless a linter tag says otherwise.
             if linter_tag == LinterTag.CODE_LABEL:
                 self.lint_label_code()

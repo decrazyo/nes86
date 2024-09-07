@@ -550,14 +550,14 @@ skip_lookup:
 ; ==============================================================================
 
 ; these aliases are needed to give "index_byte_at" unique symbols to key off of.
-execute_group1a: ; [code_label]
-execute_group1b: ; [code_label]
-execute_group2a: ; [code_label]
-execute_group2b: ; [code_label]
-execute_group3a: ; [code_label]
-execute_group3b: ; [code_label]
-execute_group4a: ; [code_label]
-execute_group4b: ; [code_label]
+execute_group1a:
+execute_group1b:
+execute_group2a:
+execute_group2b:
+execute_group3a:
+execute_group3b:
+execute_group4a:
+execute_group4b:
 ; lookup the appropriate extended opcode handler and pass it to "execute".
 .proc execute_group
     tya

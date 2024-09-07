@@ -1,7 +1,6 @@
 
 AS := ca65
 LD := ld65
-OBJDUMP := ia16-elf-objdump
 
 export TOP_DIR := $(dir $(realpath $(lastword $(MAKEFILE_LIST))))
 export BIN_DIR := $(TOP_DIR)/bin

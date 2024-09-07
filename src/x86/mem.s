@@ -345,7 +345,7 @@ backward:
 .endproc
 
 
-get_word_fast: ; [code_label]
+get_word_fast:
 .proc get_dword_lo
     ; initialize offsets
     ldx #zwPointer

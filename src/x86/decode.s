@@ -450,9 +450,9 @@ hi_return_bytes {MODRM_FUNCS}
 
 
 ; extended CALL, JMP, PUSH
-decode_s0x_modrm_rm16: ; [code_label]
+decode_s0x_modrm_rm16:
 ; extended INC, DEC
-decode_s0x_modrm_rm16_d0x_modrm_rm16: ; [code_label]
+decode_s0x_modrm_rm16_d0x_modrm_rm16:
 .proc decode_s0x_modrm_rm16_d0x_modrm_reg16
     jsr parse_modrm
     jsr get_modrm_rm16

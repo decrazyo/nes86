@@ -4,7 +4,7 @@
 
     .scope Main
 
-        .global main
+        .import main
 
     .endscope
 

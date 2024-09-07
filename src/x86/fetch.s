@@ -444,7 +444,7 @@ done:
 .endproc
 
 ; append a byte to the instruction buffer.
-buffer_ip_byte: ; [code_label]
+buffer_ip_byte:
 ; handle fixed length 1 byte instruction.
 .proc fetch_len_1
     ldx zbInstrLen
@@ -571,7 +571,7 @@ done:
 ; fetch ModR/M bytes.
 ; the reg field indexes a register
 ; or an opcode extension that doesn't need anything special.
-fetch_modrm_reg: ; [code_label]
+fetch_modrm_reg:
 ; read a ModR/M byte and any additional bytes indicated by the Mod and R/M fields.
 .proc modrm_rm_mode
     ; store the instruction byte

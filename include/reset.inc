@@ -4,7 +4,7 @@
 
     .scope Reset
 
-        .global reset
+        .import reset
 
     .endscope
 

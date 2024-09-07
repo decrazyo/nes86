@@ -18,8 +18,7 @@ BUILD_SUB_DIRS := $(SRC_SUB_DIRS:$(SRC_DIR)/%=$(BUILD_DIR)/%)
 
 LD_CONF := $(CONF_DIR)/ld.cfg
 
-# SRCS := $(wildcard $(SRC_DIR)/*.s) $(wildcard $(addsuffix /*.s, $(SRC_SUB_DIRS)))
-SRCS := $(shell find $(SRC_DIR) -type f -name *.s)
+SRCS := $(wildcard $(SRC_DIR)/*.s) $(wildcard $(addsuffix /*.s, $(SRC_SUB_DIRS)))
 OBJS := $(SRCS:$(SRC_DIR)/%.s=$(BUILD_DIR)/%.o)
 INCS := $(wildcard $(INC_DIR)/*.inc)
 BINCS := $(wildcard $(BINC_DIR)/*)

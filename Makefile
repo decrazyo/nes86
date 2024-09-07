@@ -27,7 +27,7 @@ ROM := $(BIN_DIR)/$(NAME).nes
 DBG := $(ROM:%.nes=%.dbg)
 
 MAJOR_VERSION := 0
-MINOR_VERSION := 1
+MINOR_VERSION := 7
 
 # TODO: use "--feature line_continuations" and remove ".linecont +" from source files.
 #       at the moment, the cc65 package provided for my Linux distro doesn't support that.

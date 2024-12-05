@@ -115,10 +115,6 @@ BANK_MASK = %11000000_00000000
     lda (Tmp::zw1, x)
     tax
 
-    ; select the bank containing the I/O handler table
-    lda #<.bank(rbaIoInFuncLo) | Mmc5::ROM
-    sta Mmc5::WINDOW_1_CTRL
-
     ; the caller can now use X to index tables found in Mmc5::WINDOW_1
     rts
 .endproc
@@ -158,7 +154,7 @@ BANK_MASK = %11000000_00000000
 ; I/O handler function pointer tables
 ; =============================================================================
 
-.segment "IO_FUNC"
+.segment "RODATA"
 
 ; handlers that send data from I/O devices to the CPU.
 .define IO_IN_FUNCS \
@@ -231,9 +227,9 @@ index_byte_at size, $0021, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
 
 ; programmable interrupt timer (PIT)
 ; counter 0 data port
-index_byte_at size, $0040, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC 
+index_byte_at size, $0040, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
 ; control word register
-index_byte_at size, $0043, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC 
+index_byte_at size, $0043, {IO_FUNCS}, io_in_none io_out_none, FILL_FUNC
 
 ; keyboard
 ; data

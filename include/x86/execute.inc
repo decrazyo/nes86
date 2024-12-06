@@ -6,6 +6,8 @@
 
         .import execute
 
+        .import execute_pop
+
         .import get_carry_flag
         .import set_carry_flag
         .import clear_carry_flag

@@ -9,6 +9,7 @@
 .include "tmp.inc"
 .include "x86.inc"
 .include "x86/decode.inc"
+.include "x86/execute.inc"
 .include "x86/fetch.inc"
 .include "x86/mem.inc"
 .include "x86/opcode.inc"
@@ -610,6 +611,11 @@ decode_s0x_modrm_rm16_d0x_modrm_rm16:
 
 
 .proc decode_d0x_modrm_rm
+    ; NOTE: this is a hack to work around a design oversight.
+    ;       unlike most POP instructions, Opcode::POP_Ev pops a value directly into memory.
+    ;       that means we need to pop the value before setting up a memory write.
+    ;       otherwise the state of Mem::zaSegment will get screwed up by Execute::execute_pop.
+    jsr Execute::execute_pop
     jsr parse_modrm
     jmp use_modrm_pointer
     ; [tail_jump]

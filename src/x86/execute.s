@@ -23,6 +23,8 @@
 
 .export execute
 
+.export execute_pop
+
 .export get_carry_flag
 .export set_carry_flag
 .export clear_carry_flag
@@ -381,7 +383,7 @@ index_byte_at size, Opcode::MOV_Gv_Ev,  {EXECUTE_FUNCS}, execute_mov_16
 index_byte_at size, Opcode::MOV_Ew_Sw,  {EXECUTE_FUNCS}, execute_mov_16
 index_byte_at size, Opcode::LEA_Gv_M,   {EXECUTE_FUNCS}, execute_mov_16
 index_byte_at size, Opcode::MOV_Sw_Ew,  {EXECUTE_FUNCS}, execute_mov_16
-index_byte_at size, Opcode::POP_Ev,     {EXECUTE_FUNCS}, execute_pop
+index_byte_at size, Opcode::POP_Ev,     {EXECUTE_FUNCS}, execute_nop ; see decode state
 index_byte_at size, Opcode::NOP,        {EXECUTE_FUNCS}, execute_nop
 index_byte_at size, Opcode::XCHG_CX_AX, {EXECUTE_FUNCS}, execute_xchg_16
 index_byte_at size, Opcode::XCHG_DX_AX, {EXECUTE_FUNCS}, execute_xchg_16
@@ -716,41 +718,16 @@ execute_group4b:
 .endproc
 
 
-.segment "ZEROPAGE"
-
-; TODO: refactor "mem.s" or "decode.s" to fix poor design choices.
-;       the "pop" instruction changes the segment that the "mem" module has saved.
-;       that will cause the "write" stage to write to the wrong location.
-;       as a workaround we will backup the segment and restore it when we are done.
-zaFuckUp: .res 3
-
-.segment "CODE"
-
 ; pop a 16-bit value off of the stack.
 ; > D0X = value popped from the stack.
 ; changes: A, X, Y
 .proc execute_pop
-
-    lda Mem::zaSegment
-    sta zaFuckUp
-    lda Mem::zaSegment+1
-    sta zaFuckUp+1
-    lda Mem::zaSegment+2
-    sta zaFuckUp+2
-
     ldx #Reg::zwSS
     jsr Mem::use_segment
 
     jsr Mem::pop_word
     sta Reg::zwD0X
     stx Reg::zwD0X+1
-
-    lda zaFuckUp
-    sta Mem::zaSegment
-    lda zaFuckUp+1
-    sta Mem::zaSegment+1
-    lda zaFuckUp+2
-    sta Mem::zaSegment+2
 
     rts
 .endproc

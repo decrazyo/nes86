@@ -32,7 +32,7 @@
     .assert Header::CONSOLE <= 2, error, "CONSOLE value is too large."
     .byte Header::MAPPER & $f0 | Header::CONSOLE
 
-    .assert Header::PRG_RAM .mod $2000 = 0, "PRG_RAM must be a multiple of 8k."
+    .assert Header::PRG_RAM .mod $2000 = 0, error, "PRG_RAM must be a multiple of 8k."
     .assert Header::PRG_RAM / $2000 <= $ff, error, "PRG_RAM value is too large."
     .byte Header::PRG_RAM / $2000 & $ff
 

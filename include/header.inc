@@ -4,23 +4,44 @@
 
     .scope Header
 
-        USE_NES2 = 1
-
+        ; using one-based indexing since it will be more understandable in the Makefile.
         .enum eType
-            INES
-            NES2
+            INES = 1
+            NES2 = 2
         .endenum
 
-        TYPE = eType::NES2
+        ; type of ROM file header to use
+        ; https://www.nesdev.org/wiki/INES
+        ; https://www.nesdev.org/wiki/NES_2.0
+        .ifndef HEADER_TYPE
+            HEADER_TYPE = eType::NES2
+        .endif
 
         ; common iNes/NES 2.0 header settings
-        PRG_ROM   = $100000 ; PRG ROM in bytes
-        CHR_ROM   = $2000   ; CHR ROM in bytes
-        PRG_RAM   = $20000  ; PRG RAM in bytes
+
+        ; PRG ROM in bytes
+        .ifndef PRG_ROM
+            PRG_ROM = $100000
+        .endif
+
+        ; CHR ROM in bytes
+        .ifndef CHR_ROM
+            CHR_ROM = $2000
+        .endif
+
+        ; PRG RAM in bytes
+        .ifndef PRG_RAM
+            PRG_RAM = $20000
+        .endif
+
+        ; most emulators need the SRAM flag to be 0.
+        ; the ksNes emulator needs it to be 1 since it only supports SRAM, not PRG RAM
+        .ifndef SRAM
+            SRAM  = 0       ; 1 = battery backed save RAM at $6000-7FFF
+        .endif
 
         MIRROR    = 1       ; 0 = horizontal
                             ; 1 = vertical
-        SRAM      = 0       ; 1 = battery backed save RAM at $6000-7FFF
         TRAINER   = 0       ; 1 = 512-byte trainer data
         ALT_NAM   = 0       ; 1 = alternative nametable layout
         MAPPER    = 5       ; 5 = MMC5
@@ -44,7 +65,7 @@
                             ; $23 = Family BASIC Keyboard
 
         ; NES 2.0 headers represent some numbers as 64 times a power of 2.
-        ; this macro will convert bytes to that power.
+        ; this macro will convert a number in bytes to that power.
         ; < bytes = size of a memory region measured in bytes.
         ; > power = power of 2 times 64 that equals the specified number of bytes.
         ;           if bytes is 0 then power will be 0.

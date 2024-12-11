@@ -6,7 +6,7 @@
 ; iNES/NES 2.0 file identifier
 .byte 'N', 'E', 'S', $1A
 
-.if Header::TYPE = Header::eType::INES
+.if Header::HEADER_TYPE = Header::eType::INES
     .out "Using iNes header"
 
     .assert Header::PRG_ROM .mod $4000 = 0, error, "PRG_ROM must be a multiple of 16k"
@@ -40,7 +40,7 @@
     .byte Header::TIMING
 
     ; the linker will fill the rest of the header with zeros for us.
-.elseif Header::TYPE = Header::eType::NES2
+.elseif Header::HEADER_TYPE = Header::eType::NES2
     .out "Using NES 2.0 header"
 
     ; TODO: add exponent-multiplier notation support for PRG_ROM and CHR_ROM.

@@ -116,6 +116,12 @@ resume_boot:
     ; this should clear the boot splash.
     jsr Terminal::terminal
 
+    ; send a single line feed to the terminal.
+    ; some emulators don't show the first line or 2 of tiles.
+    ; this will ensure that the boot text is visible.
+    lda #Chr::LF
+    jsr Terminal::put_char
+
     ; run the x86 emulator
     jmp X86::run
     ; [tail_jump]

@@ -193,6 +193,16 @@ rbTypeEnter:
 rbTypeCursor:
 .byte Const::JOYPAD_B
 
+rbaJoypadKeys:
+.byte OnScreen::JOYPAD_KEY_A
+.byte OnScreen::JOYPAD_KEY_B
+.byte 0 ; the "select" button is reserved for toggling the on-screen keyboard.
+.byte OnScreen::JOYPAD_KEY_START
+.byte OnScreen::JOYPAD_KEY_UP
+.byte OnScreen::JOYPAD_KEY_DOWN
+.byte OnScreen::JOYPAD_KEY_LEFT
+.byte OnScreen::JOYPAD_KEY_RIGHT
+
 CURSOR_UPPER_LEFT =  0 * .sizeof(Ppu::sSprite)
 CURSOR_UPPER_RIGHT = 1 * .sizeof(Ppu::sSprite)
 CURSOR_LOWER_LEFT =  2 * .sizeof(Ppu::sSprite)
@@ -367,7 +377,7 @@ setup_cover_sprites:
 .endproc
 
 
-; check if the user is trying to enable the keyboard.
+; check if the user is trying to enable the keyboard or use joypad keys.
 ; changes: A
 .proc keyboard_disabled
     jsr scan_joypad
@@ -375,7 +385,19 @@ setup_cover_sprites:
     bit rbToggleKeyboard
     bne toggle_keyboard
 
-    ; NOTE: we could do more work here like using the d-pad as arrow keys.
+    ; handle joypad key mapping.
+    ; this loop destroys the content of zbJoypadPressed as it's read.
+    ldy #8
+loop:
+    dey
+    bmi done
+    lsr zbJoypadPressed
+    bcc loop
+    lda rbaJoypadKeys, y
+    jsr Keyboard::put_key
+    jmp loop
+done:
+
     rts
 .endproc
 

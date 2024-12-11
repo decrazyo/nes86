@@ -200,10 +200,7 @@ interrupts_disabled:
     sty Fetch::zbPrefixRepeat
 
     ; select the bank containing the IDT.
-    ; the IDT is always at the same address so we don't need to access it thought the MMU.
-    ; NOTE: Mmc5::mmc5 should have already selected this bank and
-    ;       nothing else should have a reason to change it.
-    ;       it's probably safe to remove this.
+    ; the IDT is always at the same address so we don't need to access it thought mem.s.
     sty Mmc5::WINDOW_0_CTRL
 
     ; load IP and CS from the ISR

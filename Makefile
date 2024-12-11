@@ -16,6 +16,7 @@ SRC_SUB_DIRS := $(wildcard $(SRC_DIR)/*/)
 BUILD_SUB_DIRS := $(SRC_SUB_DIRS:$(SRC_DIR)/%=$(BUILD_DIR)/%)
 
 LD_CONF := $(CONF_DIR)/ld.cfg
+# LD_CONF := $(CONF_DIR)/ksnes.cfg
 
 SRCS := $(wildcard $(SRC_DIR)/*.s) $(wildcard $(addsuffix /*.s, $(SRC_SUB_DIRS)))
 OBJS := $(SRCS:$(SRC_DIR)/%.s=$(BUILD_DIR)/%.o)
@@ -27,7 +28,7 @@ ROM := $(BIN_DIR)/$(NAME).nes
 DBG := $(ROM:%.nes=%.dbg)
 
 MAJOR_VERSION := 0
-MINOR_VERSION := 7
+MINOR_VERSION := 8
 
 # TODO: use "--feature line_continuations" and remove ".linecont +" from source files.
 #       at the moment, the cc65 package provided for my Linux distro doesn't support that.
@@ -37,6 +38,7 @@ AS_FLAGS += --feature string_escapes
 AS_FLAGS += --feature underline_in_numbers
 AS_FLAGS += -D MAJOR_VERSION=$(MAJOR_VERSION)
 AS_FLAGS += -D MINOR_VERSION=$(MINOR_VERSION)
+# AS_FLAGS += -D KS_NES
 AS_FLAGS += -D DEBUG
 AS_FLAGS += --debug-info
 

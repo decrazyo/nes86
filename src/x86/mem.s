@@ -51,6 +51,11 @@ zbAddressLo: .res 1
 zbAddressHi: .res 1
 zbBank: .res 1
 
+.segment "RODATA"
+
+rbUnmapped:
+.byte $00
+
 .segment "CODE"
 
 ; =============================================================================
@@ -436,6 +441,18 @@ get_word_fast:
 ; low level memory access and utility functions
 ; =============================================================================
 
+.if Header::PRG_ROM + Header::PRG_RAM >= Const::X86_MEM_SIZE + Const::EMU_ROM_SIZE
+    ; we have enough RAM and ROM to fill out the whole x86 address space.
+    ; ROM will start directly after RAM.
+    X86_ROM_START = Header::PRG_RAM
+.else
+    ; we don't have enough RAM and ROM to fill out the x86 address space.
+    ; there will be a range of unmapped memory between RAM and ROM.
+    X86_ROM_SIZE = Header::PRG_ROM - Const::EMU_ROM_SIZE
+    X86_UNMAPPED_SIZE = Const::X86_MEM_SIZE - Header::PRG_RAM - X86_ROM_SIZE
+    X86_ROM_START = Header::PRG_RAM + X86_UNMAPPED_SIZE
+.endif
+
 ; < X = zero-page address of a pointer
 .proc set_address
     ; add the x86 pointer to the shifted x86 segment
@@ -453,9 +470,75 @@ get_word_fast:
     sta zbBank
 
     ; we now have a 20-bit x86 address.
-    ; we need to convert that address into an MMC5 bank number
-    ; and a pointer to an MMC5 window in the 6502's address space.
+    ; check if the address is in RAM.
+    cmp #^Header::PRG_RAM
+    bne ram_check
 
+    lda zbAddressHi
+    cmp #>Header::PRG_RAM
+    bne ram_check
+
+    lda zbAddressLo
+    cmp #<Header::PRG_RAM
+ram_check:
+    bcc set_ram_address
+
+    ; the address isn't in RAM.
+    ; adjust the address for ROM access.
+    ; C is already set.
+    lda zbAddressLo
+    sbc #<X86_ROM_START
+    sta zbAddressLo
+
+    lda zbAddressHi
+    sbc #>X86_ROM_START
+    sta zbAddressHi
+
+    lda zbBank
+    sbc #^X86_ROM_START
+    sta zbBank
+
+    ; check if the address in ROM
+    bpl set_rom_address
+
+    ; the address isn't mapped to RAM nor ROM.
+    ; we'll point to a NULL byte in ROM that represents unmapped memory.
+    lda #<rbUnmapped
+    sta zbAddressLo
+    lda #>rbUnmapped
+    sta zbAddressHi
+
+    rts
+.endproc
+
+
+.proc set_ram_address
+    ; extract the highest 7 bits x86 address.
+    ; this will become our MMC5 bank number.
+    lda zbAddressHi
+    asl
+    rol zbBank
+    asl
+    rol zbBank
+    asl
+    rol zbBank
+
+    ; adjust the remaining 13 bits of the x86 address.
+    ; this will become our pointer to an MMC5 window.
+    lsr
+    lsr
+    lsr
+    ; C was cleared by lsr
+    adc #>Mmc5::WINDOW_0
+    sta zbAddressHi
+
+    lda zbBank
+    sta Mmc5::WINDOW_0_CTRL
+    rts
+.endproc
+
+
+.proc set_rom_address
     ; extract the highest 6 bits x86 address.
     ; this will become our MMC5 bank number.
     lda zbAddressHi
@@ -473,24 +556,8 @@ get_word_fast:
     adc #>Mmc5::WINDOW_1
     sta zbAddressHi
 
-    ; RAM and ROM can share the same addresses in the MMC5.
-    ; if we're accessing ROM then we need to adjust our bank number.
-
-    ; check if we are accessing RAM or ROM.
     lda zbBank
-    cmp #^(Mmc5::PRG_RAM_SIZE << 3)
-    bcc select_bank ; branch if the address is in RAM
-
-    ; the address is in ROM.
-    ; adjusted the bank number to account for RAM addresses.
-    ; C was set by cmp
-    sbc #^(Mmc5::PRG_RAM_SIZE << 3)
-
-    ; we may now be accessing the same address as some RAM.
-    ; add a flag that tells the MMC5 to access ROM instead of RAM.
     ora #Mmc5::ROM
-
-select_bank:
     sta Mmc5::WINDOW_1_CTRL
     rts
 .endproc

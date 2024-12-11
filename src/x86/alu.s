@@ -283,9 +283,87 @@
     rts
 .endproc
 
-; The MMC5 mapper has dedicated multiplication hardware.
-; HARDWARE_MUL controls if we use that or now.
-.ifdef HARDWARE_MUL
+.ifdef KS_NES
+    ; NOTE: these multiplication routines don't use dedicated multiplication hardware.
+    ;       they were added primarily for compatibility with the ksNes emulator in Animal Crossing.
+    ;       i haven't bothered to restrict them to only use the A register like other Alu functions.
+    ;       that's just out of laziness.
+    ;       restricting this module to only using the A register was completely arbitrary anyway.
+
+    ; 16-bit unsigned multiplication. D1X:D0X = S0X * S1X
+    ; < S0X = multiplicand
+    ; < S1X = multiplier
+    ; > D0X = product low
+    ; > D1X = product high
+    ; changes: A, X, Y, C
+    .proc mul_16_16
+        lda Reg::zwS1X
+        sta Reg::zwD2X
+        lda Reg::zwS1X+1
+        sta Reg::zwD2X+1
+
+        lda #0
+        sta Reg::zwD0X
+        sta Reg::zwD0X+1
+        sta Reg::zwD1X
+        sta Reg::zwD1X+1
+
+        ldx #16
+
+    loop:
+        lsr Reg::zwD2X+1
+        ror Reg::zwD2X
+        bcc no_add
+        tay
+        clc
+        lda Reg::zwS0X
+        adc Reg::zwD1X
+        sta Reg::zwD1X
+        tya
+        adc Reg::zwS0X+1
+    no_add:
+        ror
+        ror Reg::zwD1X
+        ror Reg::zwD0X+1
+        ror Reg::zwD0X
+        dex
+        bne loop
+        sta Reg::zwD1X+1
+
+        rts
+    .endproc
+
+    ; 8-bit unsigned multiplication. D0X = S0L * S1L
+    ; < S0L = multiplicand
+    ; < S1L = multiplier
+    ; > D0X = product
+    ; changes: A, X
+    .proc mul_8_8
+        lda Reg::zbS1L
+        sta Reg::zbD1L
+
+        lda #0
+        sta Reg::zwD0X
+        sta Reg::zwD0X+1
+
+        ldx #8
+
+    loop:
+        lsr Reg::zbD1L
+        bcc no_add
+        clc
+        adc Reg::zbS0L
+    no_add:
+        ror
+        ror Reg::zwD0X
+        dex
+        bne loop
+        sta Reg::zwD0X+1
+
+        rts
+    .endproc
+
+.else
 
     ; 16-bit unsigned multiplication. D1X:D0X = S0X * S1X
     ; < S0X = multiplicand
@@ -378,87 +456,6 @@
         lda Mmc5::MULT_LO
         sta Reg::zwD0X
         lda Mmc5::MULT_HI
-        sta Reg::zwD0X+1
-
-        rts
-    .endproc
-
-.else
-
-    ; NOTE: these multiplication routines don't use dedicated multiplication hardware.
-    ;       they were added primarily for compatibility with the ksNes emulator in Animal Crossing.
-    ;       i haven't bothered to restrict them to only use the A register like other Alu functions.
-    ;       that's just out of laziness.
-    ;       restricting this module to only using the A register was completely arbitrary anyway.
-
-    ; 16-bit unsigned multiplication. D1X:D0X = S0X * S1X
-    ; < S0X = multiplicand
-    ; < S1X = multiplier
-    ; > D0X = product low
-    ; > D1X = product high
-    ; changes: A, X, Y, C
-    .proc mul_16_16
-        lda Reg::zwS1X
-        sta Reg::zwD2X
-        lda Reg::zwS1X+1
-        sta Reg::zwD2X+1
-
-        lda #0
-        sta Reg::zwD0X
-        sta Reg::zwD0X+1
-        sta Reg::zwD1X
-        sta Reg::zwD1X+1
-
-        ldx #16
-
-    loop:
-        lsr Reg::zwD2X+1
-        ror Reg::zwD2X
-        bcc no_add
-        tay
-        clc
-        lda Reg::zwS0X
-        adc Reg::zwD1X
-        sta Reg::zwD1X
-        tya
-        adc Reg::zwS0X+1
-    no_add:
-        ror
-        ror Reg::zwD1X
-        ror Reg::zwD0X+1
-        ror Reg::zwD0X
-        dex
-        bne loop
-        sta Reg::zwD1X+1
-
-        rts
-    .endproc
-
-    ; 8-bit unsigned multiplication. D0X = S0L * S1L
-    ; < S0L = multiplicand
-    ; < S1L = multiplier
-    ; > D0X = product
-    ; changes: A, X
-    .proc mul_8_8
-        lda Reg::zbS1L
-        sta Reg::zbD1L
-
-        lda #0
-        sta Reg::zwD0X
-        sta Reg::zwD0X+1
-
-        ldx #8
-
-    loop:
-        lsr Reg::zbD1L
-        bcc no_add
-        clc
-        adc Reg::zbS0L
-    no_add:
-        ror
-        ror Reg::zwD0X
-        dex
-        bne loop
         sta Reg::zwD0X+1
 
         rts

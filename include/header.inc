@@ -5,16 +5,22 @@
     .scope Header
 
         ; using one-based indexing since it will be more understandable in the Makefile.
+        ; https://www.nesdev.org/wiki/INES
+        ; https://www.nesdev.org/wiki/NES_2.0
         .enum eType
             INES = 1
             NES2 = 2
         .endenum
 
-        ; type of ROM file header to use
-        ; https://www.nesdev.org/wiki/INES
-        ; https://www.nesdev.org/wiki/NES_2.0
-        .ifndef HEADER_TYPE
-            HEADER_TYPE = eType::NES2
+        ; special settings for the ksNes emulator in Animal Crossing
+        .ifdef KS_NES
+            TYPE = eType::INES
+            PRG_ROM = $80000
+            SRAM = 1
+        .endif
+
+        .ifndef TYPE
+            TYPE = eType::NES2
         .endif
 
         ; common iNes/NES 2.0 header settings
@@ -34,8 +40,6 @@
             PRG_RAM = $20000
         .endif
 
-        ; most emulators need the SRAM flag to be 0.
-        ; the ksNes emulator needs it to be 1 since it only supports SRAM, not PRG RAM
         .ifndef SRAM
             SRAM  = 0       ; 1 = battery backed save RAM at $6000-7FFF
         .endif

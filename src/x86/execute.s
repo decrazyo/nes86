@@ -2277,10 +2277,10 @@ done:
 
 
 .proc execute_cmc
-    jsr get_carry_flag
+    lda Reg::zbFlagsLo
     eor #<Reg::FLAG_CF
-    jmp Reg::set_flag_lo
-    ; [tail_jump]
+    sta Reg::zbFlagsLo
+    rts
 .endproc
 
 

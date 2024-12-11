@@ -1451,17 +1451,14 @@ success:
 ; > D0X = AX
 ; flags: SF, ZF, PF
 .proc execute_aad
-    lda Reg::zbS1L
-    sta Mmc5::MULT_LO
-    lda Reg::zbS2L
-    sta Mmc5::MULT_HI
+    jsr Alu::mul_8_8
 
     clc
-    lda Mmc5::MULT_LO
-    adc Reg::zbS0L
-    sta Reg::zwS0X
+    lda Reg::zwD0X
+    adc Reg::zbS2L
+    sta Reg::zwD0X
     lda #0
-    sta Reg::zwS0X+1
+    sta Reg::zwD0X+1
 
     jsr calc_sign_flag_8
     jsr calc_zero_flag_8

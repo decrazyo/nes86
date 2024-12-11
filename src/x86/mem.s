@@ -63,26 +63,30 @@ zbBank: .res 1
 ; we'll use the MMC5's multiplier since it's faster than actually shifting.
 ; < X = zero-page address of a segment register
 .proc use_segment
-    lda Const::ZERO_PAGE, x
-    sta Mmc5::MULT_LO
-    lda #16
-    sta Mmc5::MULT_HI
-
-    lda Mmc5::MULT_LO
-    sta zaSegment
-    lda Mmc5::MULT_HI
-    sta zaSegment+1
-
-    lda Const::ZERO_PAGE+1, x
-    sta Mmc5::MULT_LO
-    lda #16
-    sta Mmc5::MULT_HI
-
-    lda Mmc5::MULT_LO
-    ora zaSegment+1
-    sta zaSegment+1
-    lda Mmc5::MULT_HI
+    lda #0
     sta zaSegment+2
+    lda Const::ZERO_PAGE+1, x
+    sta zaSegment+1
+    lda Const::ZERO_PAGE, x
+
+    asl
+    sta zaSegment
+
+    rol zaSegment+1
+    rol zaSegment+2
+
+    asl zaSegment
+    rol zaSegment+1
+    rol zaSegment+2
+
+    asl zaSegment
+    rol zaSegment+1
+    rol zaSegment+2
+
+    asl zaSegment
+    rol zaSegment+1
+    rol zaSegment+2
+
     rts
 .endproc
 

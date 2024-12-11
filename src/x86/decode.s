@@ -881,13 +881,13 @@ modrm_parsed:
 
 .proc decode_s0l_al_s1l_ah_s2l_imm8
     lda Reg::zbAL
-    sta Reg::zbS0L
+    sta Reg::zbS2L
 
     lda Reg::zbAH
     sta Reg::zbS1L
 
     lda Fetch::zaInstrOperands
-    sta Reg::zbS2L
+    sta Reg::zbS0L
     rts
 .endproc
 

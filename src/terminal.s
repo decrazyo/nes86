@@ -79,6 +79,9 @@ rbaPallets:
 .byte Ppu::eColor::BLACK, Ppu::eColor::DARK_GRAY, Ppu::eColor::GRAY,  Ppu::eColor::MAGENTA
 rbaPalletsEnd:
 
+rbaMultBy100:
+.byte 0, 100, 200
+
 .segment "CODE"
 
 ; =============================================================================
@@ -822,15 +825,17 @@ end_of_arg:
     ; store the 1s place digit for later.
     sta Tmp::zb2
 
-    ; multiply the 10s place digit by 10.
-    lda #10
-    sta Mmc5::MULT_LO
+    ; get the 10s place digit.
     pla
-    sta Mmc5::MULT_HI
+
+    ; multiply the 10s place digit by 10.
+    asl
+    sta Tmp::zb1
+    asl
+    asl
+    adc Tmp::zb1
 
     ; add the 10s place digit to the 1s place digit.
-    clc
-    lda Mmc5::MULT_LO
     adc Tmp::zb2
 
     dey
@@ -839,18 +844,18 @@ end_of_arg:
     ; store the combined 10s and 1s place digits for later.
     sta Tmp::zb2
 
-    ; multiply the 100s digit by 100.
-    lda #100
-    sta Mmc5::MULT_LO
+    ; get the 100s place digit.
     pla
-    sta Mmc5::MULT_HI
 
     ; check if the 100s place digit alone is larger than a byte.
-    lda Mmc5::MULT_HI
-    bne arg_overflows_byte
+    cmp #3
+    bcs arg_overflows_byte
+
+    ; multiply the 100s place digit by 100.
+    tay
+    lda rbaMultBy100, y
 
     ; add the 100s place digit to the 10s and 1s place digits.
-    lda Mmc5::MULT_LO
     adc Tmp::zb2
     bcc done ; branch if the result fits in a byte.
 
@@ -930,20 +935,34 @@ ready:
 
     ; multiply that by the number of tiles in each row.
     ; this gives us the nametable offset of the first column of that row.
-    sta Mmc5::MULT_LO
-    lda #Const::SCREEN_TILE_WIDTH
-    sta Mmc5::MULT_HI
+    asl
+    sta Tmp::zw1
+    lda #0
+    rol
+    sta Tmp::zw1+1
+
+    asl Tmp::zw1
+    rol Tmp::zw1+1
+
+    asl Tmp::zw1
+    rol Tmp::zw1+1
+
+    asl Tmp::zw1
+    rol Tmp::zw1+1
+
+    asl Tmp::zw1
+    rol Tmp::zw1+1
 
     ; add the screen x position.
     ; this gives us the nametable offset of the screen x/y position.
     clc
     txa ; screen x position
-    adc Mmc5::MULT_LO
+    adc Tmp::zw1
     sta Tmp::zw1
 
     ; add the nametable base address to get a PPU address.
     ; the nametable base address low byte is 0. no need to add it.
-    lda Mmc5::MULT_HI
+    lda Tmp::zw1+1
     adc #>Ppu::NAMETABLE_0
     sta Tmp::zw1+1
 

@@ -1,0 +1,16 @@
+# https://jamchamb.net/2018/07/11/animal-crossing-nes-emulator-hacks.html
+# https://github.com/jamchamb/ac-nesrom-save-generator
+
+settings:
+    jut_console: false
+
+patches:
+    # force allocation of 128k of battery backed ram
+    # lis r3, 0x2
+  - target: 0x8004407c
+    bytes: '3C600002'
+
+    # tell the emulator that there are 16 banks of battery backed ram
+    # li r0, 0xf
+  - target: 0x8003a77c
+    bytes: '3800000F'

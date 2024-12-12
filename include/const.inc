@@ -36,7 +36,6 @@
         SCREEN_PIXEL_HEIGHT = 240
         SCREEN_PIXEL_AREA = SCREEN_PIXEL_WIDTH * SCREEN_PIXEL_HEIGHT
 
-        X86_MEM_SIZE = $100000 ; the 8086 has a 1M byte address space
         EMU_ROM_SIZE = $4000 ; all of the emulator code/data take 16k bytes
 
     .endscope

@@ -10,6 +10,7 @@
 .include "nmi.inc"
 .include "ppu.inc"
 .include "splash.inc"
+.include "x86/mem.inc"
 
 .export splash
 
@@ -142,15 +143,15 @@ rsProcessor:
 .define PROCESSOR_STRING "Processor: "
 .asciiz PROCESSOR_STRING
 rs8086:
-.asciiz "8086"
+.asciiz "i8086"
 
 rsMemory:
 .asciiz "Memory test: "
 rsRam:
-.define RAM_STRING "RAM: "
+.define RAM_STRING .sprintf("RAM: %dk ", Mem::RAM_SIZE / 1024)
 .asciiz RAM_STRING
 rsRom:
-.define ROM_STRING "ROM: "
+.define ROM_STRING .sprintf("ROM: %dk ", Mem::ROM_SIZE / 1024)
 .asciiz ROM_STRING
 rsPass:
 .asciiz "PASS"
@@ -159,17 +160,19 @@ rsFail:
 
 rsKeyboard:
 .define KEYBOARD_STRING "Keyboard: "
-.asciiz "Keyboard: "
+.asciiz KEYBOARD_STRING
 
 rsFamilyBasic:
 .asciiz "Family BASIC"
 rsOnScreen:
-.asciiz "On screen"
+.asciiz "On screen (select)"
 
 rsBoot:
 .define BOOT_STRING "Press ENTER to boot ( )"
 .asciiz BOOT_STRING
-BOOT_STRING_ADDR = X_Y_POS_TO_PPU_ADDR 2, 27
+BOOT_STRING_X = 2
+BOOT_STRING_Y = 27
+BOOT_STRING_ADDR = X_Y_POS_TO_PPU_ADDR BOOT_STRING_X, BOOT_STRING_Y
 BOOT_COUNT_ADDR = BOOT_STRING_ADDR + .strlen(BOOT_STRING) - 2
 raSplashStringsEnd:
 

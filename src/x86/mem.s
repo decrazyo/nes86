@@ -4,11 +4,12 @@
 .include "x86/execute.inc"
 .include "x86.inc"
 
+.include "chr.inc"
 .include "const.inc"
-.include "tmp.inc"
+.include "header.inc"
 .include "mmc5.inc"
 .include "nmi.inc"
-.include "chr.inc"
+.include "tmp.inc"
 
 .export use_segment
 .export use_pointer
@@ -441,17 +442,6 @@ get_word_fast:
 ; low level memory access and utility functions
 ; =============================================================================
 
-.if Header::PRG_ROM + Header::PRG_RAM >= Const::X86_MEM_SIZE + Const::EMU_ROM_SIZE
-    ; we have enough RAM and ROM to fill out the whole x86 address space.
-    ; ROM will start directly after RAM.
-    X86_ROM_START = Header::PRG_RAM
-.else
-    ; we don't have enough RAM and ROM to fill out the x86 address space.
-    ; there will be a range of unmapped memory between RAM and ROM.
-    X86_ROM_SIZE = Header::PRG_ROM - Const::EMU_ROM_SIZE
-    X86_UNMAPPED_SIZE = Const::X86_MEM_SIZE - Header::PRG_RAM - X86_ROM_SIZE
-    X86_ROM_START = Header::PRG_RAM + X86_UNMAPPED_SIZE
-.endif
 
 ; < X = zero-page address of a pointer
 .proc set_address
@@ -471,15 +461,15 @@ get_word_fast:
 
     ; we now have a 20-bit x86 address.
     ; check if the address is in RAM.
-    cmp #^Header::PRG_RAM
+    cmp #^Mem::RAM_SIZE
     bne ram_check
 
     lda zbAddressHi
-    cmp #>Header::PRG_RAM
+    cmp #>Mem::RAM_SIZE
     bne ram_check
 
     lda zbAddressLo
-    cmp #<Header::PRG_RAM
+    cmp #<Mem::RAM_SIZE
 ram_check:
     bcc set_ram_address
 
@@ -487,15 +477,15 @@ ram_check:
     ; adjust the address for ROM access.
     ; C is already set.
     lda zbAddressLo
-    sbc #<X86_ROM_START
+    sbc #<Mem::ROM_START
     sta zbAddressLo
 
     lda zbAddressHi
-    sbc #>X86_ROM_START
+    sbc #>Mem::ROM_START
     sta zbAddressHi
 
     lda zbBank
-    sbc #^X86_ROM_START
+    sbc #^Mem::ROM_START
     sta zbBank
 
     ; check if the address in ROM

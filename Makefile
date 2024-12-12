@@ -39,7 +39,6 @@ AS_FLAGS += --feature underline_in_numbers
 AS_FLAGS += -D MAJOR_VERSION=$(MAJOR_VERSION)
 AS_FLAGS += -D MINOR_VERSION=$(MINOR_VERSION)
 # AS_FLAGS += -D KS_NES
-AS_FLAGS += -D DEBUG
 AS_FLAGS += --debug-info
 
 LD_FLAGS := -C $(LD_CONF) --dbgfile $(DBG)

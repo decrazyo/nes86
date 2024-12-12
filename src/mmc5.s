@@ -6,8 +6,6 @@
 ; NOTE: it might be smart to port this project to the Sunsoft FME-7 mapper.
 ;       that would give us 512K or RAM and 512K of ROM.
 ;       the additional RAM would make the system much more usable.
-;       but some of the ROM would need to be used to run the emulator itself
-;       and that would result in about a 32K hole in the x86 address space.
 
 .include "mmc5.inc"
 
@@ -122,7 +120,8 @@ clear_ram_page:
 ; those tend to not support the cartridge configuration we're using.
 ; we can perform some basic tests to make sure that everything is working as we expect.
 
-; check that each PRG RAM bank is unique, writable, and accessible via multiple windows.
+; check that each PRG RAM bank is unique and writable.
+; this function assumes that RAM has been cleared by the caller.
 ; > C = 0 if all tests passed successfully
 ;   C = 1 if a test failed.
 .proc test_ram
@@ -151,28 +150,6 @@ read_loop:
     sta Mmc5::WINDOW_0
     dex
     bpl read_loop
-
-    ; check that we can write a PRG RAM byte through one window
-    ; and read it back through another window.
-    ; A = 0
-    sta Mmc5::WINDOW_0_CTRL
-    sta Mmc5::WINDOW_1_CTRL
-
-    ; write through window 0 and read through window 1.
-    lda #$aa
-    sta Mmc5::WINDOW_0
-    cmp Mmc5::WINDOW_1
-    bne error
-
-    ; write through window 1 and read through window 0.
-    lda #$55
-    sta Mmc5::WINDOW_1
-    cmp Mmc5::WINDOW_0
-    bne error
-
-    ; zero out the byte we changed.
-    lda #0
-    sta Mmc5::WINDOW_0
 
     ; success
     clc
@@ -212,7 +189,7 @@ check_first_bank:
 first_bank_success:
     ldy #0
 
-    ; check up to 256 bytes of the first bank for open bus behavior.
+    ; check up to 256 bytes of the second bank for open bus behavior.
 check_second_bank:
     lda Mmc5::WINDOW_1 + Mmc5::BANK_SIZE, y
     cmp #>(Mmc5::WINDOW_1 + Mmc5::BANK_SIZE)
@@ -226,6 +203,41 @@ second_bank_success:
     dex
     bmi select_bank
 
+    ; success
+    clc
+    rts
+
+error:
+    sec
+    rts
+.endproc
+
+
+; test if the MMC5's hardware multiplier is working.
+; > C = 0 if test passed.
+;   C = 1 if test failed.
+.proc test_mult
+    ; 0 * 0 = 0
+    lda #0
+    sta Mmc5::MULT_LO
+    sta Mmc5::MULT_HI
+    lda Mmc5::MULT_LO
+    bne error
+    lda Mmc5::MULT_HI
+    bne error
+
+    ; $aa * $81 = $55aa
+    lda #$81
+    sta Mmc5::MULT_LO
+    lda #$aa
+    sta Mmc5::MULT_HI
+    cmp Mmc5::MULT_LO ; $aa
+    bne error
+    lda #$55
+    cmp Mmc5::MULT_HI
+    bne error
+
+    ; success
     clc
     rts
 

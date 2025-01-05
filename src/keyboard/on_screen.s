@@ -173,7 +173,7 @@ rbaMaskSprites:
 .byte $30, $01, $00, Const::SCREEN_PIXEL_WIDTH - Const::TILE_WIDTH
 rbaMaskSpritesEnd:
 
-MASK_SPRITE_COUTN = (rbaMaskSpritesEnd - rbaMaskSprites - 1) / .sizeof(Ppu::sSprite)
+MASK_SPRITE_COUTN = (rbaMaskSpritesEnd - rbaMaskSprites) / .sizeof(Ppu::sSprite)
 
 ; we're using magenta to indicate unused colors.
 ; we only need 1 sprite pallet so we'll make them all the same.

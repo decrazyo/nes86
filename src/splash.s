@@ -137,13 +137,13 @@ rsVersion:
 
 ; $1f is a backwards "C"
 rsCopyleft:
-.byte "Copyleft (", $1f, ") 2024, Decrazyo", $00
+.byte "Copyleft (", $1f, ") 2025, Decrazyo", $00
 
 rsProcessor:
 .define PROCESSOR_STRING "Processor: "
 .asciiz PROCESSOR_STRING
 rs8086:
-.asciiz "i8086"
+.asciiz "8086"
 
 rsMemory:
 .asciiz "Memory test: "

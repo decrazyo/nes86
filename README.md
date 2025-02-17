@@ -15,8 +15,7 @@ as long as it doesn't require more than a simple serial terminal.
 ## How to run NES86
 ![FCEUX running NES86](https://github.com/decrazyo/nes86/blob/main/img/fceux.png)
 
-<!-- TODO: add link to releases once i create a release-->
-Download the NES ROM containing NES86 and ELKS from the releases page
+Download the NES ROM containing NES86 and ELKS from the [releases](https://github.com/decrazyo/nes86/releases) page
 or build ELKS and NES86 from source.
 NES86 uses a mapper configuration that is theoretically valid
 but generally not supported by emulators nor flash cartridges.

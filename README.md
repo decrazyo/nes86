@@ -9,7 +9,8 @@ well enough to run the
 including a shell and utilities.
 It should be possible to run other x86 software
 as long as it doesn't require more than a simple serial terminal.
-<!-- TODO: add a link to the youtube video when i make one -->
+
+[Watch the video!](https://www.youtube.com/watch?v=OooHTDMUSGY)
 
 
 ## How to run NES86
@@ -29,6 +30,7 @@ The following platforms have been tested.
 | [Mesen2](https://www.mesen.ca/) | ❌ |
 | [BizHawk](https://tasvideos.org/BizHawk) | ❌ |
 | [Everdrive N8](https://krikzz.com/our-products/legacy/edn8-72pin.html) | ❌ |
+| [PowerPak](https://www.nesdev.org/wiki/PowerPak) | ❌ |
 
 
 ## How to build NES86

@@ -31,7 +31,7 @@ The following platforms have been tested.
 | [BizHawk](https://tasvideos.org/BizHawk) | ❌ |
 | [Everdrive N8](https://krikzz.com/our-products/legacy/edn8-72pin.html) | ❌ |
 | [PowerPak](https://www.nesdev.org/wiki/PowerPak) | ❌ |
-
+| [Rustico](https://rustico.reploid.cafe/) | ✅ |
 
 ## How to build NES86
 1. Clone the project and its submodules.  

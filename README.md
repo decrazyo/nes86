@@ -29,9 +29,10 @@ The following platforms have been tested.
 | [Mesen](https://www.mesen.ca/oldindex.php) | ❌ |
 | [Mesen2](https://www.mesen.ca/) | ❌ |
 | [BizHawk](https://tasvideos.org/BizHawk) | ❌ |
-| [Everdrive N8](https://krikzz.com/our-products/legacy/edn8-72pin.html) | ❌ |
-| [PowerPak](https://www.nesdev.org/wiki/PowerPak) | ❌ |
 | [Rustico](https://rustico.reploid.cafe/) | ✅ |
+| [Everdrive N8](https://krikzz.com/our-products/legacy/edn8-72pin.html) | ❌ |
+| [Everdrive N8 Pro](https://krikzz.com/our-products/cartridges/everdrive-n8-pro-72pin.html) | ✅ |
+| [PowerPak](https://www.nesdev.org/wiki/PowerPak) | ❌ |
 
 ## How to build NES86
 1. Clone the project and its submodules.  

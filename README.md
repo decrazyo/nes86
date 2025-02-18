@@ -20,14 +20,14 @@ Download the NES ROM containing NES86 and ELKS from the [releases](https://githu
 or build ELKS and NES86 from source.
 NES86 uses a mapper configuration that is theoretically valid
 but generally not supported by emulators nor flash cartridges.
-The following platforms have been tested.
+The following platforms have been tested and Mesen2 is recommended.
 
 | platform | working? |
 |----------|----------|
 | [FCEUX](https://fceux.com/web/home.html) | ✅ |
 | [Nestopia](https://nestopia.sourceforge.net/) | ❌ |
 | [Mesen](https://www.mesen.ca/oldindex.php) | ❌ |
-| [Mesen2](https://www.mesen.ca/) | ❌ |
+| [Mesen2](https://www.mesen.ca/) | ✅ |
 | [BizHawk](https://tasvideos.org/BizHawk) | ❌ |
 | [Rustico](https://rustico.reploid.cafe/) | ✅ |
 | [Everdrive N8](https://krikzz.com/our-products/legacy/edn8-72pin.html) | ❌ |

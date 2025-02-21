@@ -318,7 +318,7 @@ setup_cover_sprites:
     jsr update_cursor
 
     ; configure a scanline interrupt to occur after displaying the keyboard
-    lda #OnScreen::KEYBOARD_HEIGHT - 2
+    lda #OnScreen::KEYBOARD_HEIGHT - 1
     sta Mmc5::IRQ_COMPARE
 
     ; enable CPU interrupt handling.
@@ -352,8 +352,6 @@ setup_cover_sprites:
 ; - typing a key
 ; changes: A, X, Y
 .proc keyboard_enabled
-    ; the keyboard is enabled so it should be drawn next frame.
-    jsr draw_keyboard
 
     ; check for user input.
     jsr scan_joypad
@@ -362,7 +360,12 @@ setup_cover_sprites:
     ; this could result in some missed input but the impact should me minimal.
 
     bit rbToggleKeyboard
-    bne toggle_keyboard
+    bne disable_keyboard
+
+    ; the keyboard is enabled so it should be drawn next frame.
+    jsr draw_keyboard
+
+    lda zbJoypadPressed
 
     bit rbMoveCursor
     bne move_cursor
@@ -383,7 +386,7 @@ setup_cover_sprites:
     jsr scan_joypad
 
     bit rbToggleKeyboard
-    bne toggle_keyboard
+    bne enable_keyboard
 
     ; handle joypad key mapping.
     ; this loop destroys the content of zbJoypadPressed as it's read.
@@ -399,6 +402,35 @@ loop:
 done:
 
     rts
+.endproc
+
+
+.proc disable_keyboard
+    ; disable scanline interrupts.
+    lda #0
+    sta Mmc5::IRQ_STATUS
+
+    ; disable sprite rendering.
+    lda Ppu::zbMask
+    sta Ppu::MASK
+
+    ; [tail_jump]
+    jmp toggle_keyboard
+.endproc
+
+
+.proc enable_keyboard
+    ; enable scanline interrupt generation in the MMC5.
+    lda #Mmc5::IRQ_STATUS_E
+    sta Mmc5::IRQ_STATUS
+
+    ; enable sprite rendering to display the cursor.
+    lda Ppu::zbMask
+    ora #Ppu::MASK_s
+    sta Ppu::MASK
+
+    jsr draw_keyboard
+    ; [fall_through]
 .endproc
 
 
@@ -705,15 +737,6 @@ scroll_screen:
     sta Ppu::SCROLL
     lda zbKeyboardScrollY
     sta Ppu::SCROLL
-
-    ; enable scanline interrupt generation in the MMC5.
-    lda #Mmc5::IRQ_STATUS_E
-    sta Mmc5::IRQ_STATUS
-
-    ; enable sprite rendering to display the cursor.
-    lda Ppu::zbMask
-    ora #Ppu::MASK_s
-    sta Ppu::MASK
 
     rts
 .endproc

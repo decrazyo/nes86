@@ -34,7 +34,7 @@ zbTemp: .res 1
 
     clc
     lda Ppu::zbScrollPixelY
-    adc #OnScreen::KEYBOARD_HEIGHT - 1
+    adc #OnScreen::KEYBOARD_HEIGHT
 
     bcs adjust
     cmp #Const::SCREEN_PIXEL_HEIGHT
@@ -72,7 +72,7 @@ continue:
     ; +++----------------- fine Y scroll
 
     ; write nametable number << 2
-    ldx $00
+    ldx #$00
     stx Ppu::ADDR
 
     ; ### NN ##### XXXXX
@@ -80,12 +80,10 @@ continue:
     ; ||| || +++++-------- coarse Y scroll
     ; ||| ++-------------- nametable select
     ; +++----------------- fine Y scroll
-
-    ; ldy Ppu::zbScrollPixelY
     sty Ppu::SCROLL
 
     nop
-    nop
+    lda zbTemp
 
     ; yyy NN YYYYY #####
     ; ||| || ||||| +++++-- coarse X scroll
@@ -102,24 +100,10 @@ continue:
     ; ||| ++-------------- nametable select
     ; +++----------------- fine Y scroll
 
-    lda zbTemp
     sta Ppu::ADDR
-
-    lda Ppu::zbCtrl
-    and #%11111100
-    sta Ppu::zbCtrl
-    sta Ppu::CTRL
 
     ; clear the IRQ pending flag.
     lda Mmc5::IRQ_STATUS
-    ; disable scanline interrupts.
-    ; the on-screen keyboard driver will re-enable it if necessary.
-    lda #0
-    sta Mmc5::IRQ_STATUS
-
-    ; disable sprite rendering.
-    lda Ppu::zbMask
-    sta Ppu::MASK
 
     ; restore CPU state
     pla ; restore Y register

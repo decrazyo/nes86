@@ -13,10 +13,17 @@
         .endenum
 
         ; special settings for the ksNes emulator in Animal Crossing
+        ; note that the ksNes emulator will also need to be patched to provide 128KB of RAM.
         .ifdef KS_NES
             TYPE = eType::INES
             PRG_ROM = $80000
             SRAM = 1
+        .endif
+
+        ; special settings for the original Everdrive N8
+        ; note that the Everdrive N8 will also need to be patched to provide 128KB of RAM.
+        .ifdef EDFC
+            PRG_ROM = $80000
         .endif
 
         .ifndef TYPE

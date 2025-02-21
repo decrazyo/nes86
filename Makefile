@@ -16,7 +16,7 @@ SRC_SUB_DIRS := $(wildcard $(SRC_DIR)/*/)
 BUILD_SUB_DIRS := $(SRC_SUB_DIRS:$(SRC_DIR)/%=$(BUILD_DIR)/%)
 
 LD_CONF := $(CONF_DIR)/ld.cfg
-# LD_CONF := $(CONF_DIR)/ksnes.cfg
+LD_SMALL_CONF := $(CONF_DIR)/ld_small.cfg
 
 SRCS := $(wildcard $(SRC_DIR)/*.s) $(wildcard $(addsuffix /*.s, $(SRC_SUB_DIRS)))
 OBJS := $(SRCS:$(SRC_DIR)/%.s=$(BUILD_DIR)/%.o)
@@ -38,17 +38,29 @@ AS_FLAGS += --feature string_escapes
 AS_FLAGS += --feature underline_in_numbers
 AS_FLAGS += -D MAJOR_VERSION=$(MAJOR_VERSION)
 AS_FLAGS += -D MINOR_VERSION=$(MINOR_VERSION)
-# AS_FLAGS += -D KS_NES
 AS_FLAGS += --debug-info
+ksnes: AS_FLAGS += -D KS_NES
+edfc: AS_FLAGS += -D EDFC
 
-LD_FLAGS := -C $(LD_CONF) --dbgfile $(DBG)
+LD_FLAGS := --dbgfile $(DBG)
+all: LD_FLAGS += -C $(LD_CONF)
+ksnes: LD_FLAGS += -C $(LD_SMALL_CONF)
+edfc: LD_FLAGS += -C $(LD_SMALL_CONF)
 
 .PHONY: all
 all: $(DATA_DIR) $(ROM)
 
+# build for the ksNes emulator in Animal Crossing
+.PHONY: ksnes
+ksnes: $(DATA_DIR) $(ROM)
+
+# build for the original Everdrive N8
+.PHONY: edfc
+edfc: $(DATA_DIR) $(ROM)
+
 .PHONY: clean
 clean:
-	$(MAKE) -C $(DATA_DIR) $(MAKECMDGOALS)
+	$(MAKE) -C $(DATA_DIR) clean
 	-rm -rf $(BINC_DIR)
 	-rm -rf $(BUILD_DIR)
 	-rm -rf $(BIN_DIR)

@@ -16,24 +16,36 @@ as long as it doesn't require more than a simple serial terminal.
 ## How to run NES86
 ![FCEUX running NES86](https://github.com/decrazyo/nes86/blob/main/img/fceux.png)
 
-Download the NES ROM containing NES86 and ELKS from the [releases](https://github.com/decrazyo/nes86/releases) page
-or build ELKS and NES86 from source.
-NES86 uses a mapper configuration that is theoretically valid
-but not supported on all platforms.
-The following platforms have been tested and Mesen2 is recommended.
+Download the NES ROM containing NES86 and ELKS from the [releases](https://github.com/decrazyo/nes86/releases) page.
+See the [Binaries](#binaries) section for descriptions of the available binaries.
+NES86 is not supported on all platforms.
+The following platforms have been tested and Mesen2 or an Everdrive N8 Pro is recommended.
 
 | platform | working? | issues |
 |----------|----------|---------|
 | [Mesen2](https://www.mesen.ca/) | ✅ | none |
 | [FCEUX](https://fceux.com/web/home.html) | ✅ | overscan, keyboard detection |
 | [Rustico](https://rustico.reploid.cafe/) | ✅ | overscan, no keyboard |
-| [ksNes (Animal Crossing)](https://rustico.reploid.cafe/) | ✅ | overscan, no keyboard, small ROM required, mapper hack required |
+| [ksNes (Animal Crossing)](https://rustico.reploid.cafe/) | ✅ | overscan, no keyboard, special ROM required, mapper hack required |
 | [Nestopia](https://nestopia.sourceforge.net/) | ❌ | not enough cartridge RAM |
 | [Mesen](https://www.mesen.ca/oldindex.php) | ❌ | not enough cartridge RAM |
 | [BizHawk](https://tasvideos.org/BizHawk) | ❌ | not enough cartridge RAM |
 | [Everdrive N8 Pro](https://krikzz.com/our-products/cartridges/everdrive-n8-pro-72pin.html) | ✅ | none |
-| [Everdrive N8](https://krikzz.com/our-products/legacy/edn8-72pin.html) | ✅ | small ROM required, mapper hack required |
+| [Everdrive N8](https://krikzz.com/our-products/legacy/edn8-72pin.html) | ✅ | special ROM required, mapper hack required |
 | [PowerPak](https://www.nesdev.org/wiki/PowerPak) | ❌ | many |
+
+
+## Binaries
+| file | description |
+|------|-------------|
+| nes86.nes | standard NES86 ROM |
+| nes86.dbg | standard NES86 ROM debug symbols |
+| nes86_ksnes.nes | NES86 ROM built for Animal Crossing |
+| animal_crossing.gci | Animal Crossing save file with an NES item |
+| mmc5_patch.gci | Animal Crossing MMC5 mapper patch |
+| nes86.gci | NES86 ROM injected in a GameCube save file for use with Animal Crossing |
+| nes86_edfc.nes | NES86 ROM built for the original Everdrive N8 |
+| 005.RBF | Everdrive N8 MMC5 mapper patched to support NES86 |
 
 
 ## Controls

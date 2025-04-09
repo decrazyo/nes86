@@ -24,12 +24,12 @@ The following platforms have been tested and Mesen2 or an Everdrive N8 Pro is re
 | platform | working? | issues |
 |----------|----------|---------|
 | [Mesen2](https://www.mesen.ca/) | ✅ | none |
+| [BizHawk](https://tasvideos.org/BizHawk) | ✅ | overscan, quickerNES core incompatible, [dev build required](https://github.com/TASEmulators/BizHawk/actions/runs/14348701120) |
 | [FCEUX](https://fceux.com/web/home.html) | ✅ | overscan, keyboard detection |
 | [Rustico](https://rustico.reploid.cafe/) | ✅ | overscan, no keyboard |
 | [ksNes (Animal Crossing)](https://rustico.reploid.cafe/) | ✅ | overscan, no keyboard, special ROM required, mapper hack required |
 | [Nestopia](https://nestopia.sourceforge.net/) | ❌ | not enough cartridge RAM |
 | [Mesen](https://www.mesen.ca/oldindex.php) | ❌ | not enough cartridge RAM |
-| [BizHawk](https://tasvideos.org/BizHawk) | ❌ | not enough cartridge RAM |
 | [Everdrive N8 Pro](https://krikzz.com/our-products/cartridges/everdrive-n8-pro-72pin.html) | ✅ | none |
 | [Everdrive N8](https://krikzz.com/our-products/legacy/edn8-72pin.html) | ✅ | special ROM required, mapper hack required |
 | [PowerPak](https://www.nesdev.org/wiki/PowerPak) | ❌ | many |
